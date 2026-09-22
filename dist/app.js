@@ -32,9 +32,15 @@
   function decisionAdviceMarkup(question) {
     const advice = R.decisionAdvice(question, answers);
     if (!advice) return '';
-    const options = R.choiceOptions(question);
-    const considered = advice.candidates.filter(item => item.level === 'consider');
-    return `<aside class="decision-advice" aria-labelledby="advice-${question.id}"><h3 id="advice-${question.id}">내 상황에서 비교할 후보</h3><p class="advice-note">${escape(advice.note)}</p>${advice.candidates.length ? `<ul class="advice-candidates">${advice.candidates.map(item => `<li class="advice-candidate ${item.level === 'caution' ? 'caution' : ''}"><div><span class="advice-label">${item.level === 'caution' ? '조건 확인' : '먼저 비교'}</span><strong>${escape(item.option)}</strong>${helpButton(question.id, options.indexOf(item.option), item.option)}</div><p>${escape(item.reason)}</p></li>`).join('')}</ul>` : ''}${advice.missing.length ? `<div class="advice-missing"><strong>후보를 판단하는 데 더 필요한 정보</strong>${advice.missing.map(item => `<button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button>`).join('')}</div>` : ''}${advice.basis.length ? `<details class="advice-basis" data-detail="basis-${question.id}"><summary>이 안내에 사용한 내 답변 ${advice.basis.length}개</summary><dl>${advice.basis.map(item => `<div><dt><button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button></dt><dd>${escape(item.value)}</dd></div>`).join('')}</dl></details>` : ''}${considered.length > 1 ? `<button type="button" class="text-button" data-compare-question="${question.id}" data-compare-first="${options.indexOf(considered[0].option)}" data-compare-second="${options.indexOf(considered[1].option)}">두 후보의 장단점 나란히 비교 →</button>` : ''}<p class="advice-footer">선택은 아래에서 직접 해 주세요. 다른 선택지도 모두 비교할 수 있어요.</p></aside>`;
+    const options = R.choiceOptions(question), candidates = advice.candidates;
+    const considered = candidates.filter(item => item.level === 'consider');
+    const criteria = window.BriefGuides.questions?.[question.id]?.criteria || advice.start;
+    return `<aside class="decision-advice" id="advice-${question.id}" aria-label="판단 근거"><p class="advice-start"><strong>판단의 출발점</strong> ${escape(criteria || advice.note)}</p>${candidates.length ? `<ul class="advice-candidates">${candidates.map(item => `<li class="advice-candidate ${item.level === 'caution' ? 'caution' : ''}"><div><span class="advice-label">${item.level === 'caution' ? '조건 확인' : '먼저 비교'}</span><strong>${escape(item.option)}</strong>${helpButton(question.id, options.indexOf(item.option), item.option)}</div><p>${escape(item.reason)}</p></li>`).join('')}</ul>` : '<p class="advice-note">연결된 요구와 제약으로 문서에서 구체화할 결정이에요. 지금 모르는 기술명을 억지로 고를 필요는 없어요.</p>'}${advice.note ? `<p class="advice-note">${escape(advice.note.trim())}</p>` : ''}${advice.basis.length ? `<details class="advice-basis" data-detail="basis-${question.id}"><summary>연결된 내 답변 ${advice.basis.length}개</summary><dl>${advice.basis.map(item => `<div><dt><button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button></dt><dd>${escape(item.value)}</dd></div>`).join('')}</dl></details>` : ''}${advice.missing.length ? `<details class="advice-missing" data-detail="missing-${question.id}"><summary>먼저 확인할 정보 ${advice.missing.length}개</summary>${advice.missing.map(item => `<button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button>`).join('')}</details>` : ''}${considered.length > 1 ? `<button type="button" class="text-button" data-compare-question="${question.id}" data-compare-first="${options.indexOf(considered[0].option)}" data-compare-second="${options.indexOf(considered[1].option)}">두 후보의 장단점 비교 →</button>` : ''}${advice.verify ? `<details class="advice-basis" data-detail="verify-${question.id}"><summary>선택 뒤 확인할 일</summary><p>${escape(advice.verify)}</p></details>` : ''}<p class="advice-footer">문서에서 검토할 항목으로 남아요. 후보는 자동 선택되지 않으며 다른 방식도 비교할 수 있어요.</p></aside>`;
+  }
+  function draftMarkup(question) {
+    const draft = R.suggestedDraft(question.id, answers);
+    if (!draft || R.isAnswered(answers[question.id])) return '';
+    return `<div class="draft-proposal"><strong>이미 적은 내용으로 시작하기</strong><p>${escape(draft.explanation)}</p><details><summary>가져올 초안 확인</summary><pre>${escape(R.display(draft.value))}</pre></details><button type="button" class="button secondary" data-use-draft="${question.id}">${question.id === 'deliverables' ? '문서 후보 선택하기' : '이 초안을 가져와 보완하기'}</button><p class="question-help">가져온 뒤에는 별도로 편집해요. 원본 답변이 바뀌어도 작성한 초안을 자동으로 덮어쓰지 않아요.</p></div>`;
   }
   function showOptionHelp(id, index, open = true, compareIndex = -1) {
     const q = id === priorityQuestion.id ? priorityQuestion : id === testBasisQuestion.id ? testBasisQuestion : byId.get(id);
@@ -65,7 +71,7 @@
     if (!learning) return '';
     const active = new Set(R.activeQuestions(answers).map(q => q.id));
     const fact = window.BriefGuides.facts?.[question.id];
-    return `<div class="question-learning"><p class="question-why" id="why-${question.id}"><strong>${fact ? '작성 기준' : '왜 고민하나요?'}</strong> ${escape(fact?.meaning || learning.why)}</p><details class="decision-detail" data-detail="reason-${question.id}"><summary>${fact ? '작성 방법과 예시 보기' : '판단 기준과 다음 결정 알아보기'}</summary><dl>${factsMarkup(fact || learning, [['criteria','무엇을 보고 판단하나요?'],['example','예를 들어'],['impact','이 선택은 무엇에 영향을 주나요?']])}</dl>${learning.related?.some(id => active.has(id)) ? `<div class="related-decisions"><strong>함께 살펴볼 결정</strong>${learning.related.filter(id => active.has(id)).map(id => `<button type="button" class="text-button" data-jump="${id}">${escape(byId.get(id).label)} →</button>`).join('')}</div>` : ''}</details>${!fact && learning.prompts?.length && question.type !== 'worksheet' ? `<details class="decision-detail writing-guide" data-detail="write-${question.id}"><summary>막막할 때, 이 순서로 생각해 보세요</summary><ol>${learning.prompts.map(prompt => `<li>${escape(prompt)}</li>`).join('')}</ol><p>내 프로젝트에 맞는 내용부터 적으세요. 아직 모르는 조건은 미정이라고 남겨도 돼요. 미정과 일부 작성한 필수 칸은 정리 완료로 세지 않고 확인 목록에 남겨요.</p></details>` : ''}</div>`;
+    return `<div class="question-learning"><details class="decision-detail" id="why-${question.id}" data-detail="reason-${question.id}"><summary>작성 예시·판단 기준</summary><p>${escape(fact?.meaning || learning.why)}</p><dl>${factsMarkup(fact || learning, [['criteria','무엇을 보고 판단하나요?'],['example','예를 들어'],['impact','다음에 연결할 내용']])}</dl>${learning.related?.some(id => active.has(id)) ? `<div class="related-decisions"><strong>함께 살펴볼 결정</strong>${learning.related.filter(id => active.has(id)).map(id => `<button type="button" class="text-button" data-jump="${id}">${escape(byId.get(id).label)} →</button>`).join('')}</div>` : ''}</details>${!fact && learning.prompts?.length && question.type !== 'worksheet' ? `<details class="decision-detail writing-guide" data-detail="write-${question.id}"><summary>막막할 때, 이 순서로 생각해 보세요</summary><ol>${learning.prompts.map(prompt => `<li>${escape(prompt)}</li>`).join('')}</ol><p>내 프로젝트에 맞는 내용부터 적으세요. 아직 모르는 조건은 미정이라고 남겨도 돼요. 미정과 일부 작성한 필수 칸은 정리 완료로 세지 않고 확인 목록에 남겨요.</p></details>` : ''}</div>`;
   }
   function updateSaveStatus(message) {
     $('#save-status').textContent = message;
@@ -135,8 +141,8 @@
   }
   function renderProjects() {
     $('#project-list').innerHTML = collectWorkspace().projects.map(project => {
-      const stat = R.stats(project.answers), active = project.id === workspace.activeId;
-      return `<section class="project-item" ${active ? 'aria-current="true"' : ''}><div class="project-item-info"><strong>${escape(P.projectTitle(project))}</strong><p>${active ? '작성 중 · ' : ''}${stat.confirmed}/${stat.total}개 정리 완료 (${stat.percent}%)</p><p>최근 저장 ${escape(new Date(project.updatedAt).toLocaleString('ko-KR'))}</p></div><div class="project-item-actions"><button type="button" class="button secondary small" data-project-open="${project.id}">${active ? '계속 작성' : '열기'}</button><button type="button" class="text-button" data-project-rename="${project.id}">이름 변경</button><button type="button" class="text-button" data-project-backup="${project.id}">백업</button><button type="button" class="text-button danger-text" data-project-delete="${project.id}">삭제</button></div></section>`;
+      const stat = R.requirementStats(project.answers), active = project.id === workspace.activeId;
+      return `<section class="project-item" ${active ? 'aria-current="true"' : ''}><div class="project-item-info"><strong>${escape(P.projectTitle(project))}</strong><p>${active ? '작성 중 · ' : ''}요구사항 ${stat.confirmed}/${stat.total}개 정리 (${stat.percent}%)</p><p>최근 저장 ${escape(new Date(project.updatedAt).toLocaleString('ko-KR'))}</p></div><div class="project-item-actions"><button type="button" class="button secondary small" data-project-open="${project.id}">${active ? '계속 작성' : '열기'}</button><button type="button" class="text-button" data-project-rename="${project.id}">이름 변경</button><button type="button" class="text-button" data-project-backup="${project.id}">백업</button><button type="button" class="text-button danger-text" data-project-delete="${project.id}">삭제</button></div></section>`;
     }).join('');
   }
   function openProjectName(id = '') {
@@ -201,29 +207,26 @@
     }
   }
   function updateProgress() {
-    const stat = R.stats(answers);
+    const stat = R.requirementStats(answers);
     $('#progress-number').textContent = `${stat.percent}%`;
     $('#progress-bar').style.width = `${stat.percent}%`;
-    const progressText = `현재 필요한 ${stat.total}개 중 ${stat.confirmed}개 정리 완료`;
+    const progressText = `요구사항 ${stat.total}개 중 ${stat.confirmed}개 정리`;
     $('#progress-caption').textContent = progressText;
     $('#progress-bar').setAttribute('aria-valuenow', String(stat.percent));
     $('#progress-bar').setAttribute('aria-valuetext', progressText);
-    $('#progress-breakdown').innerHTML = [
-      ['정리 완료', stat.confirmed], ['아직 답변하지 않음', stat.pending],
-      ['미정·추가 작성 필요', stat.unresolved], ['AI 추천 요청', stat.delegated], ['이전 선택 확인 필요', stat.recheck]
-    ].filter(([, count], index) => count > 0 || index === 0).map(([label, count]) => `<div><dt>${label}</dt><dd>${count}개</dd></div>`).join('');
-    $('#progress-scope').textContent = `전체 설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개를 모두 답할 필요는 없어요. 지금 답변을 기준으로 필요한 ${stat.total}개만 표시하고 계산해요.`;
+    $('#progress-breakdown').innerHTML = [['정리한 요구사항', stat.confirmed], ['남은 요구사항', stat.pending], ['기술 검토 항목', stat.design], ['기술 선택 기록', stat.designSelected]].map(([label,count]) => `<div><dt>${label}</dt><dd>${count}개</dd></div>`).join('');
+    $('#progress-scope').textContent = '작성률은 요구사항 정리 현황이에요. 기술명 선택은 별도로 검토하며, 선택하지 않아도 문서에 검토 항목으로 남아요. 추천 요청·초안·미정은 정리 완료로 세지 않아요.';
     $('#project-label').textContent = R.display(answers.project_name) || '새로운 아이디어';
     updateProjectPicker();
     $('#step-nav').innerHTML = steps.map((step, index) => {
       const qs = R.activeGroups(step, answers).flatMap(g => g.questions).filter(q => !q.supplemental);
       const done = qs.filter(q => R.isResolved(q, answers)).length;
       const complete = qs.length > 0 && done === qs.length;
-      return `<button type="button" class="step-link ${!isReport && index === currentStep ? 'active' : ''} ${complete ? 'complete' : ''} ${qs.length ? '' : 'inactive-step'}" data-step="${index}" ${!isReport && index === currentStep ? 'aria-current="step"' : ''}><span class="step-index">${complete ? '✓' : step.icon}</span><span>${step.short}</span><span class="nav-count">${qs.length ? `${done}/${qs.length}` : '적용 확인'}</span></button>`;
+      return `${index === 0 || steps[index - 1].phase !== step.phase ? `<p class="nav-phase">${escape(step.phase)}</p>` : ''}<button type="button" class="step-link ${!isReport && index === currentStep ? 'active' : ''} ${complete ? 'complete' : ''} ${qs.length ? '' : 'inactive-step'}" data-step="${index}" ${!isReport && index === currentStep ? 'aria-current="step"' : ''}><span class="step-index">${complete ? '✓' : step.icon}</span><span>${step.short}</span><span class="nav-count">${qs.length ? step.phase === '설계 검토' ? '검토' : `${done}/${qs.length}` : '적용 확인'}</span></button>`;
     }).join('');
     const current = R.activeGroups(steps[currentStep], answers).flatMap(g => g.questions).filter(q => !q.supplemental);
     const done = current.filter(q => R.isResolved(q, answers)).length;
-    $('#step-summary').textContent = current.length ? `${done} / ${current.length}개 정리 완료 · 미정·추천 요청은 확인 목록에 남아요` : '선행 답변과 적용 여부를 확인해 주세요';
+    $('#step-summary').textContent = current.length ? steps[currentStep].phase === '설계 검토' ? '기술은 근거를 보고 비교해요. 지금 정하지 않은 항목도 문서에서 검토해요.' : `${done} / ${current.length}개 정리 · 미정은 확인 목록에 남아요` : '선행 답변과 적용 여부를 확인해 주세요';
   }
   function worksheetMarkup(question, value) {
     if (R.isUnknown(value)) return '<p class="question-help">이 항목은 AI와 함께 정할 내용으로 남겼어요.</p>';
@@ -254,29 +257,33 @@
   function questionMarkup(question) {
     const { id, label, type, help, required } = question;
     const value = answers[id];
+    const technical = question.kind === 'design';
     const delegated = R.isUnknown(value);
     const rawValue = Array.isArray(value) ? value : [value];
     const custom = rawValue.find(v => typeof v === 'string' && v.startsWith('기타:'));
-    const helpId = hasText(help) ? `help-${id}` : `why-${id}`;
+    const helpId = hasText(help) ? `help-${id}` : technical ? `advice-${id}` : `why-${id}`;
     let controls = '';
     if (type === 'worksheet') {
       controls = worksheetMarkup(question, value);
+      if (value?.needsDetailReview) controls += `<div class="draft-review"><p>가져온 초안이에요. 내용과 빠진 칸을 확인해 주세요.</p><button type="button" class="button secondary" data-review-draft="${id}">초안 내용 검토 완료</button></div>`;
     } else if (type === 'testplan') {
       controls = testPlanMarkup(value);
     } else if (type === 'featurelist') {
       const rows = Array.isArray(value) ? value : [];
-      controls = `<div class="feature-cards">${rows.map((row, index) => `<section class="feature-card"><div class="feature-card-top"><h3>기능 ${index + 1}</h3><button type="button" class="text-button" data-remove-feature="${index}">이 기능 지우기</button></div><div class="feature-fields">${featureFields.map(field => {
+      controls = `<div class="feature-cards">${rows.map((row, index) => `<section class="feature-card"><div class="feature-card-top"><h3>기능 ${index + 1}</h3><button type="button" class="text-button" data-remove-feature="${index}">이 기능 지우기</button></div><div class="feature-fields">${[...featureFields.filter(f => ['name','actor','action','result','priority'].includes(f.id)), ...featureFields.filter(f => ['input','failure','acceptance'].includes(f.id))].map(field => {
+        const stageStart = field.id === 'input' ? `<details class="feature-detail-stage" data-detail="feature-detail-${index}"><summary>입력·실패·완료 조건 이어서 정하기</summary><p class="question-help">정상 동작을 적었다면 입력할 내용과 실패했을 때의 안내, 완료 확인 방법을 보완해요.</p><div class="feature-fields">` : '';
+        const stageEnd = field.id === 'acceptance' ? '</div></details>' : '';
         const inputId = `feature-${index}-${field.id}`;
         const attributes = `id="${inputId}" data-feature-index="${index}" data-feature-field="${field.id}"`;
         if (field.options) return `<fieldset class="feature-field wide feature-priority"><legend>${escape(field.label)}</legend><div class="choices">${field.options.map((option, i) => `<div class="choice-shell"><label class="choice"><input type="radio" id="${inputId}-${i}" name="feature-${index}-priority" data-feature-index="${index}" data-feature-field="priority" value="${escape(option)}" ${row.priority === option ? 'checked' : ''}><span>${escape(option)}</span></label>${helpButton('feature_priority', i, option)}</div>`).join('')}</div></fieldset>`;
-        return `<div class="feature-field ${['name', 'actor'].includes(field.id) ? '' : 'wide'}"><label for="${inputId}">${escape(field.label)}</label><textarea class="textarea-input" ${attributes} rows="2" maxlength="6000" placeholder="${escape(field.placeholder)}">${escape(row[field.id] || '')}</textarea></div>`;
+        return `${stageStart}<div class="feature-field ${['name', 'actor'].includes(field.id) ? '' : 'wide'}"><label for="${inputId}">${escape(field.label)}</label><textarea class="textarea-input" ${attributes} rows="2" maxlength="6000" placeholder="${escape(field.placeholder)}">${escape(row[field.id] || '')}</textarea></div>${stageEnd}`;
       }).join('')}</div></section>`).join('')}</div>${delegated ? '<p class="question-help">기능 명세를 AI와 함께 정할 항목으로 남겼어요.</p>' : ''}<button type="button" class="button secondary" id="add-feature" ${rows.length >= R.MAX_FEATURES ? 'disabled' : ''}>+ 기능 추가</button><p class="question-help feature-limit">최대 ${R.MAX_FEATURES}개 · 일부만 작성해도 저장돼요. ‘추후 개발’은 이번 출시 범위에서 제외해요.</p>`;
     } else if (type === 'text' || type === 'textarea') {
       const attrs = `id="input-${id}" class="${type === 'text' ? 'text-input' : 'textarea-input'}" data-question="${id}" maxlength="${question.maxLength || 6000}" aria-describedby="${helpId}" ${required ? 'aria-required="true"' : ''} ${delegated ? 'disabled' : ''} placeholder="${escape(delegated ? 'AI에게 추천을 요청한 항목이에요' : question.placeholder || '답변을 적어 주세요') }"`;
       controls = type === 'text' ? `<input type="text" ${attrs} value="${escape(delegated ? '' : value || '')}">` : `<textarea ${attrs} rows="3">${escape(delegated ? '' : value || '')}</textarea>`;
     } else {
       const choices = R.choiceOptions(question);
-      controls = `<div class="choices">${choices.map((item, index) => `<div class="choice-shell"><label class="choice ${item === R.UNKNOWN ? 'unknown-choice' : ''} ${item === '직접 입력' ? 'custom-choice' : ''}"><input type="${type === 'multi' ? 'checkbox' : 'radio'}" id="input-${id}-${index}" name="${id}" data-question="${id}" value="${escape(item)}" ${(item === '직접 입력' ? custom !== undefined : rawValue.includes(item)) ? 'checked' : ''} aria-describedby="${helpId}"><span>${escape(item)}</span></label>${helpButton(id, index, item)}</div>`).join('')}</div>`;
+      controls = `<div class="choices">${choices.map((item, index) => `<div class="choice-shell"><label class="choice ${item === R.UNKNOWN ? 'unknown-choice' : ''} ${item === '직접 입력' ? 'custom-choice' : ''}"><input type="${type === 'multi' ? 'checkbox' : 'radio'}" id="input-${id}-${index}" name="${id}" data-question="${id}" value="${escape(item)}" ${(item === '직접 입력' ? custom !== undefined : rawValue.includes(item)) ? 'checked' : ''} aria-describedby="${helpId}"><span>${escape(question.optionLabels?.[item] || item)}</span></label>${helpButton(id, index, item)}</div>`).join('')}</div>`;
     }
     if (R.needsReselection(question, value)) controls = `<p class="legacy-answer">이전 답변을 보관했어요: ${escape(R.display(value))}. 질문의 기준이 바뀌었거나 현재 허용하지 않는 선택이에요. 확인 후 다시 선택해 주세요.</p>` + controls;
     if (custom !== undefined) {
@@ -289,7 +296,8 @@
     if (selectedGuides.length) controls += `<details class="decision-detail" data-detail="fit-${id}"><summary>내 선택의 적합성과 영향을 확인하세요</summary>${selectedGuides.map(({option, guide}) => `<h3>${escape(option)}</h3><dl>${factsMarkup(guide, [['fit','적합한 상황'],['avoid','다른 방식을 검토할 때'],['impact','이후 필요한 결정·작업']])}</dl>`).join('')}</details>`;
     const factual = Boolean(window.BriefGuides.facts?.[id]);
     controls += `<details class="decision-detail" data-detail="note-${id}" ${notes[id] ? 'open' : ''}><summary>${factual ? '작성 근거·확인할 내용 기록하기' : '선택 이유·추가 설계 메모'} <span>(선택)</span></summary><label for="note-${id}">${factual ? '작성한 내용의 근거와 확인할 내용' : '선택한 이유·추가 조건·다시 검토할 내용'}</label><textarea id="note-${id}" class="textarea-input" rows="2" maxlength="${question.noteMaxLength || question.maxLength || 6000}" data-note="${id}" placeholder="${factual ? '예: 현재 확인한 값과 추정한 값을 구분하고, 다시 확인할 시점을 적어 주세요.' : '예: 혼자 운영하고 예산이 적어서 선택. 운영 담당자가 늘거나 이용량이 증가하면 다시 검토.'}">${escape(notes[id] || '')}</textarea><p class="question-help">답변을 바꿨다면 이유도 함께 확인해 주세요. 이 기록은 리포트에 포함돼요.</p></details>`;
-    return `<fieldset class="question" id="field-${id}"><legend><span class="question-title">${type === 'text' || type === 'textarea' ? `<label for="input-${id}">${escape(label)}</label>` : escape(label)}${required ? '<span class="required-label">필수 입력</span>' : question.supplemental ? '<span class="required-label">선택 참고</span>' : ''}${type === 'multi' ? '<span class="multi-label">복수 선택</span>' : ''}</span></legend>${hasText(help) ? `<p class="question-help" id="${helpId}">${escape(help)}</p>` : ''}${question.supplemental ? '<p class="question-help">필요한 내용이 있을 때만 적으세요. 빈칸은 미응답이나 미결정으로 세지 않아요.</p>' : ''}${questionLearning(question)}${question.reuse?.length ? `<div data-reuse-question="${id}">${reusedAnswersMarkup(question)}</div>` : ''}${decisionAdviceMarkup(question)}${controls}<div class="question-footer"><span>${!required && (!question.supplemental || delegated) && ['text', 'textarea', 'featurelist', 'testplan','worksheet'].includes(type) ? `<button type="button" class="uncertain-button ${delegated ? 'selected' : ''}" id="unknown-${id}" data-unknown="${id}">${delegated ? '직접 작성으로 바꾸기' : '아직 몰라요 · AI에게 추천받기'}</button>${helpButton(id, 0, R.UNKNOWN)}` : `<button type="button" class="clear-answer" data-clear="${id}">답변 지우기</button>`}</span><span class="answer-indicator">${answerIndicator(question, value)}</span></div></fieldset>`;
+    if (technical) controls = `<details class="design-options" data-detail="choose-${id}" ${R.isAnswered(value) ? 'open' : ''}><summary>${R.isAnswered(value) ? '기록한 선택 확인·변경' : ['single','multi'].includes(type) ? '대표 방식 비교·직접 지정' : '설계 조건·제약 직접 기록'}</summary><p class="question-help">근거를 보고 직접 선택하거나, 이미 정한 기술·특별한 제약을 기록할 수 있어요. 아직 판단하기 어렵다면 문서에서 검토하도록 남겨도 돼요.</p>${controls}</details>`;
+    return `<fieldset class="question${technical ? ' design-question' : ''}" id="field-${id}"><legend><span class="question-title">${type === 'text' || type === 'textarea' ? `<label for="input-${id}">${escape(label)}</label>` : escape(label)}${technical ? '<span class="design-label">설계 검토</span>' : ''}${required ? '<span class="required-label">필수 입력</span>' : question.supplemental ? '<span class="required-label">선택 참고</span>' : ''}${type === 'multi' ? '<span class="multi-label">복수 선택</span>' : ''}</span></legend>${hasText(help) ? `<p class="question-help" id="${helpId}">${escape(help)}</p>` : ''}${question.supplemental ? '<p class="question-help">필요한 내용이 있을 때만 적으세요. 빈칸은 미응답이나 미결정으로 세지 않아요.</p>' : ''}${technical ? '' : questionLearning(question)}${draftMarkup(question)}${question.reuse?.length ? `<div data-reuse-question="${id}">${reusedAnswersMarkup(question)}</div>` : ''}${decisionAdviceMarkup(question)}${controls}<div class="question-footer"><span>${!technical && !required && (!question.supplemental || delegated) && ['text', 'textarea', 'featurelist', 'testplan','worksheet'].includes(type) ? `<button type="button" class="uncertain-button ${delegated ? 'selected' : ''}" id="unknown-${id}" data-unknown="${id}">${delegated ? '직접 작성으로 바꾸기' : '아직 몰라요 · AI에게 추천받기'}</button>${helpButton(id, 0, R.UNKNOWN)}` : R.isAnswered(value) ? `<button type="button" class="clear-answer" data-clear="${id}">답변 지우기</button>` : ''}</span><span class="answer-indicator">${answerIndicator(question, value)}</span></div></fieldset>`;
   }
   function renderQuestions() {
     const openDetails = new Set([...document.querySelectorAll('[data-detail][open]')].map(el => el.dataset.detail));
@@ -297,7 +305,7 @@
     $('#question-groups').innerHTML = groups.length ? groups.map((group, index) => {
       const content = group.questions.map(questionMarkup).join('');
       const learning = window.BriefGuides.learning?.[group.title];
-      return `<section class="question-group"><div class="group-heading"><span class="group-index">${String(index + 1).padStart(2, '0')}</span><div><h2>${escape(group.title)}</h2>${hasText(group.description) ? `<p>${escape(group.description)}</p>` : ''}</div></div><div class="group-body">${learning ? `<details class="learning-card" data-detail="learn-${escape(group.title)}"><summary>전문가는 무엇을 보고 결정할까요?</summary><dl>${[['why','왜 고민하나요?'],['criteria','무엇을 비교하나요?'],['impact','다음 결정에 어떤 영향을 주나요?']].map(([key,label]) => `<div><dt>${label}</dt><dd>${escape(learning[key])}</dd></div>`).join('')}</dl></details>` : ''}${content}</div></section>`;
+      return `<section class="question-group"><div class="group-heading"><span class="group-index">${String(index + 1).padStart(2, '0')}</span><div><h2>${escape(group.title)}</h2>${hasText(group.description) ? `<p>${escape(group.description)}</p>` : ''}</div></div><div class="group-body">${learning ? `<details class="learning-card" data-detail="learn-${escape(group.title)}"><summary>이 단계의 판단 기준과 다음 설계</summary><dl>${[['why','왜 고민하나요?'],['criteria','무엇을 비교하나요?'],['impact','다음 결정에 어떤 영향을 주나요?']].map(([key,label]) => `<div><dt>${label}</dt><dd>${escape(learning[key])}</dd></div>`).join('')}</dl></details>` : ''}${content}</div></section>`;
     }).join('') : `<div class="empty-state"><h2>지금은 답할 질문이 없어요</h2><p>앞선 답변이 아직 없거나, 현재 선택에 해당하는 질문이 없어요. 아래 고려 사항에서 표시 조건을 확인해 주세요.</p><button type="button" class="button secondary" data-step="0">서비스 형태 확인</button> <button type="button" class="button secondary" data-step="2">기능 선택 확인</button></div>`;
     const inactive = R.inactiveQuestions(steps[currentStep], answers);
     if (inactive.length) $('#question-groups').innerHTML += `<details class="inactive-topics" data-detail="inactive-${currentStep}"><summary>현재 질문에 포함하지 않은 고려 사항 ${inactive.length}개</summary><p>아래 주제도 설계에서 고려하는 항목이에요. 현재 답변이 표시 조건을 충족하지 않아 접어 두었어요. 앞선 답변이 미정이라면 적용 여부도 미정이며, 이전 답변은 보관돼요.</p>${inactive.map(q => `<details><summary>${escape(q.label)}</summary><p>${escape(q.help || q.group)}</p><p class="question-help">판단에 사용한 답변: ${escape(R.conditionSummary(q.conditions, answers))}</p>${[...new Set(q.conditions.flatMap(R.conditionIds))].map(id => `<button type="button" class="text-button" data-jump="${id}">${escape(byId.get(id)?.label || id)} 확인 →</button>`).join(' ')}</details>`).join('')}</details>`;
@@ -310,7 +318,7 @@
     $('#form-view').hidden = false;
     $('#report-view').hidden = true;
     $('#breadcrumb').innerHTML = `프로젝트 만들기 <span>/</span> <strong>${escape(step.short)}</strong>`;
-    $('#step-badge').textContent = `STEP ${step.icon} / ${steps.length}`;
+    $('#step-badge').textContent = `${step.phase} · STEP ${step.icon} / ${steps.length}`;
     $('#page-title').textContent = step.title;
     $('#page-description').textContent = step.description;
     $('#chapter-number').textContent = step.icon;
@@ -330,6 +338,7 @@
     if (!field) return;
     const control = field.querySelector('input:not(:disabled),textarea:not(:disabled),select:not(:disabled)');
     if (!control) field.setAttribute('tabindex', '-1');
+    for (let parent = control?.parentElement; parent && parent !== field; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
     (control || field).focus({ preventScroll: true });
   }
   function jumpToQuestion(id) {
@@ -365,7 +374,7 @@
     $('#form-view').hidden = true;
     $('#report-view').hidden = false;
     updateProgress();
-    const stat = R.stats(answers), warnings = R.issues(answers), review = R.readiness(answers);
+    const stat = R.stats(answers), progress = R.requirementStats(answers), warnings = R.issues(answers), review = R.readiness(answers);
     const specification = steps.map(step => {
       const groups = R.reportGroups(step, answers, notes);
       if (!groups.length) return '';
@@ -376,15 +385,16 @@
       <h1 id="report-title">내 아이디어를 기획·설계 문서로</h1>
       <p class="report-intro">답변과 선택 이유, 아직 정하지 못한 내용을 모았어요.<br>AI에게 전달하면 부족한 정보를 확인하고 기획·요구사항·설계 문서를 함께 다듬을 수 있어요.</p>
       <div class="summary-name">${escape(R.display(answers.project_name) || '이름 미정 프로젝트')}</div>
-      <div class="report-stats"><div class="report-stat"><strong>${stat.answered}<small style="font-size:13px;font-weight:400;color:#6c7d98"> / ${stat.total}</small></strong><span>답변 수 · 추천 요청 포함</span></div><div class="report-stat"><strong>${review.before.length}</strong><span>기획 방향 확인</span></div><div class="report-stat"><strong>${review.during.length}</strong><span>설계하며 구체화</span></div></div>
+      <div class="report-stats"><div class="report-stat"><strong>${progress.confirmed}<small style="font-size:13px;font-weight:400;color:#6c7d98"> / ${progress.total}</small></strong><span>정리한 요구사항</span></div><div class="report-stat"><strong>${review.before.length}</strong><span>기획 방향 확인</span></div><div class="report-stat"><strong>${review.during.length}</strong><span>설계하며 구체화</span></div></div>
       <div class="report-actions"><button type="button" class="button primary" id="copy-prompt">AI 문서 작성 요청 복사 ↗</button><button type="button" class="button secondary" id="download-report">기획 자료 .md</button><button type="button" class="button secondary" id="download-prompt">AI 요청문 .md</button><button type="button" class="button secondary" id="print-report">인쇄 / PDF</button><button type="button" class="button secondary" id="back-to-form">계속 작성</button></div>
       <ol class="handoff-steps"><li><strong>자료 전달</strong><span>복사한 요청문과 실제 참고 파일을 AI 대화에 전달하세요.</span></li><li><strong>함께 검토</strong><span>추가 질문에 답하고 제안된 방식과 가정을 확인하세요.</span></li><li><strong>문서 구체화</strong><span>범위·동작·설계·검증 기준을 정리한 뒤 구현 여부를 별도로 결정하세요.</span></li></ol>
       ${warnings.length ? `<div class="warning-card"><h2>함께 확인할 답변 조합 ${warnings.length}건</h2>${warnings.map(w => `<div class="warning-item"><strong>${escape(w.title)}</strong>${escape(w.message)}<br><button class="text-button" data-jump="${w.id}">해당 답변 수정 →</button></div>`).join('')}</div>` : ''}
       ${decisionSummaryMarkup()}
+      <details class="report-section implementation-baseline"><summary>선택과 관계없이 확인할 기본 구현 기준</summary><div class="report-section-body"><ul>${R.implementationBaseline.map(item => `<li>${escape(item)}</li>`).join('')}</ul><p>해당 기능에 적용할 기준이며 실제 구현·검증 결과는 별도로 확인해야 해요.</p></div></details>
       ${planningReviewMarkup()}
       ${decisionRecordsMarkup()}
       ${reviewMarkup(review)}
-      <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · 미정·보완 ${stat.unresolved}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>작성률은 현재 설계 질문 중 정리 완료 항목의 비율이며 개발 준비도 점수가 아니에요. 미정·보완 항목과 추천 요청은 정리 완료로 세지 않아요. 선택 참고 정보는 작성률에서 제외하고, 빈칸은 확인 목록에 넣지 않아요. 일부만 작성한 기능 명세와 작성표는 위에서 안내해요.</p></div>
+      <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · 미정·보완 ${stat.unresolved}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>위 확인 목록은 요구사항과 기술 검토를 함께 포함해요. 작성률은 요구사항 정리 비율이며 기술 선택 여부와 개발 준비도를 뜻하지 않아요. 미정·보완 항목과 추천 요청은 정리 완료로 세지 않아요. 선택 참고 정보는 작성률에서 제외하고, 빈칸은 확인 목록에 넣지 않아요. 일부만 작성한 기능 명세와 작성표는 위에서 안내해요.</p></div>
       <div class="report-tabs" role="tablist" aria-label="리포트 보기"><button class="report-tab" id="tab-spec" role="tab" aria-controls="panel-spec" data-tab="spec" aria-selected="${reportTab === 'spec'}" tabindex="${reportTab === 'spec' ? '0' : '-1'}">질문별 기록</button><button class="report-tab" id="tab-prompt" role="tab" aria-controls="panel-prompt" data-tab="prompt" aria-selected="${reportTab === 'prompt'}" tabindex="${reportTab === 'prompt' ? '0' : '-1'}">AI 문서 작성 요청</button></div>
       <div id="panel-spec" role="tabpanel" aria-labelledby="tab-spec" ${reportTab === 'spec' ? '' : 'hidden'}>${specification || '<p class="report-note">작성한 답변이 생기면 이곳에 명세를 정리해요. 아직 정하지 않은 항목은 위 확인 목록에 있어요.</p>'}</div>
       <div id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" ${reportTab === 'prompt' ? '' : 'hidden'}><textarea readonly class="report-code" id="prompt-text" aria-label="AI에게 전달할 기획·설계 문서 작성 요청"></textarea></div>
@@ -552,6 +562,19 @@
     if (button.dataset.compareQuestion) return showOptionHelp(button.dataset.compareQuestion, Number(button.dataset.compareFirst), true, Number(button.dataset.compareSecond));
     if (button.dataset.helpQuestion) return showOptionHelp(button.dataset.helpQuestion, Number(button.dataset.helpIndex));
     if (button.id === 'close-option-help') return $('#option-help-dialog').close();
+    if (button.dataset.useDraft) {
+      const id = button.dataset.useDraft, draft = R.suggestedDraft(id, answers);
+      if (!draft || R.isAnswered(answers[id])) return;
+      notes[id] = [notes[id], '초안 출처: ' + (byId.get(draft.source)?.label || '현재 답변에 맞춘 문서 구성') + ' · 원본이 바뀌면 이 초안도 다시 확인해 주세요.'].filter(Boolean).join('\n');
+      setAnswer(id, draft.value, true);
+      focusAnswer(document.getElementById('field-' + id));
+      return;
+    }
+    if (button.dataset.reviewDraft) {
+      const id = button.dataset.reviewDraft, value = answers[id];
+      if (value && typeof value === 'object' && value.needsDetailReview) setAnswer(id, { ...value, needsDetailReview: false }, true);
+      return;
+    }
     if (button.dataset.addWorksheet) {
       const id = button.dataset.addWorksheet, q = byId.get(id);
       if (q?.type !== 'worksheet' || q.repeatable === false) return;

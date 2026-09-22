@@ -70,6 +70,48 @@
     const confirmed = questions.filter(q => isResolved(q, answers)).length;
     return { total: questions.length, answered, confirmed, delegated, unresolved: answered - confirmed - delegated, recheck, pending: questions.length - answered - recheck, percent: questions.length ? Math.floor(confirmed / questions.length * 1000) / 10 : 0 };
   };
+  // Completion of requirements and selection of implementation tools are different tasks.
+  const requirementStats = answers => {
+    const relevant = activeQuestions(answers), questions = relevant.filter(q => q.kind !== 'design' && !q.supplemental);
+    const confirmed = questions.filter(q => isResolved(q, answers)).length;
+    return { total: questions.length, confirmed, pending: questions.length - confirmed,
+      design: relevant.filter(q => q.kind === 'design').length,
+      designSelected: relevant.filter(q => q.kind === 'design' && isResolved(q, answers)).length,
+      percent: questions.length ? Math.floor(confirmed / questions.length * 100) : 0 };
+  };
+  function suggestedDraft(id, answers) {
+    const active = new Set(activeQuestions(answers).map(q => q.id));
+    if (!active.has(id)) return null;
+    if (id === 'screen_details' && active.has('feature_specs')) {
+      const rows = testCoverage(answers).features.filter(({row}) => isAnswered(row.name)).map(({row}) => ({
+        screen: `${row.name} — 화면 후보`, information: row.result || '', actions: row.action || '', states: row.failure || ''
+      })).slice(0, MAX_WORKSHEET_ROWS);
+      return rows.length ? { value: { worksheet: id, rows, needsDetailReview: true }, source: 'feature_specs',
+        explanation: '기능의 이름·결과·행동·실패 안내를 옮긴 화면 후보예요. 같은 화면으로 합치거나 나누고 빠진 화면을 추가하세요. 실제 화면 구성을 분석한 결과는 아니에요.' } : null;
+    }
+    if (id === 'role_matrix' && active.has('user_roles')) {
+      const q = allQuestions.find(q => q.id === 'user_roles');
+      const rows = (Array.isArray(answers.user_roles) ? answers.user_roles : []).filter(v => q.options.includes(v) || v.startsWith('기타:')).map(role => ({ role }));
+      return rows.length ? { value: { worksheet: id, rows, needsDetailReview: true }, source: 'user_roles',
+        explanation: '선택한 역할 이름만 가져와요. 권한은 추측하지 않아요. 누구의 자료를 보고 바꿀 수 있는지 빈 칸을 확인하세요.' } : null;
+    }
+    if (id === 'deliverables') {
+      const value = ['제품 기획·요구사항 문서', '기능·업무 규칙과 인수 기준'];
+      if (active.has('screen_details')) value.push('화면·사용 흐름 설계');
+      if (answers.data_scope && !isUndecided(answers.data_scope) && answers.data_scope !== '저장 없이 사용') value.push('데이터·권한 설계');
+      if (answers.external_api_usage === '외부 API 호출' || answers.public_api === '외부 API 제공') value.push('API·외부 연동 설계');
+      value.push('기술 구조와 결정 기록', '개발 단계·검증·운영 계획');
+      return { value, source: 'project_type', explanation: '현재 실행 환경·저장 범위·외부 연결 답변에 따른 문서 후보예요. 미정인 조건은 실제로 필요한지 확인하고 추가하거나 제외하세요.' };
+    }
+    return null;
+  }
+  const implementationBaseline = [
+    '서버·외부 서비스로 보내는 값은 신뢰하지 않고 받는 쪽에서도 검증한다. 접근 권한은 화면 숨김만으로 처리하지 않는다.',
+    '네트워크로 민감정보를 주고받는 구간의 보호와 비밀키의 서버 보관을 확인한다. 로그·공개 코드에 비밀번호·토큰을 남기지 않는다.',
+    '비밀번호를 직접 관리한다면 원문을 복구하는 저장 대신 검증된 전용 해시를 사용하고 설정·업데이트 기준을 확인한다.',
+    '저장·결제·권한 변경은 중복 요청과 중간 실패를 검증한다. 필요한 백업은 실제 복원 가능 여부까지 시험한다.',
+    '화면이 있다면 키보드 조작·입력 안내·오류 복구·읽기 쉬운 표시를 확인한다. 사용한 코드·자료의 조건과 의존성 지원 상태를 검토한다.'
+  ];
   function mergeReferenceInput(input) {
     const result = { ...input };
     const old = result.design_reference;
@@ -315,7 +357,7 @@
       });
       if (incomplete.length) reason = `일부 작성 · ${incomplete.join(' / ')}`;
       else if (q.id === 'existing_code' && !plan.rows.length && isAnswered(plan.legacy)) reason = '기존 코드 설명은 보관했어요. 위치·전달 방법·실행 상태를 작성표에서 확인해 주세요';
-      else if (!plan.rows.length && plan.needsDetailReview) reason = '이전 목록을 바탕으로 세부 작성표를 보완해 주세요';
+      else if (plan.needsDetailReview) reason = '가져온 초안의 내용을 확인하고 검토 완료를 표시해 주세요';
       else if (!plan.rows.length && isUndecided(plan.legacy)) reason = '미정으로 작성 — 결정 필요';
     }
     return reason;
@@ -333,8 +375,8 @@
       const reason = pendingReason(q, answers);
       if (!reason) continue;
       const item = { id: q.id, label: q.label, reason };
-      if (needsReselection(q, value) || beforeIds.has(q.id)) before.push(item);
-      else if (!([SKIP].includes(value) || (Array.isArray(value) && value.includes(SKIP)))) during.push(item);
+      if (q.kind !== 'design' && (needsReselection(q, value) || beforeIds.has(q.id))) before.push(item);
+      else if (needsReselection(q, value) || !([SKIP].includes(value) || (Array.isArray(value) && value.includes(SKIP)))) during.push(item);
     }
     return { before, during };
   }
@@ -352,7 +394,7 @@
       if (!q) return undefined;
       const value = answers[id];
       if (!isResolved(q, answers)) {
-        if (!missing.some(item => item.id === id)) missing.push({ id, label: q.label });
+        if ((!q.supplemental || isAnswered(value)) && !missing.some(item => item.id === id)) missing.push({ id, label: q.label });
         return undefined;
       }
       if (!['single', 'multi'].includes(q.type) || [value].flat().some(v => !q.options.includes(v))) {
@@ -365,8 +407,98 @@
     const add = (option, level, reason) => {
       if (question.options.includes(option) && !candidates.some(item => item.option === option)) candidates.push({ option, level, reason });
     };
-    let note = '입력한 선택에 따른 비교 안내예요. AI의 분석이나 확정 추천이 아니며, 다른 선택지도 그대로 검토할 수 있어요.';
+    let note = '';
     switch (question.id) {
+      case 'frontend_framework': {
+        const form = fact('form_usage'), stage = fact('development_stage');
+        if (['기존 코드가 있어요', '운영 중인 서비스를 개선해요'].includes(stage)) {
+          note += ' 기존 화면 기술과 바꿔야 할 문제를 먼저 확인하세요. 이름만 보고 전체 프레임워크 전환을 권하지 않아요.';
+        } else if (form === '조회·안내만 제공') add('HTML·CSS·JavaScript', 'consider', '조회·안내 중심 화면이라고 답했어요. 기본 웹 기술로 필요한 정보와 이동을 제공할 수 있는지 먼저 비교하세요. 콘텐츠 갱신과 검색 노출 요구도 함께 확인해요.');
+        else if (form === '입력·수정 화면 있음') {
+          add('HTML·CSS·JavaScript', 'consider', '입력 화면이 있다는 이유만으로 큰 도구가 필수는 아니에요. 화면 수와 상호작용이 적다면 기본 기능으로 관리할 수 있는지 비교하세요.');
+          add('React + Vite', 'consider', '여러 화면에서 입력·목록·상태를 반복해서 조립해야 한다면 비교할 후보예요. 입력 기능만으로 적합성이 확정되는 것은 아니며 검색 노출·서버 처리 요구를 함께 봐야 해요.');
+        }
+        break;
+      }
+      case 'database': {
+        const scope = fact('data_scope'), baas = fact('baas');
+        if (scope === '이 기기에서만 저장') add('SQLite', 'consider', '기기 내부에 관계 있는 자료를 저장할 때 비교할 후보예요. 설치 앱과 브라우저의 실행·저장 방식이 다르므로 선택한 환경의 지원과 백업 경로를 확인하세요.');
+        if (baas === 'Supabase') add('PostgreSQL', 'consider', '선택한 관리형 백엔드가 사용하는 데이터베이스와 맞추는 후보예요. 자료 관계·권한·지원 범위를 실제 요구와 대조하세요.');
+        else if (baas === 'Firebase') add('Firestore', 'consider', 'Firebase의 문서형 저장 후보예요. 조회·관계·함께 변경할 작업과 비용을 확인해야 하며 Firebase를 골랐다고 자동 채택하지 않아요.');
+        else if (['같은 계정의 여러 기기에서 사용', '다른 사람·팀과 함께 사용'].includes(scope)) add('PostgreSQL', 'consider', '공유할 자료의 관계와 함께 지킬 변경 규칙을 검토할 관계형 DB 후보예요. 저장 범위만으로 확정하지 말고 자료 모델·운영 비용·호환성을 확인하세요.');
+        break;
+      }
+      case 'file_storage': {
+        const scope = fact('data_scope'), type = fact('project_type');
+        if (scope === '이 기기에서만 저장' && ['모바일 앱','PC 프로그램'].includes(type)) add('사용자 기기의 파일·앱 저장 공간', 'consider', '기기 안에서 사용하는 자료라고 답했어요. 사용자가 고른 원본과 앱의 사본을 구분하고 앱 삭제·기기 분실 때의 복구 범위를 확인하세요.');
+        if (scope === '이 기기에서만 저장' && type === '웹사이트') add('브라우저 저장 공간', 'consider', '한 브라우저 안에 보관하는 후보예요. 사이트 데이터 삭제·용량 제한·다른 기기로 옮기는 방법을 사용자에게 안내할 수 있어야 해요.');
+        if (['같은 계정의 여러 기기에서 사용', '다른 사람·팀과 함께 사용'].includes(scope)) {
+          add('S3 계열 오브젝트 스토리지', 'consider', '여러 기기에서 파일을 공유하는 후보예요. 비공개 파일의 다운로드 권한·전송 비용·삭제와 백업을 함께 설계해야 해요.');
+          add('관리형 백엔드 스토리지', 'consider', '관리형 계정·데이터와 파일 권한을 연결하는 구성을 비교하세요. 선택할 백엔드의 실제 파일 기능과 비용을 확인해야 해요.');
+        }
+        break;
+      }
+      case 'api_style': {
+        const mode = fact('backend_mode'), external = fact('external_api_usage'), provided = fact('public_api');
+        if (['서버 없는 정적 사이트','기기 안에서만 실행'].includes(mode) && external === '외부 API 호출') add('외부 제공 API만 사용', 'consider', '자체 서버 없이 외부 연결을 사용한다고 답했어요. 제공자의 요청·인증·한도·오류 계약을 확인하고 비밀키가 필요한 연결은 별도 안전한 처리 주체가 필요해요.');
+        else if (provided === '외부 API 제공') add('REST', 'consider', '다른 개발자에게 기능을 제공할 때 비교할 출발점이에요. 호출자의 도구와 자료 모양·버전 변경 계약을 먼저 확인하세요.');
+        else if (mode === '풀스택 프레임워크 내장 서버') add('프레임워크 내장 서버 호출', 'consider', '같은 프레임워크 안에서 화면과 서버를 연결할 수 있는지 검토하세요. 외부 앱도 호출해야 한다면 공개 계약을 별도로 확인해야 해요.');
+        break;
+      }
+      case 'search_engine': {
+        const database = fact('database');
+        if (database && database !== 'DB 없이 사용') add('DB 기본 검색', 'consider', '이미 선택한 DB에서 필요한 검색 사례를 처리할 수 있는지 먼저 시험해요. 한국어·오타·큰 자료의 품질이나 응답 목표가 부족할 때 전문 검색 후보를 비교하세요.');
+        break;
+      }
+      case 'auth_state_validation': {
+        const revoke = fact('auth_revocation_window');
+        if (revoke === '다음 요청부터 즉시 차단') add('서버에 저장한 세션·토큰 조회', 'consider', '정지·로그아웃 후 다음 요청부터 차단해야 한다고 답했어요. 서버 기록 조회로 현재 허용 상태를 확인하는 구성을 비교하세요. JWT를 쓰더라도 필요한 차단 기록과 조회를 별도로 검토해야 해요.');
+        break;
+      }
+      case 'frontend_language': {
+        const stage = fact('development_stage');
+        if (['아이디어만 있어요', '디자인이 있어요'].includes(stage)) add('TypeScript', 'consider', '새 화면 코드를 작성하는 출발점으로 먼저 검토해요. 값의 종류에 관한 일부 실수를 실행 전에 찾을 수 있지만 외부 입력 검증과 테스트를 대신하지 않아요. 빌드 없이 배포해야 하는 제약은 별도로 확인하세요.');
+        if (['기존 코드가 있어요', '운영 중인 서비스를 개선해요'].includes(stage)) note += ' 기존 코드의 언어·검사 설정을 먼저 확인하세요. JavaScript도 JSDoc과 타입 검사를 적용할 수 있으며 이 답만으로 전체 전환을 권하지 않아요.';
+        break;
+      }
+      case 'rendering': {
+        const seo = fact('seo');
+        if (seo && seo !== '전체 검색 노출 제외') {
+          add('정적 생성(SSG)', 'consider', '공개 페이지가 검색되어야 해요. 내용이 바뀌는 빈도와 새로 생성할 방법을 확인한 뒤 미리 만드는 방식을 비교하세요.');
+          add('서버 렌더링(SSR)', 'consider', '요청할 때 최신 내용을 만드는 방식이에요. 요청 시점의 정보가 필요한 화면인지, 서버 운영 부담을 감당할 수 있는지 함께 확인하세요.');
+        }
+        break;
+      }
+      case 'state': {
+        const framework = fact('frontend_framework');
+        if (framework && framework !== 'HTML·CSS·JavaScript') add('프레임워크 기본 기능', 'consider', '선택한 화면 도구의 기본 상태 관리부터 검토하세요. 여러 화면에서 함께 바꾸는 값이 실제로 복잡해질 때 별도 도구의 필요를 확인해요.');
+        if (framework === 'HTML·CSS·JavaScript') add('별도 라이브러리 없음', 'consider', '기본 웹 기술을 선택했어요. 필요한 입력값과 화면 갱신만으로 시작할 수 있는지 확인한 뒤 추가 도구를 검토하세요.');
+        break;
+      }
+      case 'server_state': {
+        const mode = fact('backend_mode'), external = fact('external_api_usage');
+        if (['서버 없는 정적 사이트', '기기 안에서만 실행'].includes(mode) && external === '호출하지 않음') add('별도 처리 불필요', 'consider', '현재 선택에는 서버나 외부 API 조회가 없어요. 실제로 조회할 원격 자료가 없는지 확인한 뒤 별도 도구를 두지 않을 수 있어요.');
+        else if (mode) add('기본 fetch·프레임워크 기능', 'consider', '선택한 환경의 기본 조회 기능을 먼저 검토해요. 재조회·재사용·동시 요청·실패 상태가 복잡할 때 추가 도구를 비교하세요.');
+        break;
+      }
+      case 'password_hash_algorithm': {
+        const keeper = fact('password_custodian'), stage = fact('development_stage');
+        if (keeper === '서비스에서 비밀번호 해시 관리' && ['아이디어만 있어요', '디자인이 있어요'].includes(stage)) add('Argon2id', 'consider', '새로 비밀번호 해시를 직접 관리할 때 검토할 출발점이에요. 실제 라이브러리 지원·현재 보안 권고·처리 비용을 확인하고 설정값은 측정 후 정하세요.');
+        break;
+      }
+      case 'cache': {
+        add('별도 캐시 없음', 'consider', '도입 전 비교할 출발점이에요. 실제로 느린 조회·계산을 측정한 근거와 허용 지연이 없다면 추가 캐시를 확정하지 않고 검증할 조건으로 남겨요.');
+        break;
+      }
+      case 'messaging': {
+        const need = fact('async_reliability_need');
+        if (need === '배경·예약 작업 없음') add('사용 안 함', 'consider', '배경·예약 작업이 없다고 답했어요. 별도 메시지 도구가 필요한 다른 목적이 없다면 추가하지 않을 수 있어요.');
+        if (need === '유실·중복·순서 대응 필요') {
+          add('DB 기반 작업 큐', 'consider', '작업을 DB에 기록하고 재처리하는 후보예요. DB 사용 여부·작업량·잠금·실패 관리가 요구를 만족하는지 확인해야 해요.');
+          add('관리형 큐', 'consider', '작업 전달의 일부 운영을 제공자에게 맡길 수 있어요. 중복 처리 방지·순서·재시도 종료는 실제 지원 조건과 함께 설계해야 해요.');
+        }
+        break;
+      }
       case 'architecture': {
         const team = fact('team_size'), mode = fact('backend_mode');
         if (team === '혼자 + AI' || team === '2–3명') {
@@ -479,9 +611,15 @@
         }
         break;
       }
-      default: return null;
+      default: if (!question.review) return null;
     }
-    return { basis, candidates, missing, note };
+    if (question.review) for (const id of question.review.basis) {
+      const q = active.find(item => item.id === id);
+      if (!q || id === question.id || basis.some(item => item.id === id)) continue;
+      if (isResolved(q, answers)) basis.push({ id, label: q.label, value: display(answers[id]) });
+      else if ((!q.supplemental || isAnswered(answers[id])) && !missing.some(item => item.id === id)) missing.push({ id, label: q.label });
+    }
+    return { basis, candidates, missing, note, start: question.review?.start, verify: question.review?.verify };
   }
   const decisionFollowups = {
     backend_mode: ['backend_language', 'backend_framework', 'baas', 'api_style', 'hosting_mapping'],
@@ -494,12 +632,12 @@
     test_types: ['critical_tests', 'test_tools', 'test_data'], environments: ['hosting_mapping', 'deploy_checks', 'rollback'],
     cicd: ['deploy_checks', 'release_approval'], unknown_policy: ['ai_workflow', 'deliverables']
   };
-  const recordStatus = (question, answers) => isUnknown(answers[question.id]) ? '비교·추천 요청' : !isAnswered(answers[question.id]) ? '미응답' : pendingReason(question, answers) ? '미정·보완 필요' : '사용자 선택 · 검토 전';
+  const recordStatus = (question, answers) => isUnknown(answers[question.id]) ? '비교·추천 요청' : !isAnswered(answers[question.id]) ? question.kind === 'design' ? '설계 검토 예정' : '미응답' : pendingReason(question, answers) ? '미정·보완 필요' : '사용자 선택 · 검토 전';
   function decisionRecords(answers, notes = {}) {
     const active = activeQuestions(answers);
-    return active.filter(q => Object.hasOwn(decisionFollowups, q.id) && (isAnswered(answers[q.id]) || isAnswered(notes[q.id]))).map(q => ({
+    return active.filter(q => (q.kind === 'design' || Object.hasOwn(decisionFollowups, q.id)) && (isAnswered(answers[q.id]) || isAnswered(notes[q.id]))).map(q => ({
       id: q.id, label: q.label, value: display(answers[q.id]), status: recordStatus(q, answers), reason: typeof notes[q.id] === 'string' ? notes[q.id].trim() : '',
-      followups: active.filter(item => decisionFollowups[q.id].includes(item.id)).map(item => ({ id: item.id, label: item.label }))
+      followups: active.filter(item => (decisionFollowups[q.id] || []).includes(item.id)).map(item => ({ id: item.id, label: item.label }))
     }));
   }
   function planningReview(answers, notes = {}) {
@@ -518,7 +656,7 @@
     const sections = definitions.map(([id, title, description]) => ({ id, title, description, questions: [] }));
     for (const step of steps) for (const group of activeGroups(step, answers)) for (const q of group.questions) {
       if (q.supplemental && !isAnswered(answers[q.id]) && !isAnswered(notes[q.id])) continue;
-      const section = technicalIds.has(q.id) ? 'technical' : scopeIds.has(q.id) ? 'scope' : dataIds.has(q.id) ? 'data' : byStep[step.id] || 'delivery';
+      const section = q.kind === 'design' || technicalIds.has(q.id) ? 'technical' : scopeIds.has(q.id) ? 'scope' : dataIds.has(q.id) ? 'data' : byStep[step.id] || 'delivery';
       sections.find(item => item.id === section).questions.push({ id: q.id, label: q.label, status: recordStatus(q, answers), reason: pendingReason(q, answers) });
     }
     const active = activeQuestions(answers), checks = [];
@@ -532,7 +670,7 @@
     return { sections, checks };
   }
   function report(answers, prompt = false, notes = {}) {
-    const stat = stats(answers), warnings = issues(answers), required = missingRequired(answers), review = readiness(answers);
+    const stat = stats(answers), progress = requirementStats(answers), warnings = issues(answers), required = missingRequired(answers), review = readiness(answers);
     const plan = planningReview(answers, notes), records = decisionRecords(answers, notes), active = activeQuestions(answers);
     const workflow = active.find(q => q.id === 'ai_workflow'), policy = active.find(q => q.id === 'unknown_policy');
     const workflowValue = workflow && isResolved(workflow, answers) ? answers.ai_workflow : '';
@@ -557,6 +695,8 @@
       '- AI 추천 요청·미응답·일부 작성·재선택 대상은 확정한 설계가 아닙니다. 이전 구현 중심 선택은 참고 기록으로만 보관하고 현재 문서 검토 방식은 다시 확인하세요.',
       '- 처음부터 모든 미정 항목을 한꺼번에 묻지 마세요. 목표·사용자·첫 출시 범위와 영향이 큰 충돌부터, 답에 따라 다음 문서가 달라지는 질문을 작은 묶음으로 정리하세요. 사용자의 문서 협업 방식과 미정 처리 방침을 반영하세요.',
       '- 새 결정을 제안할 때 왜 필요한지, 대표 후보의 의미·장단점·비용·난이도·운영 부담·적합하거나 부적절한 상황을 쉬운 말로 설명하세요. 입력 근거와 제약으로 후보를 좁히되 다른 대안을 숨기거나 자동 확정하지 마세요.',
+      '- 비개발자에게 기술명·알고리즘·설정 수치를 먼저 고르게 하지 마세요. 원하는 동작과 제약을 먼저 확인하고, 관련 답변을 근거로 출발안과 대안 1~2개를 제안하세요. 근거가 부족하면 선택을 미루고 확인할 사실과 결정 시점을 적으세요.',
+      '- 기능의 입력·행동·결과·실패·권한을 재사용해 화면·데이터·API·검증 초안을 연결하세요. 이미 적은 정보를 다시 작성시키지 말고 추가 규칙만 질문하세요. 서비스가 가져온 초안은 검토 상태와 원문을 확인하고 추정 내용을 사실로 취급하지 마세요.',
       '- 사용자 선택 이유가 없으면 만들어 적지 마세요. 영향이 큰 결정에만 목적·제약·대안을 확인하고, 나중에 정할 수 있는 항목은 판단 시점·필요한 근거와 함께 미정으로 남기세요.',
       '- DDD의 업무 모델링, 프런트엔드의 FSD, 백엔드 코드 구성, 서비스 배포 단위, 저장소 구성은 서로 다른 설계 축입니다. 서로 배타적인 대안으로 섞거나 용어만으로 과도한 구조를 요구하지 마세요.',
       '- 현재 조건에서 숨겨진 질문은 보고서에 포함하지 않았습니다. 직접 입력한 방식과 아직 정하지 않은 상위 조건 때문에 필요한 질문이 누락됐는지 적용 범위를 확인하세요.',
@@ -567,12 +707,15 @@
       '- 실제 비밀키·비밀번호·개인정보를 문서 예시에 넣지 마세요. 기록된 배포 계획은 향후 설계의 참고이며, 이번 문서 검토 요청의 배포 허가가 아닙니다.',
       '- 테스트 계획과 실행 결과를 구분하세요. 코드·자료·테스트를 실제로 확인하지 않았다면 검증 완료라고 쓰지 마세요.', '', '---', '');
     lines.push(`# ${inline(answers.project_name) || '이름 미정 프로젝트'} — 기획·설계 입력 자료`, '',
+      `요구사항 정리: ${progress.confirmed}/${progress.total}개 · 기술 검토 ${progress.design}개 중 선택 기록 ${progress.designSelected}개 (기술 미선택은 요구사항 작성률에서 제외)`,
       `작성 현황: ${stat.total}개 관련 질문 중 ${stat.answered}개 답변 · 비교·추천 요청 ${stat.delegated}개 · 미정·보완 ${stat.unresolved}개 · 미응답 ${stat.pending}개 · 이전 답변 재선택 ${stat.recheck}개`,
       `검토 현황: 먼저 구체화할 항목 ${review.before.length}개 · 설계 보완 항목 ${review.during.length}개 · 확인할 조합 ${warnings.length}건`, '',
       '이 문서는 선택한 답변으로 조립한 기획·설계 입력 자료입니다. AI 모델이 분석하거나 기술을 자동 확정한 결과가 아닙니다. 작성률은 학습 수준·문서 완성도·개발 준비도 점수가 아닙니다. 사용자 선택은 검토 전 기록이며, 답변이 모두 있어도 요구사항의 충분성과 일관성은 별도로 확인해야 합니다.', '',
       '현재 조건에 해당하지 않는 질문의 이전 답변은 제외합니다. 선택 참고 정보는 작성률에서 제외하고 빈칸을 미결정으로 표시하지 않습니다. 재선택이 필요한 이전 답변과 통합된 추천 요청·이전 초안은 확정된 결정으로 사용하지 마세요.', '',
       '디자인·코드·운영 서비스의 링크와 파일 위치는 자료 전달 안내입니다. 이 서비스가 파일을 첨부하거나 내용을 읽은 결과가 아닙니다. 문서를 구체화할 때 실제 열람 가능 여부와 기준 버전·적용 범위를 확인하세요. 전달 예정이거나 접근할 수 없는 자료는 확인 전까지 확보된 것으로 간주하지 마세요.', '',
       '라이선스 답변은 계획할 정책을 정리한 것이며 법률 검토나 사용 허가를 대신하지 않습니다. 기존 저작권·라이선스 고지를 보존하고 공개·납품 권한, 외부 코드·자료의 버전별 조건과 고지·소스 제공 의무를 확인하세요.', '',
+      '## 기본 구현 검토 기준', '해당 기능에 적용할 기본 기준입니다. 체크 여부와 관계없이 문서에 반영하고 실제 구현·검증 여부는 별도로 기록하세요.',
+      ...implementationBaseline.map(item => `- ${item}`), '',
       '## 1. 문서 구성과 보완 우선순위', '각 원본 질문은 [질문 ID]로 참조합니다. 문서에 새로 제안하는 내용과 사용자 원문을 구분하기 위한 출처이며, 질문 ID만으로 설계 관계를 검증한 것은 아닙니다.', '');
     for (const section of plan.sections) {
       lines.push(`### ${section.title}`, section.description,
@@ -588,6 +731,20 @@
     listReview('먼저 구체화할 사항', review.before);
     lines.push('아래 설계 보완 항목을 모두 지금 확정할 필요는 없습니다. 상위 요구사항에 필요한 것은 우선 질문하고, 보류할 결정은 판단 시점·필요한 정보·영향받는 문서와 함께 남기세요.', '');
     listReview('설계하면서 구체화할 사항', review.during);
+    lines.push('### 요구사항에서 도출할 기술 검토', '다음은 아직 선택하지 않아도 문서에서 검토할 고려 사항입니다. 기술 선택을 모두 먼저 질문하지 말고 연결된 요구와 제약으로 초안을 제안하세요.', '');
+    for (const step of steps) for (const group of activeGroups(step, answers)) {
+      const design = group.questions.filter(q => q.kind === 'design');
+      if (!design.length) continue;
+      lines.push(`**${group.title}**`, ...design.map(q => `- [${q.id}] ${q.label}: ${recordStatus(q, answers)}`));
+      const contexts = design.map(q => q.review).filter(Boolean);
+      lines.push(...[...new Set(contexts.map(c => c.start))].map(value => `비교의 출발점: ${value}`), ...[...new Set(contexts.map(c => c.verify))].map(value => `확인할 일: ${value}`));
+      for (const q of design) if (q.review) lines.push(`검토 연결 [${q.id}]: ${q.review.basis.filter(id => active.some(item => item.id === id)).map(id => `[${id}]`).join(', ')}`);
+      for (const id of new Set(contexts.flatMap(c => c.basis))) {
+        const q = active.find(q => q.id === id);
+        if (q && (!q.supplemental || isAnswered(answers[id]))) lines.push(`연결 근거 [${id}]:`, quote(isAnswered(answers[id]) ? display(answers[id]) : '미정 — 추측하지 않음'));
+      }
+      lines.push('');
+    }
     listReview('입력 여부만으로 확인할 수 없는 사항', plan.checks);
     if (required.length) lines.push('### 핵심 미입력', ...required.map(q => `- [${q.id}] ${q.label}`), '');
     if (warnings.length) {
@@ -645,7 +802,7 @@
       '완료 기준: 사용자가 검토할 수 있는 기획·요구사항·설계 문서와 남은 결정 목록을 제공하는 것이다. 답변 수나 기술 이름의 수로 완성도를 판단하지 않는다. 별도의 명시적 구현 요청 전에는 개발·배포를 시작하지 않는다.', '');
     return lines.join('\n');
   }
-  const api = { UNKNOWN, SKIP, EXCLUSIVE, MAX_FEATURES, MAX_TEST_FLOWS, MAX_WORKSHEET_ROWS, allQuestions, choiceOptions, needsReselection, isAnswered, isUnknown, isUndecided, isResolved, pendingReason, display, worksheetPlan, testCoverage, testPlan, testPlanText, answerText, conditionIds, matches, activeGroups, activeQuestions, reportGroups, inactiveQuestions, conditionSummary, stats, normalizeAnswers, normalizeNotes, normalizeProject, issues, missingRequired, readiness, decisionSummary, decisionAdvice, decisionRecords, planningReview, report };
+  const api = { UNKNOWN, SKIP, EXCLUSIVE, MAX_FEATURES, MAX_TEST_FLOWS, MAX_WORKSHEET_ROWS, allQuestions, choiceOptions, needsReselection, isAnswered, isUnknown, isUndecided, isResolved, pendingReason, display, worksheetPlan, testCoverage, testPlan, testPlanText, answerText, conditionIds, matches, activeGroups, activeQuestions, reportGroups, inactiveQuestions, conditionSummary, stats, requirementStats, suggestedDraft, implementationBaseline, normalizeAnswers, normalizeNotes, normalizeProject, issues, missingRequired, readiness, decisionSummary, decisionAdvice, decisionRecords, planningReview, report };
   root.BriefReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

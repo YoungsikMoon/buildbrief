@@ -7,12 +7,12 @@
   <meta name="description" content="아이디어를 구체적인 기획과 설계로. 전문가의 고려 사항을 배우고 내 상황에 맞는 선택을 정리해 AI와 요구사항·설계 문서를 완성하세요.">
   <title>빌드브리프 — 아이디어를 기획과 설계로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=dda09a1c65c7">
-  <script src="questions.js?v=90ea6e9ac22b" defer></script>
-  <script src="report.js?v=cfd9142b3434" defer></script>
+  <link rel="stylesheet" href="styles.css?v=7d45ec692293">
+  <script src="questions.js?v=bb80862ec84d" defer></script>
+  <script src="report.js?v=125cbe358024" defer></script>
   <script src="projects.js?v=8e64131c1497" defer></script>
-  <script src="guides.js?v=b78a202d388f" defer></script>
-  <script src="app.js?v=79f8328701e6" defer></script>
+  <script src="guides.js?v=2cade2f1d11c" defer></script>
+  <script src="app.js?v=82f6be810880" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -30,7 +30,7 @@
         <div class="project-switcher-controls"><select class="select-input" id="project-select" aria-label="프로젝트 선택"><option value="">새로운 아이디어</option></select><button type="button" class="button secondary small" id="add-project" aria-haspopup="dialog" aria-controls="project-name-dialog">+ 새 프로젝트</button></div>
         <strong class="visually-hidden" id="project-label">새로운 아이디어</strong>
       </div>
-      <div class="progress-label"><span id="progress-label">답변 정리 현황</span><strong id="progress-number">0%</strong></div>
+      <div class="progress-label"><span id="progress-label">요구사항 정리</span><strong id="progress-number">0%</strong></div>
       <div class="progress-track"><div id="progress-bar" role="progressbar" aria-labelledby="progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="progress-caption"></div></div>
       <p class="progress-caption" id="progress-caption"></p>
       <details class="progress-details">
@@ -49,7 +49,7 @@
       <div id="form-view">
         <div class="page-topline"><div class="breadcrumb" id="breadcrumb"></div><span class="step-badge" id="step-badge"></span></div>
         <div class="page-heading"><div><h1 id="page-title"></h1><p id="page-description"></p></div><span class="chapter-number" id="chapter-number" aria-hidden="true"></span></div>
-        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>아이디어를 정리하고, 비교하고, 설계로 연결하세요.</strong> 아는 내용부터 적어 주세요. 핵심 설계 질문에서는 내 답변에 따른 비교 후보를 안내해요. 선택지 옆 ?로 장단점을 이해하고 이유를 남기면, AI와 기획·요구사항·설계 문서를 구체화할 자료가 돼요. 모르는 내용은 추천 요청으로 남겨도 괜찮아요.</p></div>
+        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>원하는 동작부터, 기술은 그다음에.</strong> 사용자가 무엇을 하고 어떤 결과를 얻을지 먼저 적어요. 기능·역할에서 화면과 권한표의 초안을 가져올 수 있어요. 뒤의 기술 검토에서는 연결된 답변과 판단 기준을 보고 비교해요. 지금 기술 이름을 정하지 않아도 문서에서 검토할 항목으로 남아요.</p></div>
         <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><span id="step-summary"></span><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
       </div>
       <section id="report-view" hidden aria-labelledby="report-title"></section>

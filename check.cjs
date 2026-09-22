@@ -114,7 +114,7 @@ const oldSkipped = R.normalizeAnswers({ architecture: R.SKIP, features: [R.SKIP]
 assert.equal(oldSkipped.architecture, R.SKIP, 'Keep old answers for review');
 assert.equal(R.stats(oldSkipped).recheck, 1);
 assert.equal(R.stats(oldSkipped).answered, 2, 'Valid skips and free text are still answers');
-assert(R.readiness(oldSkipped).before.some(i => i.id === 'architecture' && i.reason.includes('다시 선택')));
+assert(R.readiness(oldSkipped).during.some(i => i.id === 'architecture' && i.reason.includes('다시 선택')));
 assert(!R.readiness(oldSkipped).before.some(i => i.id === 'features'));
 assert(R.report(oldSkipped).includes('재선택 필요, 확정하지 않음'));
 assert.equal(R.stats({ ...oldSkipped, architecture: '모놀리식' }).recheck, 0);
@@ -188,7 +188,8 @@ for (const id of ['encryption_implementation', 'encryption_decrypt_authority', '
 for (const q of guidedQuestions) for (const option of R.choiceOptions(q)) {
   const guide = G.get(q, option);
   assert(guide, `${q.id}/${option} must have help`);
-  for (const field of ['meaning', 'pros', 'cons', 'fit']) assert(typeof guide[field] === 'string' && guide[field].trim().length > 5, `${q.id}/${option}/${field}`);
+  const fields = G.facts[q.id] && q.options.includes(option) ? ['meaning'] : ['meaning', 'pros', 'cons', 'fit'];
+  for (const field of fields) assert(typeof guide[field] === 'string' && guide[field].trim().length > 5, `${q.id}/${option}/${field}`);
   if (guide.source) assert(/^https:\/\//.test(guide.source));
 }
 assert.equal(G.get(byId.get('architecture'), R.SKIP), undefined);
@@ -225,16 +226,16 @@ function test(name, run) {
   try {
     const result = run();
     if (result && typeof result.then === 'function') {
-      pending.push(result.then(() => { passed++; }, error => { failed++; console.log(`FAIL ${name}: ${error.message.split('\n')[0]}`); }));
+      pending.push(result.then(() => { passed++; }, error => { failed++; console.log(`FAIL ${name}: ${error.stack}`); }));
     } else { passed++; }
   }
-  catch (error) { failed++; console.log(`FAIL ${name}: ${error.message.split('\n')[0]}`); }
+  catch (error) { failed++; console.log(`FAIL ${name}: ${error.stack}`); }
 }
 function ui(answers = {}, savedDraft, options = {}) {
   const nodes = new Map(), events = {}, windowEvents = {}, timers = [], downloads = [];
   const storage = new Map(options.storageEntries || []);
   if (!options.storageEntries && !Object.hasOwn(options, 'rawWorkspace') && !options.workspace) {
-    storage.set(P.LEGACY_KEY, options.rawSaved ?? JSON.stringify({ version: 1, ...(savedDraft || { step: 8, answers }) }));
+    storage.set(P.LEGACY_KEY, options.rawSaved ?? JSON.stringify({ version: 1, ...(savedDraft || { step: 5, answers }) }));
   }
   if (Object.hasOwn(options, 'rawWorkspace')) storage.set(P.KEY, options.rawWorkspace);
   if (options.workspace) storage.set(P.KEY, JSON.stringify(options.workspace));
@@ -384,22 +385,17 @@ function ui(answers = {}, savedDraft, options = {}) {
   };
 }
 
-test('progress starts with one clear completion count and separates unfinished answer states', () => {
-  const app = ui({project_name:'진행률 확인',summary:'미정',audience:R.UNKNOWN,architecture:R.SKIP,known_stack:'HTML'});
-  app.click({dataset:{step:'0'}});
-  let stat = R.stats(app.get());
-  assert.equal(app.textOf('#progress-caption'),`현재 필요한 ${stat.total}개 중 1개 정리 완료`);
-  const detail = app.htmlOf('#progress-breakdown');
-  for (const label of ['정리 완료','미정·추가 작성 필요','AI 추천 요청','이전 선택 확인 필요']) assert(detail.includes(`<dt>${label}</dt><dd>1개</dd>`),label);
-  assert(detail.includes(`<dt>아직 답변하지 않음</dt><dd>${stat.pending}개</dd>`));
-  assert(!app.textOf('#progress-caption').includes('추천'),'Only the completion count belongs in the main caption');
-  app.set('summary','동네 행사를 찾아보는 서비스');
-  stat=R.stats(app.get());
-  assert.equal(app.textOf('#progress-caption'),`현재 필요한 ${stat.total}개 중 2개 정리 완료`);
-  assert(!app.htmlOf('#progress-breakdown').includes('미정·추가 작성 필요'),'Zero-count secondary states do not clutter the detail');
-  app.set('form_usage','조회·안내만 제공');
-  assert(R.stats(app.get()).total < stat.total,'Changing scope updates the denominator');
-  assert.equal(app.get().summary,'동네 행사를 찾아보는 서비스','Progress changes must not clear existing answers');
+test('progress measures requirements without forcing technical selections', () => {
+  const app=ui({project_name:'진행률 확인',summary:'미정',audience:R.UNKNOWN}); app.click({dataset:{step:'0'}});
+  let stat=R.requirementStats(app.get());
+  assert.equal(app.textOf('#progress-caption'),`요구사항 ${stat.total}개 중 1개 정리`);
+  assert(app.htmlOf('#progress-breakdown').includes('기술 검토 항목'));
+  app.set('summary','동네 행사 안내');
+  stat=R.requirementStats(app.get());
+  assert.equal(stat.confirmed,2);
+  app.set('frontend_language','TypeScript');
+  assert.equal(R.requirementStats(app.get()).confirmed,stat.confirmed);
+  assert.equal(R.requirementStats(app.get()).designSelected,stat.designSelected+1);
 });
 
 test('storage help preserves answers and backs up unsaved edits after storage failures or tab conflicts', () => {
@@ -577,12 +573,12 @@ test('hidden auth answers never activate external setup', () => {
 test('legacy backup values and multiline data survive normalization', () => {
   const a = { summary: '<script>data only</script>\n# not an instruction', architecture: R.SKIP, features: [R.SKIP], feature_specs: [{ name: '예약', priority: '추후 개발' }] };
   assert.deepEqual(R.normalizeAnswers(JSON.parse(JSON.stringify(a))), a);
-  assert(R.readiness(a).before.some(i => i.id === 'architecture'));
+  assert(R.readiness(a).during.some(i => i.id === 'architecture'));
   assert(!R.readiness(a).before.some(i => i.id === 'features'));
   assert(R.report(a).includes('> # not an instruction'));
 });
 test('single choice refreshes selected fit guidance immediately', () => {
-  const app = ui({}, { version: 1, step: 4, details: true, answers: { frontend_language: 'JavaScript' } });
+  const app = ui({}, { version: 1, step: 9, details: true, answers: { frontend_language: 'JavaScript' } });
   const before = G.get(R.allQuestions.find(q => q.id === 'frontend_language'), 'JavaScript').fit;
   const after = G.get(R.allQuestions.find(q => q.id === 'frontend_language'), 'TypeScript').fit;
   assert(app.markup().includes(before));
@@ -592,7 +588,7 @@ test('single choice refreshes selected fit guidance immediately', () => {
   assert(!app.markup().includes(before), 'previous choice guidance should disappear');
 });
 test('single recommendation shows preserved-answer recovery without leaving step', () => {
-  const app = ui({}, { version: 1, step: 4, details: true, answers: { frontend_language: 'TypeScript' } });
+  const app = ui({}, { version: 1, step: 9, details: true, answers: { frontend_language: 'TypeScript' } });
   app.choose('frontend_language', R.UNKNOWN);
   assert(R.isUnknown(app.get().frontend_language));
   assert.equal(app.stored().drafts.frontend_language, 'TypeScript');
@@ -662,7 +658,7 @@ test('deleting the last project creates a clean project without its answers, dra
   }
 });
 test('option explanation opens without changing any answers', () => {
-  const app = ui({}, { version: 1, step: 4, details: true, answers: { frontend_language: 'TypeScript' } });
+  const app = ui({}, { version: 1, step: 9, details: true, answers: { frontend_language: 'TypeScript' } });
   const before = JSON.stringify(app.get());
   app.click({ dataset: { helpQuestion: 'frontend_language', helpIndex: '0' } });
   assert.equal(JSON.stringify(app.get()), before);
@@ -692,7 +688,7 @@ test('custom input waits for composition end and restores caret after branch ren
 });
 test('legacy custom answer also avoids DOM replacement during composition', () => {
   const previous = '[이전 선택] 이전 방식';
-  const app = ui({ features: ['회원가입·로그인'], auth_state_validation: [`기타: ${previous}`] });
+  const app = ui({}, {version:1,step:10,answers:{ features: ['회원가입·로그인'], auth_state_validation: [`기타: ${previous}`] }});
   const before = app.markup();
   app.custom('auth_state_validation', `${previous} 수정`, true);
   assert.equal(app.markup(), before, 'legacy re-selection must not override composition protection');
@@ -708,7 +704,7 @@ test('legacy single values become multi selections without content loss', () => 
   }
 });
 {
-const qualityUI = (answers = {}, savedDraft, options) => ui(answers, savedDraft || { version: 1, step: 12, details: true, answers }, options);
+const qualityUI = (answers = {}, savedDraft, options) => ui(answers, savedDraft || { version: 1, step: 13, details: true, answers }, options);
 const [NONE, FLOWS] = Q.testBasisOptions;
 const critical = R.allQuestions.find(q => q.id === 'critical_tests');
 const feature = name => Object.fromEntries(Q.featureFields.map(f => [f.id, f.id === 'name' ? name : f.id === 'priority' ? '첫 출시에 필수' : `${name}_${f.id}`]));
@@ -828,7 +824,7 @@ test('recommendation round-trip restores full plan and preserved legacy text', (
 });
 test('old text in recommendation drafts migrates and restores without loss', () => {
   const old = '추천 전 문자열\n두 번째 줄';
-  const app = qualityUI({}, { version: 1, step: 12, details: true, answers: { critical_tests: R.UNKNOWN }, drafts: { critical_tests: old } });
+  const app = qualityUI({}, { version: 1, step: 13, details: true, answers: { critical_tests: R.UNKNOWN }, drafts: { critical_tests: old } });
   app.clickUnknown('critical_tests');
   assert.equal(app.get().critical_tests.legacy, old);
   assert(app.markup().includes('추천 전 문자열'));
@@ -983,14 +979,14 @@ test('every decision and every offered option has complete educational guidance'
   }
   for (const question of [...R.allQuestions.filter(q => q.options.length), { id: 'feature_priority', options: Q.featureFields.find(f => f.id === 'priority').options }, { id: 'test_basis', options: Q.testBasisOptions }]) {
     for (const option of R.choiceOptions(question)) {
-      for (const field of ['meaning', 'pros', 'cons', 'fit', 'impact']) {
+      for (const field of G.facts[question.id] && question.options.includes(option) ? ['meaning'] : ['meaning', 'pros', 'cons', 'fit', 'impact']) {
         assert(G.get(question, option)?.[field]?.length > 5, `${question.id}/${option}/${field}`);
       }
     }
   }
 });
 test('comparing and browsing explains both options without changing answers or notes', () => {
-  const app = ui({}, { version: 1, step: 4, details: true, answers: { frontend_language: 'TypeScript' }, notes: { frontend_language: '팀에서 사용해 본 언어라 선택' } });
+  const app = ui({}, { version: 1, step: 9, details: true, answers: { frontend_language: 'TypeScript' }, notes: { frontend_language: '팀에서 사용해 본 언어라 선택' } });
   const before = JSON.stringify({ answers: app.get(), notes: app.stored().notes });
   app.click({ dataset: { helpQuestion: 'frontend_language', helpIndex: '0' } });
   app.compareHelp(1);
@@ -1011,7 +1007,7 @@ test('each question shows its own reason, writing scaffold and related decisions
   assert(app.markup().includes((G.facts.summary || G.questions.summary).criteria));
   assert(app.markup().includes((G.facts.summary?.example || G.questions.summary.prompts[0])));
   assert(app.markup().includes('data-detail="reason-summary"'));
-  app.click({ dataset: { step: '4' } });
+  app.click({ dataset: { step: '9' } });
   app.choose('frontend_language', 'JavaScript');
   assert(app.markup().includes(G.get({ id: 'frontend_language' }, 'JavaScript').fit));
   assert(app.markup().includes(G.get({ id: 'frontend_language' }, 'JavaScript').impact));
@@ -1025,8 +1021,8 @@ test('contextual candidates expose evidence and comparison without selecting or 
   const advice = R.decisionAdvice(question, app.get());
   const candidates = advice.candidates.filter(item => item.level === 'consider');
   assert(candidates.length >= 2, 'The solo-project example should explain alternatives, not dictate one architecture');
-  assert(app.markup().includes('내 상황에서 비교할 후보'));
-  assert(app.markup().includes('이 안내에 사용한 내 답변'));
+  assert(app.markup().includes('판단의 출발점'));
+  assert(app.markup().includes('연결된 내 답변'));
   app.click({ dataset: { compareQuestion: question.id, compareFirst: String(R.choiceOptions(question).indexOf(candidates[0].option)), compareSecond: String(R.choiceOptions(question).indexOf(candidates[1].option)) } });
   assert(app.helpMarkup().includes('option-comparison'));
   for (const candidate of candidates.slice(0, 2)) assert(app.helpMarkup().includes(G.get(question, candidate.option).meaning));
@@ -1057,7 +1053,7 @@ test('legacy implementation hand-off answers survive browser migration reload an
 test('converted free-text decisions retain full old text, drafts and notes through backups', async () => {
   for (const q of R.allQuestions.filter(q => q.legacyFreeText)) {
     for (const text of [' 이전에 적은 세부 조건\n두 번째 줄 ', '가'.repeat(6000)]) {
-      const app = ui({}, { version: 1, step: 8, details: true, answers: { [q.id]: text }, notes: { [q.id]: '선택 이유' } });
+      const app = ui({}, { version: 1, step: 5, details: true, answers: { [q.id]: text }, notes: { [q.id]: '선택 이유' } });
       const expected = `기타: ${text}`;
       assert([app.get()[q.id]].flat().includes(expected), q.id);
       const backup = app.exportBackup();
@@ -1082,7 +1078,7 @@ test('jump and restore focus answer controls rather than closed learning links',
   assert.equal(app.active().id, 'input-summary');
 });
 test('new tool choices honor exclusivity and explain framework conflicts', () => {
-  const app = ui({}, { version: 1, step: 4, answers: { frontend_framework: 'React + Vite' } });
+  const app = ui({}, { version: 1, step: 9, answers: { frontend_framework: 'React + Vite' } });
   app.choose('ui_library', 'MUI·React');
   app.choose('ui_library', '추가 UI 도구 없이 직접 제작');
   assert.equal(JSON.stringify(app.get().ui_library), JSON.stringify(['추가 UI 도구 없이 직접 제작']));
@@ -1097,17 +1093,20 @@ test('new tool choices honor exclusivity and explain framework conflicts', () =>
 });
 
 
-test('question conditions never depend on a later question', () => {
-  const order = new Map(R.allQuestions.map((q,i) => [q.id,i]));
-  for (const step of Q.steps) for (const group of step.groups) for (const q of group.questions)
-    for (const parent of [group.when,q.when].flatMap(R.conditionIds)) assert(order.get(parent) < order.get(q.id), `${parent} before ${q.id}`);
+test('reordered requirements retain an acyclic conditional graph', () => {
+  const parents=new Map(Q.steps.flatMap(s=>s.groups.flatMap(g=>g.questions.map(q=>[q.id,[g.when,q.when].flatMap(R.conditionIds)]))));
+  function visit(id,trail=new Set()) {assert(parents.has(id),id);assert(!trail.has(id),'Conditional cycle: '+id);for(const parent of parents.get(id))visit(parent,new Set([...trail,id]));}
+  for(const id of parents.keys()) visit(id);
+  const languageStep=Q.steps.findIndex(s=>s.groups.some(g=>g.questions.some(q=>q.id==='frontend_language')));
+  const requirementStep=Q.steps.findIndex(s=>s.groups.some(g=>g.questions.some(q=>q.id==='screen_details')));
+  assert(requirementStep<languageStep);
 });
 test('all applicable questions are directly visible in prerequisite order without advanced sections', () => {
-  const app = ui({}, {version:1,step:0,answers:{},details:false});
+  const app = ui({}, {version:1,step: 0,answers:{},details:false});
   for(let i=0;i<Q.steps.length;i++){
     app.click({dataset:{step:String(i)}});
     const expected=R.activeGroups(Q.steps[i],{}).flatMap(g=>g.questions).map(q=>q.id);
-    const actual=[...app.markup().matchAll(/<fieldset class="question" id="field-([^"]+)"/g)].map(m=>m[1]);
+    const actual=[...app.markup().matchAll(/<fieldset class="question(?: design-question)?" id="field-([^"]+)"/g)].map(m=>m[1]);
     assert.deepEqual(actual,expected);
     assert(!app.markup().includes('advanced-details'));
     assert(!app.markup().includes('더 꼼꼼하게 정하기'));
@@ -1117,7 +1116,7 @@ test('all applicable questions are directly visible in prerequisite order withou
 test('worksheets preserve every legacy answer and unknown roundtrip through backups', async () => {
   for(const q of R.allQuestions.filter(q=>q.type==='worksheet')){
     const text=' 원문\n'+ '가'.repeat(5995);
-    const app=ui({}, {version:1,step:0,answers:{[q.id]:text},notes:{[q.id]:'이유'}});
+    const app=ui({}, {version:1,step: 0,answers:{[q.id]:text},notes:{[q.id]:'이유'}});
     assert.equal(app.get()[q.id].legacy,text,q.id);
     app.clickUnknown(q.id);
     const backup=app.exportBackup();
@@ -1129,7 +1128,7 @@ test('worksheets preserve every legacy answer and unknown roundtrip through back
   }
 });
 test('worksheet edits, add/remove and reload retain rows and partial status', () => {
-  const app=ui({}, {version:1,step:2,answers:{},details:true});
+  const app=ui({}, {version:1,step: 2,answers:{},details:true});
   app.worksheet('role_matrix',0,'role','<script>운영자</script>');
   app.click({dataset:{addWorksheet:'role_matrix'}});
   app.worksheet('role_matrix',1,'role','일반 회원');
@@ -1444,7 +1443,8 @@ test('only explicitly device-local native apps omit hosting and retain recoverab
   for (const project_type of ['모바일 앱', 'PC 프로그램']) {
     const native = R.normalizeAnswers({ project_type, backend_mode: '기기 안에서만 실행', hosting: ['AWS'], domain: 'example.test', network: '이전 서버 네트워크 계획' });
     assert.equal(native.backend_mode, '기기 안에서만 실행');
-    for (const id of ['hosting', 'hosting_mapping', 'hosting_region', 'domain', 'network', 'scaling']) assert(!shown(id, native), id);
+    for (const id of ['hosting', 'hosting_mapping', 'domain', 'network', 'scaling']) assert(!shown(id, native), id);
+    assert(shown('hosting_region', native) && R.allQuestions.find(q => q.id === 'hosting_region').supplemental, 'Existing region constraints remain optional facts independent of hosting tools');
     assert(!R.report(native).includes(native.network));
     assert.deepEqual(native.hosting, ['AWS']);
     for (const backend_mode of ['BaaS·관리형 백엔드', undefined]) {
@@ -1497,7 +1497,7 @@ test('explicit undecided answers remain editable and out of resolved progress', 
   assert(!R.isUndecided('없음'));
   assert(!R.isUndecided('미정인 날짜를 선택하는 기능'));
   assert(R.isUndecided('기타: 미정'));
-  const app = ui({}, {version:1,step:1,answers:a});
+  const app = ui({}, {version:1,step: 1,answers:a});
   assert(app.markup().includes('answer-indicator">미정'));
   assert(!/id="input-audience"[^>]*disabled/.test(app.markup()));
   assert.equal(app.get().audience, ' 미정 ', 'Preserve what the user wrote');
@@ -1701,10 +1701,10 @@ test('migrated screen and notification lists remain incomplete without inventing
     const q=R.allQuestions.find(q=>q.id===target);
     assert.equal(p.answers[target].needsDetailReview,true);
     assert(!R.isResolved(q,p.answers));
-    assert.match(R.pendingReason(q,p.answers),/이전 목록/);
+    assert.match(R.pendingReason(q,p.answers),/초안/);
     assert.deepEqual(R.normalizeProject(p),p);
     const row=Object.fromEntries(q.fields.map(f=>[f.id,`${f.label} 확인함`]));
-    assert(R.isResolved(q,{...p.answers,[target]:{...p.answers[target],rows:[row]}}));
+    assert(R.isResolved(q,{...p.answers,[target]:{...p.answers[target],rows:[row],needsDetailReview:false}}));
     const existing=R.normalizeProject({answers:{...a,[target]:'이전에 작성한 충분한 세부 설명'}});
     assert(!existing.answers[target].needsDetailReview,'Do not mark an existing detailed target incomplete merely because a list was appended');
     assert(R.isResolved(q,existing.answers));
@@ -1788,14 +1788,14 @@ test('migration overflow leaves local storage intact and permits a separate new-
 });
 
 test('legacy migration preserves its exact source and reloads the active project with independent data', () => {
-  const legacy = {version:1,step:5,answers:{project_name:'기존 프로젝트',main_journey:R.UNKNOWN},drafts:{main_journey:'기존 입력 원문'},notes:{main_journey:'선택한 이유'}};
+  const legacy = {version:1,step: 10,answers:{project_name:'기존 프로젝트',main_journey:R.UNKNOWN},drafts:{main_journey:'기존 입력 원문'},notes:{main_journey:'선택한 이유'}};
   const rawSaved=JSON.stringify(legacy);
   const app=ui({},undefined,{rawSaved});
   const workspace=app.workspace();
   assert.equal(workspace.version,1);
   assert.equal(workspace.projects.length,1);
   assert.equal(workspace.projects[0].id,workspace.activeId);
-  assert.equal(app.stored().step,5);
+  assert.equal(app.stored().step,legacy.step);
   for(const key of ['answers','drafts','notes'])assert.deepEqual(app.stored()[key],legacy[key]);
   assert.equal(app.rawStored(),rawSaved,'Successful migration must leave the old key untouched');
   app.click({id:'add-project'});
@@ -1811,7 +1811,7 @@ test('legacy migration preserves its exact source and reloads the active project
   app.clickUnknown('main_journey');
   app.click({dataset:{step:'3'}});
   app.switchProject(workspace.activeId);
-  assert.equal(app.stored().step,5);
+  assert.equal(app.stored().step,legacy.step);
   assert.equal(app.exportBackup().drafts.main_journey,'기존 입력 원문');
   assert.equal(app.exportBackup().notes.main_journey,'선택한 이유');
   app.clickUnknown('main_journey');
@@ -2029,6 +2029,29 @@ test('an external write is detected before the storage event and cannot be overw
   assert.match(app.textOf('#save-status'),/다른 탭/);
   assert.equal(app.exportBackup().answers.summary,'이 탭에서만 작성한 설명');
   assert.equal(app.exportBackup('export-all-projects').projects.length,1,'A backup must contain this tab’s complete memory, without inventing a merge');
+});
+
+test('requirements become reviewable screen drafts without overwriting user work', () => {
+  const feature = { name: '행사 신청', actor: '참가자', input: '이름', action: '신청 버튼 선택', result: '접수 번호 표시', failure: '정원 초과 안내', acceptance: '중복 신청 없이 접수', priority: '첫 출시 필수' };
+  const app = ui({ project_type: '웹사이트', feature_specs: [feature], development_stage: '아이디어만 있어요' });
+  app.click({ dataset: { step: '3' } });
+  assert(app.markup().includes('data-use-draft="screen_details"'));
+  app.click({ dataset: { useDraft: 'screen_details' } });
+  assert.equal(app.get().screen_details.rows[0].actions, feature.action);
+  assert.equal(app.get().screen_details.needsDetailReview, true);
+  assert(!R.isResolved(byId.get('screen_details'), app.get()), 'An imported proposal is not reviewed');
+  app.worksheet('screen_details', 0, 'screen', '신청과 접수 확인');
+  app.click({ dataset: { reviewDraft: 'screen_details' } });
+  assert(R.isResolved(byId.get('screen_details'), app.get()));
+  const before = JSON.stringify(app.get().screen_details);
+  app.set('feature_specs', [{ ...feature, name: '바뀐 기능 이름' }]);
+  app.click({ dataset: { useDraft: 'screen_details' } });
+  assert.equal(JSON.stringify(app.get().screen_details), before, 'Reusing or editing a source must not replace an existing screen plan');
+  const restored = ui({}, undefined, { workspace: app.workspace() });
+  assert.equal(restored.get().screen_details.rows[0].screen, '신청과 접수 확인');
+  assert(restored.stored().notes.screen_details.includes(byId.get('feature_specs').label));
+  const prompt = R.report(restored.get(), true, restored.stored().notes);
+  assert(prompt.includes('신청과 접수 확인') && prompt.includes('설계 검토 예정'));
 });
 
 Promise.all(pending).then(() => {

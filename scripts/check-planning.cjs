@@ -177,4 +177,24 @@ for (const [id, options] of Object.entries({
     assert.deepEqual(R.normalizeProject(JSON.parse(JSON.stringify(migrated))), migrated, `${id}: migration is idempotent`);
   }
 }
-console.log('Planning acceptance checks passed: independent decisions, contextual evidence, scope filtering, document hand-off, and legacy preservation.');
+// A beginner can leave tool decisions for document review without losing requirement progress.
+const beginner = { project_name: '행사 안내', development_stage: '아이디어만 있어요', project_type: '웹사이트', form_usage: '입력 화면 필요' };
+const beforeTechnicalChoice = R.requirementStats(beginner);
+const afterTechnicalChoice = R.requirementStats({ ...beginner, frontend_language: 'TypeScript' });
+for (const field of ['total','confirmed','pending','percent']) assert.equal(afterTechnicalChoice[field], beforeTechnicalChoice[field], field);
+assert.equal(afterTechnicalChoice.designSelected, beforeTechnicalChoice.designSelected + 1);
+assert(R.decisionAdvice(questions.get('frontend_language'), beginner).candidates.some(c => c.option === 'TypeScript'));
+assert.equal(R.decisionAdvice(questions.get('frontend_language'), { ...beginner, development_stage: '기존 코드가 있어요' }).candidates.length, 0, 'Do not prescribe migration without inspecting existing code');
+assert(R.readiness(beginner).during.some(q => q.id === 'frontend_language'));
+assert(!R.readiness(beginner).before.some(q => q.id === 'frontend_language'));
+for (const criterion of R.implementationBaseline) assert(R.report(beginner, true).includes(criterion));
+assert.equal(R.suggestedDraft('screen_details', apiOnly), null);
+const roleDraft = R.suggestedDraft('role_matrix', { ...teamApp, user_roles: ['일반 회원','운영 관리자'] });
+assert.equal(roleDraft.value.rows.length, 2);
+assert.deepEqual(Object.keys(roleDraft.value.rows[0]), ['role'], 'Role names are not permission grants');
+for (const q of questions.values()) {
+  assert(['requirement','design'].includes(q.kind), q.id);
+  if (q.kind === 'requirement') for (const id of R.conditionIds(q.when)) assert.notEqual(questions.get(id).kind, 'design', `${q.id}: requirements cannot depend on a later tool choice`);
+  if (q.kind === 'design') for (const id of q.review.basis) assert(questions.has(id), `${q.id}: unknown evidence ${id}`);
+}
+console.log('Planning acceptance checks passed: independent decisions, contextual evidence, requirement progress, draft reuse, document hand-off, and legacy preservation.');

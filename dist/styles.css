@@ -50,3 +50,27 @@
 .project-switcher{padding:0 4px;margin-bottom:22px;min-width:0}.project-switcher-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.project-switcher-heading label{font-size:12px;font-weight:700;color:#536783}.project-switcher-heading .text-button{min-height:32px;padding:4px}.project-switcher-controls{display:grid;gap:8px;min-width:0}.project-switcher-controls .select-input{min-width:0;max-width:100%;padding:9px 10px;min-height:44px;font-size:14px;text-overflow:ellipsis}.project-switcher-controls .button{min-height:44px;font-size:12px;white-space:nowrap}
 .projects-dialog{max-width:680px;max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}.projects-dialog .help-top h2{margin:0}.projects-dialog .projects-intro{font-size:13px;line-height:1.8;margin:0 0 20px}.project-list{display:grid;gap:12px;margin:0 0 22px;padding:0}.project-item{min-width:0;padding:16px;border:1px solid #dfe6ef;border-radius:9px;background:#fff}.project-item[aria-current=true]{border-color:#9fb6f2;background:#f5f8ff}.project-item-info{min-width:0}.project-item-info strong{display:block;font-size:15px;line-height:1.7;color:#354968;overflow-wrap:anywhere;white-space:pre-wrap}.project-item-info p{font-size:12px;line-height:1.8;margin:6px 0 12px;color:#71809a;overflow-wrap:anywhere}.project-item-actions{display:flex;flex-wrap:wrap;gap:8px}.project-item-actions .button{min-height:44px;font-size:12px;padding:9px 12px}.projects-dialog>.dialog-actions{justify-content:flex-start;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px}.project-name-dialog,.delete-project-dialog{max-height:calc(100dvh - 32px);overflow:auto}.project-name-dialog label{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:#435672}.project-name-dialog .dialog-actions{margin-top:22px;flex-wrap:wrap}.delete-project-dialog #delete-project-name{display:block;overflow-wrap:anywhere;white-space:pre-wrap;font-size:16px;color:#344158;margin-bottom:14px}.delete-project-dialog p,.project-name-dialog p{font-size:14px;line-height:1.85}.delete-project-dialog .dialog-actions{flex-wrap:wrap}
 @media(max-width:780px){.sidebar-heading.project-switcher{display:block;padding:0;margin:0 0 10px}.project-switcher-heading{margin-bottom:3px}.project-switcher-controls{display:flex;gap:8px;align-items:stretch}.project-switcher-controls .select-input{flex:1;width:0;font-size:16px}.project-switcher-controls .button{flex-shrink:0;font-size:11px;padding:9px 10px}.project-switcher-heading .text-button{font-size:12px}.sidebar-bottom .text-button{min-height:32px;font-size:11px}.projects-dialog{padding:20px;width:calc(100vw - 24px)}.project-item{padding:14px}.projects-dialog .help-top{gap:10px}}
+.nav-phase { margin: 22px 12px 8px; color: #526788; font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+.design-label { display: inline-block; margin-left: 8px; border-radius: 4px; padding: 3px 6px; color: #3458b4; background: #eef2ff; font-size: 11px; font-weight: 600; }
+.design-options { margin-top: 14px; padding: 14px 16px; border: 1px solid #dce4f4; border-radius: 8px; background: white; }
+.design-options > summary { cursor: pointer; color: #244ca9; font-weight: 650; }
+.design-options[open] > summary { margin-bottom: 16px; }
+.design-question .decision-advice { margin-top: 10px; }
+.advice-start { line-height: 1.8; }
+.advice-start strong { display: block; margin-bottom: 4px; }
+.advice-missing summary { cursor: pointer; }
+.advice-missing button { display: block; text-align: left; margin-top: 9px; }
+.draft-proposal, .draft-review { margin: 16px 0; padding: 18px; border: 1px solid #cddcf5; border-radius: 10px; background: #f5f9ff; }
+.draft-proposal p, .draft-review p { line-height: 1.8; margin: 8px 0 12px; }
+.draft-proposal pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 13px; line-height: 1.8; }
+.draft-proposal details { margin: 12px 0; }
+.feature-detail-stage { grid-column: 1 / -1; margin-top: 8px; padding: 16px; background: #f6f8fc; border-radius: 8px; }
+.feature-detail-stage summary { cursor: pointer; font-weight: 650; color: #294b86; }
+.feature-detail-stage[open] summary { margin-bottom: 14px; }
+.feature-detail-stage .feature-fields { margin-top: 14px; }
+@media (max-width: 700px) {
+  .draft-proposal, .draft-review, .design-options, .feature-detail-stage { padding: 12px; }
+  .nav-phase { display: none; }
+  .page-topline { flex-wrap: wrap; gap: 8px; }
+  .step-badge { white-space: nowrap; }
+}
