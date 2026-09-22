@@ -17,7 +17,7 @@
   <a class="skip-link" href="#main">질문으로 바로가기</a>
   <header class="topbar">
     <a class="brand" href="#" aria-label="빌드브리프 처음으로"><span class="brand-mark">b<span>·</span></span>빌드브리프<span class="brand-en">BUILD BRIEF</span></a>
-    <div class="top-actions"><span id="save-status" role="status">이 브라우저에 자동 저장</span><button class="button secondary small" id="report-button">리포트 미리보기 <span aria-hidden="true">↗</span></button></div>
+    <div class="top-actions"><button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog" title="저장 유지 조건과 백업 방법"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-help-icon" aria-hidden="true">?</span></button><button class="button secondary small" id="report-button">리포트 미리보기 <span aria-hidden="true">↗</span></button></div>
   </header>
   <div class="workspace">
     <aside class="sidebar" aria-label="질문 단계">
@@ -44,6 +44,20 @@
     </aside>
   </div>
   <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="storage-help-dialog" class="option-help-dialog storage-help-dialog" aria-labelledby="storage-help-title">
+    <div class="help-top"><span class="eyebrow">저장과 백업 안내</span><button type="button" class="button secondary small" id="close-storage-help" autofocus>닫기 ×</button></div>
+    <h2 id="storage-help-title">답변은 어디에 저장되나요?</h2>
+    <div class="storage-current"><strong>현재 저장 상태</strong><p id="storage-help-status" role="status">이 브라우저에 자동 저장</p><p id="storage-help-warning" hidden>최근 입력이 저장되지 않았을 수 있어요. 새로고침하거나 탭을 닫기 전에 이 탭의 답변을 백업해 주세요.</p></div>
+    <dl>
+      <div class="help-fact"><dt>새로고침하거나 PC를 꺼도 괜찮나요?</dt><dd>일반 모드에서 ‘이 브라우저에 저장됨’을 확인했다면 새로고침, 브라우저 종료, PC 재부팅 후에도 답변과 작성 단계를 불러와요. 입력·선택한 답변과 메모는 바꿀 때마다 자동 저장해요.</dd></div>
+      <div class="help-fact"><dt>어디에서 이어 쓸 수 있나요?</dt><dd>같은 기기·브라우저·프로필에서 같은 사이트 주소로 접속해 주세요. 이 브라우저의 저장 공간(localStorage)을 사용하며, 답변을 서버에 보관하거나 계정·다른 기기에 자동으로 동기화하지 않아요. 주소가 바뀌면 백업 파일로 옮겨야 해요.</dd></div>
+      <div class="help-fact"><dt>어떤 경우에 사라질 수 있나요?</dt><dd>사이트 데이터 삭제, 종료 시 데이터 자동 삭제 설정, 시크릿 모드 종료, 브라우저 초기화·프로필 삭제로 사라질 수 있어요. 브라우저의 저장 공간 정리나 기기 고장도 대비해야 해요. ‘새 프로젝트’를 확인하면 현재 답변이 지워지고, 백업을 불러오면 현재 답변이 바뀌어요.</dd></div>
+      <div class="help-fact"><dt>저장 오류나 다른 탭 변경 안내가 보이면요?</dt><dd>최근 입력이 저장되지 않았을 수 있으니 새로고침하거나 탭을 닫기 전에 이 탭의 답변부터 백업해 주세요. 다른 탭에서 답변을 바꾸면 서로 덮어쓰지 않도록 이 탭의 자동 저장을 멈춰요. 백업 후 새로고침하면 브라우저에 마지막으로 저장된 답변을 불러와요. 백업이 성공했는지도 확인해 주세요.</dd></div>
+      <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>아래 ‘답변 백업’으로 JSON 파일을 내려받아 보관하세요. 새 주소나 다른 기기에서 ‘백업 불러오기’를 누르면 이어 쓸 수 있어요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
+    </dl>
+    <p class="storage-privacy">브라우저 답변과 JSON 백업은 이 서비스가 별도로 암호화하지 않아요. API 키·비밀번호는 입력하지 말고, 백업 파일은 내용을 읽어도 되는 사람에게만 공유해 주세요.</p>
+    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">답변 백업 (.json)</button></div>
+  </dialog>
   <dialog id="reset-dialog"><h2>새 프로젝트를 시작할까요?</h2><p>현재 브라우저의 답변이 지워져요. 보관하려면 먼저 ‘답변 백업’을 눌러주세요.</p><div class="dialog-actions"><button class="button secondary" id="cancel-reset">취소</button><button class="button danger" id="confirm-reset">지우고 시작</button></div></dialog>
   <dialog id="option-help-dialog" class="option-help-dialog" aria-labelledby="help-title">
     <div class="help-top"><span class="eyebrow">선택 도우미</span><button type="button" class="button secondary small" id="close-option-help" autofocus>닫기 ×</button></div>

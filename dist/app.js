@@ -58,18 +58,26 @@
     const fact = window.BriefGuides.facts?.[question.id];
     return `<div class="question-learning"><p class="question-why" id="why-${question.id}"><strong>${fact ? '작성 기준' : '왜 고민하나요?'}</strong> ${escape(fact?.meaning || learning.why)}</p><details class="decision-detail" data-detail="reason-${question.id}"><summary>${fact ? '작성 방법과 예시 보기' : '판단 기준과 다음 결정 알아보기'}</summary><dl>${factsMarkup(fact || learning, [['criteria','무엇을 보고 판단하나요?'],['example','예를 들어'],['impact','이 선택은 무엇에 영향을 주나요?']])}</dl>${learning.related?.some(id => active.has(id)) ? `<div class="related-decisions"><strong>함께 살펴볼 결정</strong>${learning.related.filter(id => active.has(id)).map(id => `<button type="button" class="text-button" data-jump="${id}">${escape(byId.get(id).label)} →</button>`).join('')}</div>` : ''}</details>${!fact && learning.prompts?.length && question.type !== 'worksheet' ? `<details class="decision-detail writing-guide" data-detail="write-${question.id}"><summary>막막할 때, 이 순서로 생각해 보세요</summary><ol>${learning.prompts.map(prompt => `<li>${escape(prompt)}</li>`).join('')}</ol><p>내 프로젝트에 맞는 내용부터 적으세요. 아직 모르는 조건은 미정이라고 남겨도 돼요.</p></details>` : ''}</div>`;
   }
+  function updateSaveStatus(message) {
+    $('#save-status').textContent = message;
+    $('#storage-help-status').textContent = message;
+    $('#storage-help-warning').hidden = storageWorking && !externalChange;
+    $('#save-help-button').dataset.attention = String(!storageWorking || externalChange);
+    $('#save-help-button').setAttribute('aria-label', `${message} · 저장 안내 열기`);
+    $('#storage-help-dialog').dataset.attention = String(!storageWorking || externalChange);
+  }
   function save() {
     if (externalChange) {
-      $('#save-status').textContent = '다른 탭 변경 감지 · 백업 후 새로고침';
+      updateSaveStatus('다른 탭 변경 감지 · 백업 후 새로고침');
       return;
     }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, step: currentStep, details: showDetails, answers, drafts, notes }));
       storageWorking = true;
-      $('#save-status').textContent = '이 브라우저에 저장됨';
+      updateSaveStatus('이 브라우저에 저장됨');
     } catch {
       storageWorking = false;
-      $('#save-status').textContent = '저장 불가 · 답변을 백업해 주세요';
+      updateSaveStatus('저장 불가 · 답변을 백업해 주세요');
     }
   }
   function toast(message) {
@@ -407,6 +415,8 @@
   document.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
+    if (button.id === 'save-help-button') return $('#storage-help-dialog').showModal();
+    if (button.id === 'close-storage-help') return $('#storage-help-dialog').close();
     if (button.dataset.helpQuestion) return showOptionHelp(button.dataset.helpQuestion, Number(button.dataset.helpIndex));
     if (button.id === 'close-option-help') return $('#option-help-dialog').close();
     if (button.dataset.addWorksheet) {
@@ -488,7 +498,7 @@
       window.addEventListener('afterprint', restore, { once: true });
       window.print();
     }
-    if (button.id === 'export-answers') download(JSON.stringify({ format: 'buildbrief', version: 1, exportedAt: new Date().toISOString(), answers, drafts, notes }, null, 2), 'json', '답변백업');
+    if (button.id === 'export-answers' || button.id === 'storage-backup') download(JSON.stringify({ format: 'buildbrief', version: 1, exportedAt: new Date().toISOString(), answers, drafts, notes }, null, 2), 'json', '답변백업');
     if (button.id === 'import-answers') $('#import-file').click();
     if (button.id === 'reset-button') $('#reset-dialog').showModal();
     if (button.id === 'cancel-reset') $('#reset-dialog').close();
@@ -526,10 +536,10 @@
   window.addEventListener('storage', event => {
     if (event.key === STORAGE_KEY || event.key === null) {
       externalChange = true;
-      $('#save-status').textContent = '다른 탭 변경 감지 · 백업 후 새로고침';
+      updateSaveStatus('다른 탭 변경 감지 · 백업 후 새로고침');
       toast('다른 탭의 답변을 덮어쓰지 않도록 자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.');
     }
   });
   renderStep(currentStep);
-  if (!storageWorking) { $('#save-status').textContent = '자동 저장을 확인할 수 없어요'; toast('자동 저장이 제한되었거나 저장된 답변을 읽지 못했어요. 답변 백업을 이용해 주세요.'); }
+  if (!storageWorking) { updateSaveStatus('자동 저장을 확인할 수 없어요'); toast('자동 저장이 제한되었거나 저장된 답변을 읽지 못했어요. 답변 백업을 이용해 주세요.'); }
 })();

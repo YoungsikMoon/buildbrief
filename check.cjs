@@ -222,7 +222,7 @@ function test(name, run) {
   catch (error) { failed++; console.log(`FAIL ${name}: ${error.message.split('\n')[0]}`); }
 }
 function ui(answers = {}, savedDraft, options = {}) {
-  const nodes = new Map(), events = {}, timers = [], downloads = [];
+  const nodes = new Map(), events = {}, windowEvents = {}, timers = [], downloads = [];
   let saved = JSON.stringify(savedDraft || { version: 1, step: 8, details: true, answers });
   const doc = {
     activeElement: null,
@@ -253,8 +253,8 @@ function ui(answers = {}, savedDraft, options = {}) {
   }
   const ctx = {
     document: doc,
-    window: { BriefQuestions: Q, BriefReport: R, BriefGuides: G, addEventListener() {}, confirm: () => options.confirm !== false, scrollTo() {} },
-    localStorage: { getItem: () => saved, setItem(key, value) { saved = value; } },
+    window: { BriefQuestions: Q, BriefReport: R, BriefGuides: G, addEventListener(type, handler) { windowEvents[type] = handler; }, confirm: () => options.confirm !== false, scrollTo() {} },
+    localStorage: { getItem: () => saved, setItem(key, value) { if (options.storageFails) throw new Error('Storage unavailable'); saved = value; } },
     Blob: class { constructor(parts) { this.text = parts.join(''); } },
     URL: { createObjectURL(blob) { downloads.push(blob.text); return 'blob:vm-test'; }, revokeObjectURL() {} },
     setTimeout(fn) { timers.push(fn); return timers.length; },
@@ -286,6 +286,9 @@ function ui(answers = {}, savedDraft, options = {}) {
       node('#question-form').handlers.input({ target: { dataset: { worksheet: id, row: String(row), part }, value } });
     },
     textOf: selector => node(selector).textContent,
+    isOpen: selector => node(selector).open === true,
+    isHidden: selector => node(selector).hidden,
+    storageChange() { windowEvents.storage({ key: 'buildbrief.project.v1' }); },
     set: ctx.__audit.set,
     stored: () => JSON.parse(saved),
     markup: () => node('#question-groups').innerHTML,
@@ -293,8 +296,8 @@ function ui(answers = {}, savedDraft, options = {}) {
     helpMarkup: () => node('#help-content').innerHTML,
     browseHelp(index) { node('#help-option').handlers.change({ target: { value: String(index) } }); },
     compareHelp(index) { node('#help-compare').handlers.change({ target: { value: String(index) } }); },
-    exportBackup() {
-      events.click({ target: { closest: () => ({ id: 'export-answers', dataset: {} }) } });
+    exportBackup(id = 'export-answers') {
+      events.click({ target: { closest: () => ({ id, dataset: {} }) } });
       return JSON.parse(downloads.at(-1));
     },
     async importBackup(backup) {
@@ -329,6 +332,31 @@ function ui(answers = {}, savedDraft, options = {}) {
     }
   };
 }
+
+test('storage help preserves answers and backs up unsaved edits after storage failures or tab conflicts', () => {
+  const app = ui();
+  app.set('project_name', '보관할 프로젝트');
+  const saved = app.stored();
+  app.click({ id: 'save-help-button' });
+  assert(app.isOpen('#storage-help-dialog'));
+  assert.equal(app.textOf('#storage-help-status'), '이 브라우저에 저장됨');
+  assert(app.isHidden('#storage-help-warning'));
+  assert.deepEqual(app.stored(), saved, 'Opening help must not write or clear answers');
+  assert.deepEqual(app.exportBackup('storage-backup').answers, saved.answers);
+  app.click({ id: 'close-storage-help' });
+  assert(!app.isOpen('#storage-help-dialog'));
+  for (const blockedBy of ['quota', 'other-tab']) {
+    const blocked = ui({}, undefined, { storageFails: blockedBy === 'quota' });
+    blocked.click({ id: 'save-help-button' });
+    if (blockedBy === 'other-tab') blocked.storageChange();
+    blocked.set('project_name', '아직 저장되지 않은 답변');
+    assert(!blocked.isHidden('#storage-help-warning'));
+    assert.match(blocked.textOf('#storage-help-status'), /백업/);
+    assert.equal(blocked.textOf('#storage-help-status'), blocked.textOf('#save-status'));
+    assert.equal(blocked.stored().answers.project_name, undefined);
+    assert.equal(blocked.exportBackup('storage-backup').answers.project_name, '아직 저장되지 않은 답변');
+  }
+});
 
 test('free text survives recommendation round-trip', () => {
   const text = '예약 신청 → 운영자 승인\n두 번째 줄도 보존';
