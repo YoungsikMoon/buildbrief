@@ -7,12 +7,12 @@
   <meta name="description" content="아이디어를 구체적인 기획과 설계로. 전문가의 고려 사항을 배우고 내 상황에 맞는 선택을 정리해 AI와 요구사항·설계 문서를 완성하세요.">
   <title>빌드브리프 — 아이디어를 기획과 설계로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=7d45ec692293">
+  <link rel="stylesheet" href="styles.css?v=5b42969ce790">
   <script src="questions.js?v=bb80862ec84d" defer></script>
   <script src="report.js?v=125cbe358024" defer></script>
-  <script src="projects.js?v=8e64131c1497" defer></script>
+  <script src="projects.js?v=bb848a2f288a" defer></script>
   <script src="guides.js?v=2cade2f1d11c" defer></script>
-  <script src="app.js?v=82f6be810880" defer></script>
+  <script src="app.js?v=bc4541dd5ae3" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -23,8 +23,9 @@
     </div>
     <div class="top-actions"><button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog" title="저장 유지 조건과 백업 방법"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-help-icon" aria-hidden="true">?</span></button><button class="button secondary small" id="report-button">리포트 미리보기 <span aria-hidden="true">↗</span></button></div>
   </header>
+  <div class="mobile-navigation"><button type="button" class="button secondary small" id="toggle-navigation" aria-expanded="false" aria-controls="sidebar">프로젝트·목차</button><span id="mobile-progress"></span></div>
   <div class="workspace">
-    <aside class="sidebar" aria-label="질문 단계">
+    <aside class="sidebar" id="sidebar" aria-label="프로젝트와 목차">
       <div class="sidebar-heading project-switcher">
         <div class="project-switcher-heading"><label for="project-select">내 프로젝트</label><button type="button" class="text-button" id="manage-projects" aria-haspopup="dialog" aria-controls="projects-dialog">관리</button></div>
         <div class="project-switcher-controls"><select class="select-input" id="project-select" aria-label="프로젝트 선택"><option value="">새로운 아이디어</option></select><button type="button" class="button secondary small" id="add-project" aria-haspopup="dialog" aria-controls="project-name-dialog">+ 새 프로젝트</button></div>
@@ -48,17 +49,12 @@
     <main id="main" tabindex="-1">
       <div id="form-view">
         <div class="page-topline"><div class="breadcrumb" id="breadcrumb"></div><span class="step-badge" id="step-badge"></span></div>
-        <div class="page-heading"><div><h1 id="page-title"></h1><p id="page-description"></p></div><span class="chapter-number" id="chapter-number" aria-hidden="true"></span></div>
-        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>원하는 동작부터, 기술은 그다음에.</strong> 사용자가 무엇을 하고 어떤 결과를 얻을지 먼저 적어요. 기능·역할에서 화면과 권한표의 초안을 가져올 수 있어요. 뒤의 기술 검토에서는 연결된 답변과 판단 기준을 보고 비교해요. 지금 기술 이름을 정하지 않아도 문서에서 검토할 항목으로 남아요.</p></div>
+        <div class="page-heading"><h1 id="page-title"></h1><p id="page-description"></p></div>
+        <div class="topic-navigation"><label for="topic-select">주제 선택</label><select id="topic-select" class="select-input"></select><span id="topic-position"></span></div>
         <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><span id="step-summary"></span><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
       </div>
       <section id="report-view" hidden aria-labelledby="report-title"></section>
     </main>
-    <aside class="context-panel" aria-label="작성 도움말">
-      <div class="context-card"><span class="eyebrow">YOUR BLUEPRINT</span><h2>전문가처럼<br>생각하는 설계</h2><div class="blueprint-flow"><span>왜 고민하는지 이해하기</span><i>↓</i><span>대표적인 방식 알아보기</span><i>↓</i><span>장단점과 부담 비교하기</span><i>↓</i><span>내 상황에 적합한지 판단하기</span><i>↓</i><span>선택과 이유 기록하기</span><i>↓</i><strong>다음 설계에 연결하기 ↗</strong></div></div>
-      <div class="tip-card"><span class="tip-label">이번 단계의 팁</span><p id="step-tip"></p></div>
-      <div class="privacy-note"><span aria-hidden="true">⌑</span><p>답변은 이 브라우저에만 저장돼요. API 키나 비밀번호는 입력하지 마세요.</p></div>
-    </aside>
   </div>
   <footer class="site-footer">
     <div class="site-footer-inner">
@@ -114,9 +110,9 @@
     <div class="dialog-actions"><button type="button" class="button secondary" id="cancel-delete-project" autofocus>취소</button><button type="button" class="button danger" id="confirm-delete-project">프로젝트 삭제</button></div>
   </dialog>
   <dialog id="option-help-dialog" class="option-help-dialog" aria-labelledby="help-title">
-    <div class="help-top"><span class="eyebrow">선택 도우미</span><button type="button" class="button secondary small" id="close-option-help" autofocus>닫기 ×</button></div>
+    <div class="help-top"><span class="eyebrow">도움말</span><button type="button" class="button secondary small" id="close-option-help" autofocus>닫기 ×</button></div>
     <p id="help-context" class="help-context"></p><h2 id="help-title"></h2>
-    <div class="help-browse"><div><label for="help-option">알아볼 선택지</label><select id="help-option" class="select-input"></select></div><div><label for="help-compare">나란히 비교할 선택지</label><select id="help-compare" class="select-input"></select></div><p>설명을 읽어도 답변은 바뀌지 않아요. 닫은 뒤 원하는 항목을 선택해 주세요.</p></div>
+    <div class="help-browse" id="help-browse"><div><label for="help-option">알아볼 선택지</label><select id="help-option" class="select-input"></select></div><div><label for="help-compare">나란히 비교할 선택지</label><select id="help-compare" class="select-input"></select></div><p>설명을 읽어도 답변은 바뀌지 않아요. 닫은 뒤 원하는 항목을 선택해 주세요.</p></div>
     <div id="help-content"></div>
   </dialog>
   <noscript>질문을 작성하려면 브라우저에서 JavaScript를 활성화해 주세요.</noscript>

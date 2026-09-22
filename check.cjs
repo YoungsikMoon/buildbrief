@@ -355,6 +355,8 @@ function ui(answers = {}, savedDraft, options = {}) {
       node('#question-form').handlers.input({ target: { dataset: { note: id }, value } });
     },
     click(button) { events.click({ target: { closest: () => ({ dataset: {}, ...button }) } }); },
+    nextTopic() { node('#question-form').handlers.submit({ preventDefault() {} }); },
+    selectTopic(topic) { node('#topic-select').handlers.change({ target: { value: topic } }); },
     submitProjectName(name) {
       node('#project-name').value = name;
       node('#project-name-form').handlers.submit({ preventDefault() {} });
@@ -384,6 +386,39 @@ function ui(answers = {}, savedDraft, options = {}) {
     }
   };
 }
+
+test('topic navigation, report jumps, reload and project switching retain the right place', async () => {
+  const app = ui({}, { version: 1, step: 0, answers: { project_name: '첫 프로젝트' } });
+  const topics = R.activeGroups(Q.steps[0], app.get()).map(group => group.title);
+  app.nextTopic();
+  assert.equal(app.stored().topic, topics[1]);
+  assert.equal(app.stored().step, 0);
+  assert(app.markup().includes(`data-topic="${topics[0]}" hidden`));
+  assert(app.markup().includes(`data-topic="${topics[1]}" >`));
+  const firstId = app.workspace().activeId;
+  app.click({ id: 'add-project' }); app.submitProjectName('두 번째');
+  app.nextTopic(); app.nextTopic();
+  assert.equal(app.stored().topic, topics[2]);
+  app.switchProject(firstId);
+  assert.equal(app.stored().topic, topics[1]);
+  app.click({ id: 'previous-button' });
+  assert.equal(app.stored().topic, topics[0]);
+  app.selectTopic(topics[2]); app.nextTopic();
+  assert.equal(app.stored().step, 1);
+  app.click({ id: 'previous-button' });
+  assert.equal(app.stored().topic, topics[2]);
+  const backup = app.exportBackup();
+  const reloaded = ui({}, undefined, { workspace: app.workspace() });
+  assert(reloaded.markup().includes(`data-topic="${topics[2]}" >`));
+  await reloaded.importBackup(backup);
+  assert.equal(reloaded.stored().topic, topics[2]);
+  reloaded.click({ id: 'report-button' });
+  reloaded.click({ dataset: { jump: 'summary' } });
+  assert(!reloaded.isHidden('#form-view'));
+  assert(reloaded.isHidden('#report-view'));
+  assert.equal(reloaded.stored().topic, topics[0]);
+  assert.equal(reloaded.stored().answers.project_name, '첫 프로젝트');
+});
 
 test('progress measures requirements without forcing technical selections', () => {
   const app=ui({project_name:'진행률 확인',summary:'미정',audience:R.UNKNOWN}); app.click({dataset:{step:'0'}});
@@ -577,15 +612,17 @@ test('legacy backup values and multiline data survive normalization', () => {
   assert(!R.readiness(a).before.some(i => i.id === 'features'));
   assert(R.report(a).includes('> # not an instruction'));
 });
-test('single choice refreshes selected fit guidance immediately', () => {
+test('changing a choice preserves access to its specific guidance', () => {
   const app = ui({}, { version: 1, step: 9, details: true, answers: { frontend_language: 'JavaScript' } });
   const before = G.get(R.allQuestions.find(q => q.id === 'frontend_language'), 'JavaScript').fit;
   const after = G.get(R.allQuestions.find(q => q.id === 'frontend_language'), 'TypeScript').fit;
-  assert(app.markup().includes(before));
+  app.click({ dataset: { helpQuestion: 'frontend_language', helpIndex: '0' } });
+  assert(app.helpMarkup().includes(before));
   app.choose('frontend_language', 'TypeScript');
   assert.equal(app.get().frontend_language, 'TypeScript');
-  assert(app.markup().includes(after), 'new selection guidance should be visible immediately');
-  assert(!app.markup().includes(before), 'previous choice guidance should disappear');
+  app.click({ dataset: { helpQuestion: 'frontend_language', helpIndex: '1' } });
+  assert(app.helpMarkup().includes(after));
+  assert(!app.helpMarkup().includes(before), 'the selected option must have its own guidance');
 });
 test('single recommendation shows preserved-answer recovery without leaving step', () => {
   const app = ui({}, { version: 1, step: 9, details: true, answers: { frontend_language: 'TypeScript' } });
@@ -1001,16 +1038,24 @@ test('comparing and browsing explains both options without changing answers or n
   assert(!app.helpMarkup().includes('undefined'));
   assert.equal(JSON.stringify({ answers: app.get(), notes: app.stored().notes }), before);
 });
-test('each question shows its own reason, writing scaffold and related decisions', () => {
+test('question and topic guides share one dialog without changing answers', () => {
   const app = ui({}, { version: 1, step: 0, details: true, answers: {} });
-  assert(app.markup().includes(G.facts.project_name.meaning));
-  assert(app.markup().includes((G.facts.summary || G.questions.summary).criteria));
-  assert(app.markup().includes((G.facts.summary?.example || G.questions.summary.prompts[0])));
-  assert(app.markup().includes('data-detail="reason-summary"'));
-  app.click({ dataset: { step: '9' } });
-  app.choose('frontend_language', 'JavaScript');
-  assert(app.markup().includes(G.get({ id: 'frontend_language' }, 'JavaScript').fit));
-  assert(app.markup().includes(G.get({ id: 'frontend_language' }, 'JavaScript').impact));
+  const before = JSON.stringify(app.get());
+  app.click({ dataset: { questionGuide: 'project_name' } });
+  assert(app.isOpen('#option-help-dialog'));
+  assert(app.isHidden('#help-browse'));
+  assert(app.helpMarkup().includes(G.facts.project_name.meaning));
+  app.click({ dataset: { questionGuide: 'summary' } });
+  assert(app.helpMarkup().includes((G.facts.summary || G.questions.summary).criteria));
+  assert(app.helpMarkup().includes((G.facts.summary?.example || G.questions.summary.prompts[0])));
+  assert.equal(app.helpMarkup().split((G.facts.summary || G.questions.summary).criteria).length, 2, 'Repeated guidance must appear only once');
+  const group = Q.steps[0].groups[0];
+  app.click({ dataset: { groupGuide: group.title } });
+  for (const key of ['why','criteria','impact']) assert(app.helpMarkup().includes(G.learning[group.title][key]));
+  app.click({ dataset: { helpQuestion: 'frontend_language', helpIndex: '1' } });
+  assert(!app.isHidden('#help-browse'));
+  assert(app.helpMarkup().includes(G.get({ id: 'frontend_language' }, 'TypeScript').fit));
+  assert.equal(JSON.stringify(app.get()), before);
 });
 test('contextual candidates expose evidence and comparison without selecting or erasing user work', () => {
   const answers = { project_type: '웹사이트', team_size: '혼자 + AI', backend_mode: '직접 백엔드 개발', architecture: '모듈형 모놀리식' };
@@ -1021,8 +1066,10 @@ test('contextual candidates expose evidence and comparison without selecting or 
   const advice = R.decisionAdvice(question, app.get());
   const candidates = advice.candidates.filter(item => item.level === 'consider');
   assert(candidates.length >= 2, 'The solo-project example should explain alternatives, not dictate one architecture');
-  assert(app.markup().includes('판단의 출발점'));
-  assert(app.markup().includes('연결된 내 답변'));
+  assert(app.markup().includes('내 답변으로 판단하기'));
+  for (const item of advice.basis) assert(app.markup().includes(item.value));
+  assert(app.markup().includes('class="choice-shell suggested-choice"'));
+  assert.match(app.textOf('#step-summary'), /요구사항 0\/1 정리 · 설계 2개/, 'Technical selections must not count as completed requirements');
   app.click({ dataset: { compareQuestion: question.id, compareFirst: String(R.choiceOptions(question).indexOf(candidates[0].option)), compareSecond: String(R.choiceOptions(question).indexOf(candidates[1].option)) } });
   assert(app.helpMarkup().includes('option-comparison'));
   for (const candidate of candidates.slice(0, 2)) assert(app.helpMarkup().includes(G.get(question, candidate.option).meaning));

@@ -8,6 +8,7 @@
   const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
   const clampStep = value => Number.isInteger(value) ? Math.min(Math.max(value, 0), steps.length - 1) : 0;
+  const topicAt = (step, topic) => steps[clampStep(step)].groups.some(group => group.title === topic) ? topic : '';
 
   function projectData(input) {
     if (!isObject(input) || !['answers', 'drafts', 'notes'].every(key => Object.hasOwn(input, key) && isObject(input[key]))) {
@@ -27,10 +28,10 @@
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
-  function createProject({ answers = {}, drafts = {}, notes = {}, step = 0 } = {}) {
+  function createProject({ answers = {}, drafts = {}, notes = {}, step = 0, topic = '' } = {}) {
     const data = projectData({ answers, drafts, notes });
     const now = new Date().toISOString();
-    return { id: newId(), createdAt: now, updatedAt: now, step: clampStep(step), ...data };
+    return { id: newId(), createdAt: now, updatedAt: now, step: clampStep(step), topic: topicAt(step, topic), ...data };
   }
 
   function normalizeWorkspace(input) {
@@ -46,7 +47,7 @@
         throw new Error('프로젝트의 생성·수정 날짜가 올바르지 않아요.');
       }
       ids.add(project.id);
-      return { id: project.id, createdAt: project.createdAt, updatedAt: project.updatedAt, step: clampStep(project.step), ...projectData(project) };
+      return { id: project.id, createdAt: project.createdAt, updatedAt: project.updatedAt, step: clampStep(project.step), topic: topicAt(project.step, project.topic), ...projectData(project) };
     });
     if (typeof input.activeId !== 'string' || !ids.has(input.activeId)) throw new Error('현재 선택한 프로젝트를 찾을 수 없어요.');
     return { version: 1, activeId: input.activeId, projects };
@@ -54,7 +55,7 @@
 
   function fromLegacy(input) {
     if (!isObject(input) || input.version !== 1 || !Object.hasOwn(input, 'answers')) throw new Error('지원하지 않는 이전 프로젝트 저장 형식이에요.');
-    const project = createProject({ answers: input.answers, drafts: input.drafts === undefined ? {} : input.drafts, notes: input.notes === undefined ? {} : input.notes, step: input.step });
+    const project = createProject({ answers: input.answers, drafts: input.drafts === undefined ? {} : input.drafts, notes: input.notes === undefined ? {} : input.notes, step: input.step, topic: input.topic });
     return { version: 1, activeId: project.id, projects: [project] };
   }
 
