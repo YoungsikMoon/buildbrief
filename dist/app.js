@@ -10,9 +10,7 @@
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     if (saved?.version === 1) {
-      answers = R.normalizeAnswers(saved.answers);
-      drafts = R.normalizeAnswers(saved.drafts || {});
-      notes = R.normalizeNotes(saved.notes);
+      ({ answers, drafts, notes } = R.normalizeProject(saved));
       currentStep = Number.isInteger(saved.step) ? Math.min(Math.max(saved.step, 0), steps.length - 1) : 0;
       showDetails = saved.details === true;
     }
@@ -123,15 +121,15 @@
     const stat = R.stats(answers);
     $('#progress-number').textContent = `${stat.percent}%`;
     $('#progress-bar').style.width = `${stat.percent}%`;
-    $('#progress-caption').textContent = `전체 ${R.allQuestions.length}개 중 현재 관련 ${stat.total}개 · 선택·작성 ${stat.confirmed}개 · 추천 요청 ${stat.delegated}개 · 미응답 ${stat.pending}개`;
+    $('#progress-caption').textContent = `설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개 중 현재 관련 ${stat.total}개 · 선택·작성 ${stat.confirmed}개 · 추천 요청 ${stat.delegated}개 · 미응답 ${stat.pending}개 · 선택 참고 정보는 작성률에서 제외`;
     $('#project-label').textContent = R.display(answers.project_name) || '새로운 아이디어';
     $('#step-nav').innerHTML = steps.map((step, index) => {
-      const qs = R.activeGroups(step, answers).flatMap(g => g.questions);
+      const qs = R.activeGroups(step, answers).flatMap(g => g.questions).filter(q => !q.supplemental);
       const done = qs.filter(q => R.isAnswered(answers[q.id]) && !R.needsReselection(q, answers[q.id])).length;
       const complete = qs.length > 0 && done === qs.length;
       return `<button type="button" class="step-link ${!isReport && index === currentStep ? 'active' : ''} ${complete ? 'complete' : ''} ${qs.length ? '' : 'inactive-step'}" data-step="${index}" ${!isReport && index === currentStep ? 'aria-current="step"' : ''}><span class="step-index">${complete ? '✓' : step.icon}</span><span>${step.short}</span><span class="nav-count">${qs.length ? `${done}/${qs.length}` : '적용 확인'}</span></button>`;
     }).join('');
-    const current = R.activeGroups(steps[currentStep], answers).flatMap(g => g.questions);
+    const current = R.activeGroups(steps[currentStep], answers).flatMap(g => g.questions).filter(q => !q.supplemental);
     const done = current.filter(q => R.isAnswered(answers[q.id]) && !R.needsReselection(q, answers[q.id])).length;
     $('#step-summary').textContent = current.length ? `${done} / ${current.length}개 답변 · 나중에 수정할 수 있어요` : '선행 답변과 적용 여부를 확인해 주세요';
   }
@@ -155,7 +153,7 @@
     return `<div class="test-plan">
       <div class="test-plan-intro"><strong>이미 작성한 기능에서 검증 기준을 가져왔어요</strong><p>아래는 검증할 내용이에요. 실제 테스트를 실행했거나 통과했다는 뜻은 아니에요.</p><button type="button" class="text-button" data-jump="feature_specs">기능 명세에서 수정 →</button></div>
       <details class="test-coverage" data-detail="test-coverage"><summary>기능별 검증 기준 ${coverage.features.length}개 <span>추후 개발 ${coverage.excluded}개 제외</span></summary>${coverage.features.length ? coverage.features.map(({row,index}) => `<details class="test-source" data-detail="test-source-${index}"><summary>${escape(row.name || `기능 ${index + 1} · 이름 미정`)} <span>${escape(row.priority || '출시 범위 미정')}</span></summary><dl>${fields.map(field => `<div><dt>${escape(field.label)}</dt><dd>${escape(R.isAnswered(row[field.id]) ? row[field.id] : '미정 — 기능 명세에서 보완')}</dd></div>`).join('')}</dl></details>`).join('') : '<p>연결할 첫 출시 기능 명세가 없어요. 앞 단계에 기능을 정리하면 이곳에 자동으로 연결돼요. 아래 연결 흐름은 먼저 작성할 수 있어요.</p>'}</details>
-      <div class="test-checks"><p>각 기능의 <strong>정상 결과·실패 처리·완료 조건</strong>을 확인하고, 사용자·역할과 접근 규칙에 맞는 <strong>허용·차단</strong>도 검증해요. 데이터가 바뀌는 기능은 중복 요청과 중간 실패 시 데이터가 어긋나지 않는지도 확인해요.</p><details data-detail="test-permissions"><summary>이미 적은 권한 기준 확인</summary>${['access_rules','role_matrix','authorization_tests'].map(id => `<p><strong>${escape(byId.get(id).label)}</strong><br>${escape(R.isAnswered(answers[id]) ? R.display(answers[id]) : '미정 — 사용자 이름이나 역할만으로 권한을 추측하지 않아요.')}</p><button type="button" class="text-button" data-jump="${id}">이 기준 수정 →</button>`).join('')}</details></div>
+      <div class="test-checks"><p>각 기능의 <strong>정상 결과·실패 처리·완료 조건</strong>을 확인하고, 사용자·역할과 접근 규칙에 맞는 <strong>허용·차단</strong>도 검증해요. 데이터가 바뀌는 기능은 중복 요청과 중간 실패 시 데이터가 어긋나지 않는지도 확인해요.</p><details data-detail="test-permissions"><summary>이미 적은 권한 기준 확인</summary>${['role_matrix','access_rules','authorization_tests'].map(id => `<p><strong>${escape(byId.get(id).label)}</strong><br>${escape(R.isAnswered(answers[id]) ? R.display(answers[id]) : byId.get(id).supplemental ? '추가로 적은 내용 없음 — 기본 권한표를 참고하세요.' : '미정 — 사용자 이름이나 역할만으로 권한을 추측하지 않아요.')}</p><button type="button" class="text-button" data-jump="${id}">이 기준 수정 →</button>`).join('')}</details></div>
       ${delegated ? '<p class="question-help">추가 흐름이 필요한지 AI와 정할 항목으로 남겼어요. 위 기능 명세의 검증 기준은 계속 참고할 수 있어요.</p>' : `<fieldset class="test-basis"><legend>여러 기능을 잇는 별도 흐름이 필요한가요?</legend><p class="question-help">예를 들어 ‘주문 생성 → 결제 → 취소’는 각 기능이 따로 성공해도 서로 연결했을 때 문제가 날 수 있어요. 이런 흐름만 추가하면 돼요.</p><div class="choices">${testBasisOptions.map((option,index) => `<div class="choice-shell"><label class="choice"><input id="test-basis-${index}" type="radio" name="test-basis" data-test-basis="${index}" ${plan.basis === option ? 'checked' : ''}><span>${escape(option)}</span></label>${helpButton('test_basis',index,option)}</div>`).join('')}</div></fieldset>
       ${plan.basis === testBasisOptions[1] ? `<div class="test-flows">${plan.flows.map((row,index) => `<details class="test-flow" data-detail="test-flow-${index}" ${testFlowFields.every(field => !row[field.id]) ? 'open' : ''}><summary id="test-flow-title-${index}">${escape(row.name || `연결 흐름 ${index + 1}`)}</summary><div class="test-flow-body">${testFlowFields.map(field => `<label for="test-flow-${index}-${field.id}">${escape(field.label)}</label><textarea id="test-flow-${index}-${field.id}" class="textarea-input" rows="2" maxlength="6000" data-test-flow="${index}" data-test-field="${field.id}" placeholder="${escape(field.placeholder)}">${escape(row[field.id] || '')}</textarea>`).join('')}<button type="button" class="text-button" data-remove-test-flow="${index}">이 흐름 삭제</button></div></details>`).join('')}<button type="button" class="button secondary" id="add-test-flow" ${plan.flows.length >= R.MAX_TEST_FLOWS ? 'disabled' : ''}>+ 연결 흐름 추가</button><p class="question-help">중요한 연결 흐름을 하나씩 추가하세요. ${plan.flows.length}개 작성 중 · 최대 ${R.MAX_TEST_FLOWS}개</p></div>` : plan.flows.length ? '<p class="question-help">이전에 작성한 연결 흐름은 보관하고 있어요. 현재 리포트에서는 제외하며, 추가 옵션을 다시 선택하면 복원돼요.</p>' : ''}
       ${Object.hasOwn(plan,'legacy') ? `<details class="test-legacy" data-detail="test-legacy" open><summary>이전에 작성한 검증 내용</summary><p class="question-help">기존 내용을 그대로 보관했어요. 필요하면 연결 흐름으로 나누거나 이곳에서 보완하세요. 리포트에도 함께 포함돼요.</p><label for="test-legacy">기존 검증 요구</label><textarea id="test-legacy" class="textarea-input" rows="3" maxlength="6000" data-test-legacy="true">${escape(plan.legacy)}</textarea></details>` : ''}`}
@@ -182,7 +180,7 @@
         return `<div class="feature-field ${['name', 'actor'].includes(field.id) ? '' : 'wide'}"><label for="${inputId}">${escape(field.label)}</label><textarea class="textarea-input" ${attributes} rows="2" maxlength="6000" placeholder="${escape(field.placeholder)}">${escape(row[field.id] || '')}</textarea></div>`;
       }).join('')}</div></section>`).join('')}</div>${delegated ? '<p class="question-help">기능 명세를 AI와 함께 정할 항목으로 남겼어요.</p>' : ''}<button type="button" class="button secondary" id="add-feature" ${rows.length >= R.MAX_FEATURES ? 'disabled' : ''}>+ 기능 추가</button><p class="question-help feature-limit">최대 ${R.MAX_FEATURES}개 · 일부만 작성해도 저장돼요. ‘추후 개발’은 이번 출시 범위에서 제외해요.</p>`;
     } else if (type === 'text' || type === 'textarea') {
-      const attrs = `id="input-${id}" class="${type === 'text' ? 'text-input' : 'textarea-input'}" data-question="${id}" maxlength="6000" aria-describedby="${helpId}" ${required ? 'aria-required="true"' : ''} ${delegated ? 'disabled' : ''} placeholder="${escape(delegated ? 'AI에게 추천을 요청한 항목이에요' : question.placeholder || '답변을 적어 주세요') }"`;
+      const attrs = `id="input-${id}" class="${type === 'text' ? 'text-input' : 'textarea-input'}" data-question="${id}" maxlength="${question.maxLength || 6000}" aria-describedby="${helpId}" ${required ? 'aria-required="true"' : ''} ${delegated ? 'disabled' : ''} placeholder="${escape(delegated ? 'AI에게 추천을 요청한 항목이에요' : question.placeholder || '답변을 적어 주세요') }"`;
       controls = type === 'text' ? `<input type="text" ${attrs} value="${escape(delegated ? '' : value || '')}">` : `<textarea ${attrs} rows="3">${escape(delegated ? '' : value || '')}</textarea>`;
     } else {
       const choices = R.choiceOptions(question);
@@ -198,8 +196,8 @@
     const selectedGuides = ['single', 'multi'].includes(type) && !delegated && !window.BriefGuides.facts?.[id] ? rawValue.map(option => ({ option, guide: window.BriefGuides.get(question, option) })).filter(item => item.guide) : [];
     if (selectedGuides.length) controls += `<details class="decision-detail" data-detail="fit-${id}"><summary>내 선택의 적합성과 영향을 확인하세요</summary>${selectedGuides.map(({option, guide}) => `<h3>${escape(option)}</h3><dl>${factsMarkup(guide, [['fit','적합한 상황'],['avoid','다른 방식을 검토할 때'],['impact','이후 필요한 결정·작업']])}</dl>`).join('')}</details>`;
     const factual = Boolean(window.BriefGuides.facts?.[id]);
-    if (!['architecture', 'architecture_reason'].includes(id) || notes[id]) controls += `<details class="decision-detail" data-detail="note-${id}" ${notes[id] ? 'open' : ''}><summary>${factual ? '작성 근거·확인할 내용 기록하기' : '선택 이유·다시 검토할 때 기록하기'} <span>(선택)</span></summary><label for="note-${id}">${factual ? '작성한 내용의 근거와 확인할 내용' : '내 상황에서 고른 이유와 변경을 검토할 조건'}</label><textarea id="note-${id}" class="textarea-input" rows="2" maxlength="6000" data-note="${id}" placeholder="${factual ? '예: 현재 확인한 값과 추정한 값을 구분하고, 다시 확인할 시점을 적어 주세요.' : '예: 혼자 운영하고 예산이 적어서 선택. 운영 담당자가 늘거나 이용량이 증가하면 다시 검토.'}">${escape(notes[id] || '')}</textarea><p class="question-help">답변을 바꿨다면 이유도 함께 확인해 주세요. 이 기록은 리포트에 포함돼요.</p></details>`;
-    return `<fieldset class="question" id="field-${id}"><legend><span class="question-title">${type === 'text' || type === 'textarea' ? `<label for="input-${id}">${escape(label)}</label>` : escape(label)}${required ? '<span class="required-label">핵심</span>' : ''}${type === 'multi' ? '<span class="multi-label">복수 선택</span>' : ''}</span></legend>${hasText(help) ? `<p class="question-help" id="${helpId}">${escape(help)}</p>` : ''}${questionLearning(question)}${question.reuse?.length ? `<div data-reuse-question="${id}">${reusedAnswersMarkup(question)}</div>` : ''}${controls}<div class="question-footer"><span>${!required && ['text', 'textarea', 'featurelist', 'testplan','worksheet'].includes(type) ? `<button type="button" class="uncertain-button ${delegated ? 'selected' : ''}" id="unknown-${id}" data-unknown="${id}">${delegated ? '직접 작성으로 바꾸기' : '아직 몰라요 · AI에게 추천받기'}</button>${helpButton(id, 0, R.UNKNOWN)}` : `<button type="button" class="clear-answer" data-clear="${id}">답변 지우기</button>`}</span><span class="answer-indicator">${answerIndicator(question, value)}</span></div></fieldset>`;
+    if (!['architecture', 'architecture_reason'].includes(id) || notes[id]) controls += `<details class="decision-detail" data-detail="note-${id}" ${notes[id] ? 'open' : ''}><summary>${factual ? '작성 근거·확인할 내용 기록하기' : '선택 이유·다시 검토할 때 기록하기'} <span>(선택)</span></summary><label for="note-${id}">${factual ? '작성한 내용의 근거와 확인할 내용' : '내 상황에서 고른 이유와 변경을 검토할 조건'}</label><textarea id="note-${id}" class="textarea-input" rows="2" maxlength="${question.maxLength || 6000}" data-note="${id}" placeholder="${factual ? '예: 현재 확인한 값과 추정한 값을 구분하고, 다시 확인할 시점을 적어 주세요.' : '예: 혼자 운영하고 예산이 적어서 선택. 운영 담당자가 늘거나 이용량이 증가하면 다시 검토.'}">${escape(notes[id] || '')}</textarea><p class="question-help">답변을 바꿨다면 이유도 함께 확인해 주세요. 이 기록은 리포트에 포함돼요.</p></details>`;
+    return `<fieldset class="question" id="field-${id}"><legend><span class="question-title">${type === 'text' || type === 'textarea' ? `<label for="input-${id}">${escape(label)}</label>` : escape(label)}${required ? '<span class="required-label">핵심</span>' : question.supplemental ? '<span class="required-label">선택 참고</span>' : ''}${type === 'multi' ? '<span class="multi-label">복수 선택</span>' : ''}</span></legend>${hasText(help) ? `<p class="question-help" id="${helpId}">${escape(help)}</p>` : ''}${question.supplemental ? '<p class="question-help">필요한 내용이 있을 때만 적으세요. 빈칸은 미응답이나 미결정으로 세지 않아요.</p>' : ''}${questionLearning(question)}${question.reuse?.length ? `<div data-reuse-question="${id}">${reusedAnswersMarkup(question)}</div>` : ''}${controls}<div class="question-footer"><span>${!required && (!question.supplemental || delegated) && ['text', 'textarea', 'featurelist', 'testplan','worksheet'].includes(type) ? `<button type="button" class="uncertain-button ${delegated ? 'selected' : ''}" id="unknown-${id}" data-unknown="${id}">${delegated ? '직접 작성으로 바꾸기' : '아직 몰라요 · AI에게 추천받기'}</button>${helpButton(id, 0, R.UNKNOWN)}` : `<button type="button" class="clear-answer" data-clear="${id}">답변 지우기</button>`}</span><span class="answer-indicator">${answerIndicator(question, value)}</span></div></fieldset>`;
   }
   function renderQuestions() {
     const expanded = new Set([...document.querySelectorAll('.advanced-details[open]')].map(el => el.dataset.group));
@@ -208,14 +206,14 @@
     $('#question-groups').innerHTML = groups.length ? groups.map((group, index) => {
       const chunks = [];
       for (const question of group.questions) {
-        if (question.advanced && chunks.at(-1)?.[0].advanced) chunks.at(-1).push(question);
+        if (question.advanced && chunks.at(-1)?.[0].advanced && Boolean(question.supplemental) === Boolean(chunks.at(-1)[0].supplemental)) chunks.at(-1).push(question);
         else chunks.push([question]);
       }
       const content = chunks.map(chunk => {
         if (!chunk[0].advanced) return questionMarkup(chunk[0]);
         const key = chunk[0].id;
         const done = chunk.filter(q => R.isAnswered(answers[q.id]) && !R.needsReselection(q, answers[q.id])).length;
-        return `<details class="advanced-details" data-group="${key}" ${showDetails || expanded.has(key) ? 'open' : ''}><summary>더 꼼꼼하게 정하기 <span>${done} / ${chunk.length}개 답변</span></summary>${chunk.map(questionMarkup).join('')}</details>`;
+        return `<details class="advanced-details" data-group="${key}" ${showDetails || expanded.has(key) ? 'open' : ''}><summary>${chunk[0].supplemental ? '참고 정보 (선택)' : '더 꼼꼼하게 정하기'} <span>${done} / ${chunk.length}개 답변</span></summary>${chunk.map(questionMarkup).join('')}</details>`;
       }).join('');
       const learning = window.BriefGuides.learning?.[group.title];
       return `<section class="question-group"><div class="group-heading"><span class="group-index">${String(index + 1).padStart(2, '0')}</span><div><h2>${escape(group.title)}</h2>${hasText(group.description) ? `<p>${escape(group.description)}</p>` : ''}</div></div><div class="group-body">${learning ? `<details class="learning-card" data-detail="learn-${escape(group.title)}"><summary>전문가는 무엇을 보고 결정할까요?</summary><dl>${[['why','왜 고민하나요?'],['criteria','무엇을 비교하나요?'],['impact','다음 결정에 어떤 영향을 주나요?']].map(([key,label]) => `<div><dt>${label}</dt><dd>${escape(learning[key])}</dd></div>`).join('')}</dl></details>` : ''}${content}</div></section>`;
@@ -294,7 +292,7 @@
       ${warnings.length ? `<div class="warning-card"><h2>개발 전에 확인할 조합 ${warnings.length}건</h2>${warnings.map(w => `<div class="warning-item"><strong>${escape(w.title)}</strong>${escape(w.message)}<br><button class="text-button" data-jump="${w.id}">해당 답변 수정 →</button></div>`).join('')}</div>` : ''}
       ${decisionSummaryMarkup()}
       ${reviewMarkup(review)}
-      <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>작성률은 답변 수이며 개발 준비도 점수가 아니에요. 일부만 작성한 기능 명세와 작성표도 위 확인 목록에서 안내해요.</p></div>
+      <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>작성률은 설계 질문의 답변 수이며 개발 준비도 점수가 아니에요. 선택 참고 정보는 작성률에서 제외하고, 빈칸은 확인 목록에 넣지 않아요. 일부만 작성한 기능 명세와 작성표는 위에서 안내해요.</p></div>
       <div class="report-tabs" role="tablist" aria-label="리포트 보기"><button class="report-tab" id="tab-spec" role="tab" aria-controls="panel-spec" data-tab="spec" aria-selected="${reportTab === 'spec'}" tabindex="${reportTab === 'spec' ? '0' : '-1'}">개발 명세서</button><button class="report-tab" id="tab-prompt" role="tab" aria-controls="panel-prompt" data-tab="prompt" aria-selected="${reportTab === 'prompt'}" tabindex="${reportTab === 'prompt' ? '0' : '-1'}">AI 전달 프롬프트</button></div>
       <div id="panel-spec" role="tabpanel" aria-labelledby="tab-spec" ${reportTab === 'spec' ? '' : 'hidden'}>${specification || '<p class="report-note">작성한 답변이 생기면 이곳에 명세를 정리해요. 아직 정하지 않은 항목은 위 확인 목록에 있어요.</p>'}</div>
       <div id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" ${reportTab === 'prompt' ? '' : 'hidden'}><textarea readonly class="report-code" id="prompt-text" aria-label="AI에게 전달할 전체 개발 프롬프트"></textarea></div>
@@ -522,9 +520,7 @@
       if (file.size > 64 * 1024 * 1024) throw new Error('백업 파일은 64MB 이하만 불러올 수 있어요.');
       const imported = JSON.parse(await file.text());
       if (imported.format !== 'buildbrief' || imported.version !== 1) throw new Error('빌드브리프 답변 백업 파일을 선택해 주세요.');
-      const normalized = R.normalizeAnswers(imported.answers);
-      const importedDrafts = R.normalizeAnswers(imported.drafts || {});
-      const importedNotes = R.normalizeNotes(imported.notes);
+      const { answers: normalized, drafts: importedDrafts, notes: importedNotes } = R.normalizeProject(imported);
       if (Object.keys(imported.answers).length && !Object.keys(normalized).length) throw new Error('사용할 수 있는 답변이 없는 백업 파일이에요.');
       if (Object.keys(answers).length && !window.confirm('현재 답변을 백업 파일의 내용으로 바꿀까요? 기존 답변은 덮어써져요.')) return;
       answers = normalized; drafts = importedDrafts; notes = importedNotes; currentStep = 0; externalChange = false;

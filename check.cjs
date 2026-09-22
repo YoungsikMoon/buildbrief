@@ -74,7 +74,7 @@ for (const project_type of ['모바일 앱', 'PC 프로그램']) {
   assert(shown('frontend_framework', { ...native, app_web_ui: '웹 화면을 함께 사용' }));
   assert(R.report({ ...native, project_type: '웹사이트' }).includes('React + Vite'), 'Changing back restores stored web answers');
 }
-assert(!shown('frontend_framework', { project_type: 'API·백엔드 서비스', app_web_ui: '웹 화면을 함께 사용' }));
+assert(!shown('frontend_framework', { project_type: 'API·백엔드 서비스', api_ui: 'API만 제공', app_web_ui: '웹 화면을 함께 사용' }));
 assert(!shown('related_deletion', { data_scope: '저장 없이 사용' }));
 
 // Repeatable feature cards survive JSON backups; incomplete first-release work remains visible.
@@ -802,7 +802,7 @@ test('actor is displayed without inventing role-based permission and existing ru
   assert(!text.includes('회원만 허용'));
   for (const id of ['access_rules', 'role_matrix', 'authorization_tests']) {
     const q = R.allQuestions.find(q => q.id === id);
-    assert(text.includes(`${q.label}: 미정`));
+    assert(text.includes(`${q.label}: ${q.supplemental ? '추가로 적은 내용 없음' : '미정'}`));
   }
   const defined = R.testPlanText({ ...a, access_rules: '본인 주문만 조회', role_matrix: '운영자 승인만 허용', authorization_tests: '다른 조직 거절 확인' });
   for (const value of ['본인 주문만 조회', '운영자 승인만 허용', '다른 조직 거절 확인']) assert(defined.includes(value));
@@ -1064,6 +1064,156 @@ test('technical alternatives explain when to reconsider them', () => {
   for (const id of ['frontend_language','frontend_framework','backend_language','database','architecture','docker','messaging'])
     for (const option of R.allQuestions.find(q=>q.id===id).options)
       assert(G.entries[id][option].avoid?.length > 15, id+'/'+option);
+});
+
+test('optional supplements do not lower completion or create blank readiness tasks', () => {
+  const active = R.activeQuestions({});
+  const supplemental = active.filter(q => q.supplemental);
+  assert(supplemental.length > 0);
+  assert.equal(R.stats({}).total, active.filter(q => !q.supplemental).length);
+  const blankReview = [...R.readiness({}).before, ...R.readiness({}).during];
+  for (const q of supplemental) assert(!blankReview.some(item => item.id === q.id), q.id);
+  const reference = { references: '지도 서비스의 검색 결과 배치를 참고' };
+  assert.deepEqual(R.stats(reference), R.stats({}), 'Supplemental text must not inflate progress');
+  assert(R.report(reference).includes(reference.references), 'Optional answers still belong in the report');
+  assert([...R.readiness({ references: R.UNKNOWN }).before, ...R.readiness({ references: R.UNKNOWN }).during].some(item => item.id === 'references'), 'A saved explicit advice request remains unresolved');
+});
+
+test('prior experience is late optional context with no new recommendation button', () => {
+  const step = Q.steps.findIndex(step => step.groups.some(group => group.questions.some(q => q.id === 'known_stack')));
+  assert.equal(Q.steps[step].id, 'handoff');
+  const q = R.allQuestions.find(q => q.id === 'known_stack');
+  assert(q.advanced && q.supplemental);
+  const app = ui({}, { version: 1, step, details: true, answers: { known_stack: 'HTML 수업을 수강함' } });
+  assert(app.markup().includes('id="field-known_stack"'));
+  assert(!app.markup().includes('data-unknown="known_stack"'));
+  assert.equal(app.get().known_stack, 'HTML 수업을 수강함');
+  const delegated = ui({}, { version: 1, step, answers: { known_stack: R.UNKNOWN }, drafts: { known_stack: '보관한 경험' } });
+  assert(delegated.markup().includes('data-unknown="known_stack"'), 'Old recommendation can return to editing');
+  delegated.clickUnknown('known_stack');
+  assert.equal(delegated.get().known_stack, '보관한 경험');
+});
+
+test('merged references retain both maximum-length answers and notes idempotently', () => {
+  assert(!R.allQuestions.some(q => q.id === 'design_reference'));
+  const q = R.allQuestions.find(q => q.id === 'references');
+  assert.equal(q.type, 'textarea');
+  assert.equal(q.maxLength, 13000);
+  const raw = { references: '가'.repeat(6000), design_reference: '나'.repeat(6000) };
+  for (const normalize of [R.normalizeAnswers, R.normalizeNotes]) {
+    const merged = normalize(raw);
+    assert(merged.references.includes(raw.references));
+    assert(merged.references.includes(raw.design_reference));
+    assert(merged.references.includes('디자인 참고 자료 (이전 답변)'));
+    assert.equal(merged.design_reference, undefined);
+    assert.deepEqual(normalize(merged), merged, 'Reload must not duplicate the merged reference');
+  }
+  assert.equal(raw.design_reference.length, 6000, 'Normalization must not mutate the source backup');
+  assert.throws(() => R.normalizeAnswers({ references: '가'.repeat(13000), design_reference: '예전 디자인 자료' }), /13,000/);
+});
+
+test('reference migration preserves active text, saved drafts and notes across JSON backups', async () => {
+  const old = { version: 1, step: 0, answers: { references: '기능 참고 원문', design_reference: '디자인 참고 원문' }, drafts: { references: '기능 초안', design_reference: '디자인 초안' }, notes: { references: '기능 참고 이유', design_reference: '디자인 참고 이유' } };
+  const app = ui({}, old);
+  const backup = app.exportBackup();
+  for (const [key, values] of Object.entries({ answers: ['기능 참고 원문', '디자인 참고 원문'], drafts: ['기능 초안', '디자인 초안'], notes: ['기능 참고 이유', '디자인 참고 이유'] })) {
+    for (const value of values) assert(backup[key].references.includes(value), key + '/' + value);
+    assert.equal(backup[key].design_reference, undefined);
+  }
+  const reloaded = ui({}, app.stored());
+  assert.equal(reloaded.get().references, app.get().references);
+  await reloaded.importBackup(backup);
+  const after = reloaded.exportBackup();
+  for (const key of ['answers', 'drafts', 'notes']) assert.deepEqual(after[key], backup[key]);
+  assert(reloaded.markup().includes('maxlength="13000"'), 'The merged answer must remain editable at its preserved length');
+});
+
+test('advice requests on either old reference restore both original fields after import', async () => {
+  for (const delegatedIds of [['references'], ['design_reference'], ['references', 'design_reference']]) {
+    const originals = { references: '참고 기능 원문', design_reference: '참고 디자인 원문' };
+    const answers = { ...originals }, drafts = {};
+    for (const id of delegatedIds) { answers[id] = R.UNKNOWN; drafts[id] = originals[id]; }
+    const app = ui({}, { version: 1, step: 0, answers, drafts });
+    assert.equal(app.get().references, R.UNKNOWN, delegatedIds.join('/'));
+    const backup = app.exportBackup();
+    for (const value of Object.values(originals)) assert(backup.drafts.references.includes(value));
+    await app.importBackup(backup);
+    app.clickUnknown('references');
+    for (const value of Object.values(originals)) assert(app.get().references.includes(value));
+    assert(!app.get().references.includes(R.UNKNOWN), 'The advice marker must not become literal reference text');
+  }
+});
+
+test('API-only hides visual decisions while admin and native screens retain them', () => {
+  const api = { project_type: 'API·백엔드 서비스', api_ui: 'API만 제공', features: [R.SKIP], frontend_framework: 'React + Vite', app_web_ui: '웹 화면을 함께 사용' };
+  for (const id of ['visual_style', 'frontend_framework']) assert(!shown(id, api), id);
+  assert(!R.report(api).includes('React + Vite'));
+  for (const enabled of [{ ...api, api_ui: '관리·이용 화면도 함께 제공' }, { ...api, features: ['관리자 화면'] }]) {
+    for (const id of ['visual_style', 'frontend_framework']) assert(shown(id, enabled), id);
+    assert(R.report(enabled).includes('React + Vite'));
+  }
+  for (const project_type of ['모바일 앱', 'PC 프로그램']) {
+    const native = { ...api, project_type, app_web_ui: '네이티브 화면만 사용', mobile_stack: ['Flutter'] };
+    assert(shown('visual_style', native));
+    assert(shown('mobile_stack', native));
+    assert(!shown('frontend_framework', native));
+  }
+});
+
+test('no persistence hides the DB decision itself and stale replica configuration', () => {
+  const raw = { data_scope: '저장 없이 사용', database: 'PostgreSQL', db_hosting: '관리형 DB', db_redundancy: '복제 DB 1개', db_replication_lag: '이전 복제 대응 원문' };
+  const a = R.normalizeAnswers(raw);
+  for (const id of ['database', 'orm', 'db_hosting', 'db_redundancy', 'db_replication_ack', 'db_failover', 'db_replica_reads', 'db_replication_lag']) assert(!shown(id, a), id);
+  assert(!R.report(a).includes(raw.db_replication_lag));
+  assert.equal(a.database, raw.database);
+  const restored = { ...a, data_scope: '같은 계정의 여러 기기에서 사용' };
+  assert(shown('database', restored));
+  assert(shown('db_replication_lag', restored));
+  assert(R.report(restored).includes(raw.db_replication_lag));
+});
+
+test('only explicitly device-local native apps omit hosting and retain recoverable infrastructure drafts', () => {
+  for (const project_type of ['모바일 앱', 'PC 프로그램']) {
+    const native = R.normalizeAnswers({ project_type, backend_mode: '기기 안에서만 실행', hosting: ['AWS'], domain: 'example.test', network: '이전 서버 네트워크 계획' });
+    assert.equal(native.backend_mode, '기기 안에서만 실행');
+    for (const id of ['hosting', 'hosting_mapping', 'hosting_region', 'domain', 'network', 'scaling']) assert(!shown(id, native), id);
+    assert(!R.report(native).includes(native.network));
+    assert.deepEqual(native.hosting, ['AWS']);
+    for (const backend_mode of ['BaaS·관리형 백엔드', undefined]) {
+      const online = { ...native, backend_mode };
+      for (const id of ['hosting', 'domain', 'network']) assert(shown(id, online), id);
+    }
+  }
+  assert(shown('hosting', { project_type: '웹사이트', backend_mode: '서버 없는 정적 사이트' }), 'Static web sites still need hosting');
+});
+
+test('product payments do not imply software entitlements or excess-data decisions', () => {
+  const shop = { features: ['결제·구독'], payment_access: '상품·서비스 결제만 처리', payment_model: '단건 결제', customer_pricing: '무료', data_scope: '같은 계정의 여러 기기에서 사용', paid_activation: '서버에서 결제 완료 확인 후', paid_revocation: '이전 유료 권한 회수', downgrade_data: '이전 초과 데이터 처리' };
+  for (const id of ['payment_access', 'payment_model', 'pricing', 'refunds']) assert(shown(id, shop), id);
+  for (const id of ['paid_activation', 'paid_revocation', 'entitlement_reduction', 'downgrade_data']) assert(!shown(id, shop), id);
+  assert(!R.report(shop).includes(shop.paid_revocation));
+  assert(!R.report(shop).includes(shop.downgrade_data));
+  const paid = { ...shop, payment_access: '소프트웨어 이용 권한도 부여' };
+  for (const id of ['paid_activation', 'paid_revocation', 'entitlement_reduction']) assert(shown(id, paid), id);
+  assert(!shown('downgrade_data', { ...paid, entitlement_reduction: '무료·축소 전환 없음' }));
+  assert(shown('downgrade_data', { ...paid, entitlement_reduction: '무료·축소 범위로 전환' }));
+  assert(!shown('downgrade_data', { ...paid, entitlement_reduction: '무료·축소 범위로 전환', data_scope: '저장 없이 사용' }));
+  assert(shown('paid_activation', { customer_pricing: '유료', features: [R.SKIP] }), 'A manual paid software contract need not have online payments');
+});
+
+test('basic permissions remain a required decision while extra exceptions reuse the same table', () => {
+  const basic = R.allQuestions.find(q => q.id === 'role_matrix');
+  const extra = R.allQuestions.find(q => q.id === 'access_rules');
+  assert(!basic.advanced && !basic.supplemental);
+  assert(extra.advanced && extra.supplemental);
+  assert(extra.reuse.includes('role_matrix'));
+  assert(R.allQuestions.indexOf(basic) < R.allQuestions.indexOf(extra));
+  assert(R.readiness({}).before.some(item => item.id === 'role_matrix'));
+  assert(![...R.readiness({}).before, ...R.readiness({}).during].some(item => item.id === 'access_rules'));
+  const a = { role_matrix: '작성자만 수정 가능', access_rules: '승인 완료 자료는 작성자도 수정 불가' };
+  const app = ui({}, { version: 1, step: 2, details: false, answers: a });
+  assert(app.markup().includes('data-reuse-question="access_rules"'));
+  for (const value of Object.values(a)) assert(R.testPlanText(a).includes(value));
 });
 
 Promise.all(pending).then(() => {
