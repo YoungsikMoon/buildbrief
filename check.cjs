@@ -1112,6 +1112,148 @@ test('worksheet imports reject excessive rows and drop unknown fields', () => {
   assert.deepEqual(a.role_matrix,{worksheet:'role_matrix',rows:[{role:'관리자'}]});
   assert.equal({}.polluted,undefined);
 });
+test('starting stage reveals the applicable source questions without demanding invented materials', () => {
+  const followups = ['starting_context', 'existing_design_usage', 'design_materials', 'existing_code', 'existing_service'];
+  for (const [stage, expected] of [
+    [undefined, []], [R.UNKNOWN, []], ['아이디어만 있어요', []],
+    ['디자인이 있어요', ['design_materials']],
+    ['기존 코드가 있어요', ['existing_design_usage', 'existing_code']],
+    ['운영 중인 서비스를 개선해요', ['existing_design_usage', 'existing_code', 'existing_service']],
+    ['기타: 종이 시제품과 인터뷰 기록이 있어요', ['starting_context']]
+  ]) {
+    const a = { development_stage: stage };
+    assert.deepEqual(followups.filter(id => shown(id, a)), expected, String(stage));
+  }
+  const idea = { development_stage: '아이디어만 있어요' };
+  for (const id of ['summary', 'feature_specs']) assert(shown(id, idea), `${id} still gathers the idea itself`);
+  assert(R.readiness({}).before.some(item => item.id === 'development_stage'));
+  assert(R.readiness({ development_stage: '기타: 종이 시제품' }).before.some(item => item.id === 'starting_context'));
+});
+
+test('code and live-service stages can include designs while preserving their own follow-ups', () => {
+  for (const stage of ['기존 코드가 있어요', '운영 중인 서비스를 개선해요']) {
+    for (const choice of ['함께 확인할 디자인이 있어요', '기타: 일부 화면 시안도 확인']) {
+      const a = { development_stage: stage, existing_design_usage: choice };
+      assert(shown('design_materials', a));
+      assert(shown('existing_code', a));
+      assert.equal(shown('existing_service', a), stage === '운영 중인 서비스를 개선해요');
+    }
+    for (const choice of ['함께 확인할 디자인이 없어요', R.UNKNOWN]) {
+      assert(!shown('design_materials', { development_stage: stage, existing_design_usage: choice }));
+    }
+    assert(R.readiness({ development_stage: stage }).before.some(item => item.id === 'existing_design_usage'));
+  }
+});
+
+test('inactive starting-stage parents cannot leak stale sources or source notes into a brief', () => {
+  const sources = {
+    starting_context: '숨긴 시작 자료 설명',
+    design_materials: { rows: [{ location: 'https://example.test/private-design' }] },
+    existing_code: { rows: [{ location: 'https://example.test/private-code' }] },
+    existing_service: { rows: [{ location: 'https://example.test/private-service' }] }
+  };
+  const a = R.normalizeAnswers({ ...sources, development_stage: '아이디어만 있어요', existing_design_usage: '함께 확인할 디자인이 있어요' });
+  const notes = Object.fromEntries(Object.keys(sources).map(id => [id, `숨긴 메모 ${id}`]));
+  for (const id of Object.keys(sources)) {
+    assert(!shown(id, a), id);
+    assert(!R.readiness(a).before.some(item => item.id === id), id);
+    assert(Object.hasOwn(a, id), 'Hiding a question must retain its stored source');
+  }
+  for (const prompt of [false, true]) {
+    const report = R.report(a, prompt, notes);
+    for (const marker of ['숨긴 시작 자료 설명', 'https://example.test/private-', ...Object.values(notes)]) assert(!report.includes(marker), marker);
+  }
+  const design = { ...a, development_stage: '디자인이 있어요' };
+  assert(shown('design_materials', design));
+  assert(!shown('existing_code', design));
+  assert(!shown('existing_service', design));
+});
+
+test('source worksheets require each detail and keep incomplete or undecided fields before development', () => {
+  const context = { development_stage: '운영 중인 서비스를 개선해요', existing_design_usage: '함께 확인할 디자인이 있어요' };
+  for (const id of ['design_materials', 'existing_code', 'existing_service']) {
+    const q = R.allQuestions.find(question => question.id === id);
+    const row = Object.fromEntries(q.fields.map(field => [field.id, `${field.label} 확인 기록`]));
+    assert(R.readiness(context).before.some(item => item.id === id), id);
+    const complete = R.normalizeAnswers({ ...context, [id]: { rows: [row] } });
+    assert(R.isResolved(q, complete), id);
+    for (const field of q.fields.filter(field => field.required !== false)) {
+      for (const value of ['', '미정', R.UNKNOWN]) {
+        const partial = R.normalizeAnswers({ ...context, [id]: { rows: [{ ...row, [field.id]: value }] } });
+        const pending = R.readiness(partial).before.find(item => item.id === id);
+        assert(pending && pending.reason.includes(field.label), `${id}.${field.id}: ${value}`);
+        assert(!R.isResolved(q, partial));
+      }
+    }
+  }
+});
+
+test('old code descriptions drafts and notes survive migration backups and restoration exactly', async () => {
+  const answer = '기존 코드 원문\n두 번째 줄\n'.padEnd(6000, '가');
+  const draft = '이전 코드 초안\n실행 방법 기록\n'.padEnd(6000, '나');
+  const note = '코드 선택 이유\n담당자에게 확인할 내용';
+  const legacy = { version: 1, step: 0, answers: { development_stage: '기존 코드가 있어요', existing_code: answer }, drafts: { existing_code: draft }, notes: { existing_code: note } };
+  const normalized = R.normalizeProject(legacy);
+  assert.equal(normalized.answers.existing_code.legacy, answer);
+  assert.equal(normalized.drafts.existing_code.legacy, draft);
+  assert.equal(normalized.notes.existing_code, note);
+  assert.deepEqual(R.normalizeProject(JSON.parse(JSON.stringify(normalized))), normalized);
+  const pending = R.readiness(normalized.answers).before.find(item => item.id === 'existing_code');
+  assert(pending, 'Legacy prose alone must not silently satisfy the new source worksheet');
+  const app = ui({}, legacy);
+  const backup = app.exportBackup();
+  await app.importBackup(backup);
+  assert.equal(app.exportBackup().answers.existing_code.legacy, answer);
+  assert.equal(app.exportBackup().drafts.existing_code.legacy, draft);
+  assert.equal(app.exportBackup().notes.existing_code, note);
+  app.clickUnknown('existing_code');
+  assert.equal(app.get().existing_code, R.UNKNOWN);
+  const restored = ui({}, app.stored());
+  restored.clickUnknown('existing_code');
+  assert.equal(restored.get().existing_code.legacy, answer);
+  assert.equal(restored.stored().notes.existing_code, note);
+});
+
+test('changing the starting stage preserves worksheet answers and restores their visible controls', () => {
+  const app = ui({}, { version: 1, step: 0, answers: { development_stage: '기존 코드가 있어요', existing_design_usage: '함께 확인할 디자인이 있어요' } });
+  app.worksheet('existing_code', 0, 'location', 'https://example.test/repository');
+  app.worksheet('design_materials', 0, 'location', '<디자인 파일>');
+  app.note('existing_code', '작업 브랜치 확인 필요');
+  app.choose('development_stage', '아이디어만 있어요');
+  assert(!app.markup().includes('id="field-existing_code"'));
+  assert(!app.markup().includes('id="field-design_materials"'));
+  assert.equal(app.get().existing_code.rows[0].location, 'https://example.test/repository');
+  const reloaded = ui({}, app.stored());
+  reloaded.choose('development_stage', '기존 코드가 있어요');
+  assert(reloaded.markup().includes('id="field-existing_code"'));
+  assert(reloaded.markup().includes('id="field-design_materials"'));
+  assert(reloaded.markup().includes('&lt;디자인 파일&gt;'));
+  assert(!reloaded.markup().includes('<디자인 파일>'));
+  assert.equal(reloaded.get().existing_code.rows[0].location, 'https://example.test/repository');
+  assert.equal(reloaded.stored().notes.existing_code, '작업 브랜치 확인 필요');
+});
+
+test('both report formats carry supplied source facts and notes without claiming to have read files', () => {
+  const a = { development_stage: '운영 중인 서비스를 개선해요', existing_design_usage: '함께 확인할 디자인이 있어요' };
+  const notes = {};
+  for (const id of ['design_materials', 'existing_code', 'existing_service']) {
+    const q = R.allQuestions.find(question => question.id === id);
+    a[id] = { rows: [Object.fromEntries(q.fields.map(field => [field.id, `전달 정보 ${id}.${field.id}`]))] };
+    notes[id] = `추가 확인 메모 ${id}`;
+  }
+  const normalized = R.normalizeAnswers(a);
+  for (const prompt of [false, true]) {
+    const report = R.report(normalized, prompt, notes);
+    for (const id of Object.keys(notes)) {
+      assert(report.includes(notes[id]), id);
+      for (const value of Object.values(a[id].rows[0])) assert(report.includes(value), value);
+    }
+    assert.match(report, /파일을 첨부하거나 내용을 읽은 결과가 아닙니다/);
+    assert.match(report, /실제 열람 가능 여부/);
+    assert(!report.includes('[object Object]'));
+  }
+});
+
 test('report suppresses empty sections while retaining pending decisions and note-only answers', () => {
   const app=ui();app.click({id:'report-button'});
   assert(!app.reportMarkup().includes('class="report-section"'));
