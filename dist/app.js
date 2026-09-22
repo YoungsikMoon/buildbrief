@@ -19,7 +19,7 @@
   const byId = new Map(R.allQuestions.map(q => [q.id, q]));
   const priorityQuestion = { id: 'feature_priority', label: '이 기능은 언제 필요한가요?', options: featureFields.find(f => f.id === 'priority').options };
   const testBasisQuestion = { id: 'test_basis', label: '여러 기능을 잇는 별도 흐름이 필요한가요?', options: testBasisOptions };
-  const answerIndicator = (q, value) => R.needsReselection(q, value) ? '다시 선택 필요' : R.isUnknown(value) ? '추천 요청' : R.isAnswered(value) ? '답변됨' : '';
+  const answerIndicator = (q, value) => R.needsReselection(q, value) ? '다시 선택 필요' : R.isUnknown(value) ? '추천 요청' : R.isUndecided(value) ? '미정' : R.isAnswered(value) ? R.isResolved(q, answers) ? '답변됨' : '보완 필요' : '';
   const helpButton = (id, index, label) => `<button type="button" class="option-help" data-help-question="${id}" data-help-index="${index}" aria-label="${escape(label)} 설명" aria-haspopup="dialog" aria-controls="option-help-dialog"><span aria-hidden="true">?</span></button>`;
   const guideFields = [['meaning', '어떤 방식인가요?'], ['example', '실제로는 이렇게 동작해요'], ['pros', '얻는 점'], ['cons', '감수할 점'], ['fit', '이럴 때 검토하세요'], ['avoid', '다른 방식을 검토할 때'], ['impact', '선택하면 이어서 할 일'], ['cost', '비용을 좌우하는 것'], ['effort', '구현할 때 준비할 것'], ['operations', '운영하면서 맡을 일']];
   const hasText = value => typeof value === 'string' && value.trim().length > 0;
@@ -54,7 +54,7 @@
     if (!learning) return '';
     const active = new Set(R.activeQuestions(answers).map(q => q.id));
     const fact = window.BriefGuides.facts?.[question.id];
-    return `<div class="question-learning"><p class="question-why" id="why-${question.id}"><strong>${fact ? '작성 기준' : '왜 고민하나요?'}</strong> ${escape(fact?.meaning || learning.why)}</p><details class="decision-detail" data-detail="reason-${question.id}"><summary>${fact ? '작성 방법과 예시 보기' : '판단 기준과 다음 결정 알아보기'}</summary><dl>${factsMarkup(fact || learning, [['criteria','무엇을 보고 판단하나요?'],['example','예를 들어'],['impact','이 선택은 무엇에 영향을 주나요?']])}</dl>${learning.related?.some(id => active.has(id)) ? `<div class="related-decisions"><strong>함께 살펴볼 결정</strong>${learning.related.filter(id => active.has(id)).map(id => `<button type="button" class="text-button" data-jump="${id}">${escape(byId.get(id).label)} →</button>`).join('')}</div>` : ''}</details>${!fact && learning.prompts?.length && question.type !== 'worksheet' ? `<details class="decision-detail writing-guide" data-detail="write-${question.id}"><summary>막막할 때, 이 순서로 생각해 보세요</summary><ol>${learning.prompts.map(prompt => `<li>${escape(prompt)}</li>`).join('')}</ol><p>내 프로젝트에 맞는 내용부터 적으세요. 아직 모르는 조건은 미정이라고 남겨도 돼요.</p></details>` : ''}</div>`;
+    return `<div class="question-learning"><p class="question-why" id="why-${question.id}"><strong>${fact ? '작성 기준' : '왜 고민하나요?'}</strong> ${escape(fact?.meaning || learning.why)}</p><details class="decision-detail" data-detail="reason-${question.id}"><summary>${fact ? '작성 방법과 예시 보기' : '판단 기준과 다음 결정 알아보기'}</summary><dl>${factsMarkup(fact || learning, [['criteria','무엇을 보고 판단하나요?'],['example','예를 들어'],['impact','이 선택은 무엇에 영향을 주나요?']])}</dl>${learning.related?.some(id => active.has(id)) ? `<div class="related-decisions"><strong>함께 살펴볼 결정</strong>${learning.related.filter(id => active.has(id)).map(id => `<button type="button" class="text-button" data-jump="${id}">${escape(byId.get(id).label)} →</button>`).join('')}</div>` : ''}</details>${!fact && learning.prompts?.length && question.type !== 'worksheet' ? `<details class="decision-detail writing-guide" data-detail="write-${question.id}"><summary>막막할 때, 이 순서로 생각해 보세요</summary><ol>${learning.prompts.map(prompt => `<li>${escape(prompt)}</li>`).join('')}</ol><p>내 프로젝트에 맞는 내용부터 적으세요. 아직 모르는 조건은 미정이라고 남겨도 돼요. 미정과 일부 작성한 필수 칸은 정리 완료로 세지 않고 확인 목록에 남겨요.</p></details>` : ''}</div>`;
   }
   function updateSaveStatus(message) {
     $('#save-status').textContent = message;
@@ -121,17 +121,17 @@
     const stat = R.stats(answers);
     $('#progress-number').textContent = `${stat.percent}%`;
     $('#progress-bar').style.width = `${stat.percent}%`;
-    $('#progress-caption').textContent = `설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개 중 현재 관련 ${stat.total}개 · 선택·작성 ${stat.confirmed}개 · 추천 요청 ${stat.delegated}개 · 미응답 ${stat.pending}개 · 선택 참고 정보는 작성률에서 제외`;
+    $('#progress-caption').textContent = `설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개 중 현재 관련 ${stat.total}개 · 정리 완료 ${stat.confirmed}개 · 추천 요청 ${stat.delegated}개 · 미정·보완 ${stat.unresolved}개 · 미응답 ${stat.pending}개 · 선택 참고 정보는 작성률에서 제외`;
     $('#project-label').textContent = R.display(answers.project_name) || '새로운 아이디어';
     $('#step-nav').innerHTML = steps.map((step, index) => {
       const qs = R.activeGroups(step, answers).flatMap(g => g.questions).filter(q => !q.supplemental);
-      const done = qs.filter(q => R.isAnswered(answers[q.id]) && !R.needsReselection(q, answers[q.id])).length;
+      const done = qs.filter(q => R.isResolved(q, answers)).length;
       const complete = qs.length > 0 && done === qs.length;
       return `<button type="button" class="step-link ${!isReport && index === currentStep ? 'active' : ''} ${complete ? 'complete' : ''} ${qs.length ? '' : 'inactive-step'}" data-step="${index}" ${!isReport && index === currentStep ? 'aria-current="step"' : ''}><span class="step-index">${complete ? '✓' : step.icon}</span><span>${step.short}</span><span class="nav-count">${qs.length ? `${done}/${qs.length}` : '적용 확인'}</span></button>`;
     }).join('');
     const current = R.activeGroups(steps[currentStep], answers).flatMap(g => g.questions).filter(q => !q.supplemental);
-    const done = current.filter(q => R.isAnswered(answers[q.id]) && !R.needsReselection(q, answers[q.id])).length;
-    $('#step-summary').textContent = current.length ? `${done} / ${current.length}개 답변 · 나중에 수정할 수 있어요` : '선행 답변과 적용 여부를 확인해 주세요';
+    const done = current.filter(q => R.isResolved(q, answers)).length;
+    $('#step-summary').textContent = current.length ? `${done} / ${current.length}개 정리 완료 · 미정·추천 요청은 확인 목록에 남아요` : '선행 답변과 적용 여부를 확인해 주세요';
   }
   function worksheetMarkup(question, value) {
     if (R.isUnknown(value)) return '<p class="question-help">이 항목은 AI와 함께 정할 내용으로 남겼어요.</p>';
@@ -212,7 +212,7 @@
       const content = chunks.map(chunk => {
         if (!chunk[0].advanced) return questionMarkup(chunk[0]);
         const key = chunk[0].id;
-        const done = chunk.filter(q => R.isAnswered(answers[q.id]) && !R.needsReselection(q, answers[q.id])).length;
+        const done = chunk.filter(q => R.isResolved(q, answers)).length;
         return `<details class="advanced-details" data-group="${key}" ${showDetails || expanded.has(key) ? 'open' : ''}><summary>${chunk[0].supplemental ? '참고 정보 (선택)' : '더 꼼꼼하게 정하기'} <span>${done} / ${chunk.length}개 답변</span></summary>${chunk.map(questionMarkup).join('')}</details>`;
       }).join('');
       const learning = window.BriefGuides.learning?.[group.title];
@@ -292,7 +292,7 @@
       ${warnings.length ? `<div class="warning-card"><h2>개발 전에 확인할 조합 ${warnings.length}건</h2>${warnings.map(w => `<div class="warning-item"><strong>${escape(w.title)}</strong>${escape(w.message)}<br><button class="text-button" data-jump="${w.id}">해당 답변 수정 →</button></div>`).join('')}</div>` : ''}
       ${decisionSummaryMarkup()}
       ${reviewMarkup(review)}
-      <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>작성률은 설계 질문의 답변 수이며 개발 준비도 점수가 아니에요. 선택 참고 정보는 작성률에서 제외하고, 빈칸은 확인 목록에 넣지 않아요. 일부만 작성한 기능 명세와 작성표는 위에서 안내해요.</p></div>
+      <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · 미정·보완 ${stat.unresolved}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>작성률은 현재 설계 질문 중 정리 완료 항목의 비율이며 개발 준비도 점수가 아니에요. 미정·보완 항목과 추천 요청은 정리 완료로 세지 않아요. 선택 참고 정보는 작성률에서 제외하고, 빈칸은 확인 목록에 넣지 않아요. 일부만 작성한 기능 명세와 작성표는 위에서 안내해요.</p></div>
       <div class="report-tabs" role="tablist" aria-label="리포트 보기"><button class="report-tab" id="tab-spec" role="tab" aria-controls="panel-spec" data-tab="spec" aria-selected="${reportTab === 'spec'}" tabindex="${reportTab === 'spec' ? '0' : '-1'}">개발 명세서</button><button class="report-tab" id="tab-prompt" role="tab" aria-controls="panel-prompt" data-tab="prompt" aria-selected="${reportTab === 'prompt'}" tabindex="${reportTab === 'prompt' ? '0' : '-1'}">AI 전달 프롬프트</button></div>
       <div id="panel-spec" role="tabpanel" aria-labelledby="tab-spec" ${reportTab === 'spec' ? '' : 'hidden'}>${specification || '<p class="report-note">작성한 답변이 생기면 이곳에 명세를 정리해요. 아직 정하지 않은 항목은 위 확인 목록에 있어요.</p>'}</div>
       <div id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" ${reportTab === 'prompt' ? '' : 'hidden'}><textarea readonly class="report-code" id="prompt-text" aria-label="AI에게 전달할 전체 개발 프롬프트"></textarea></div>

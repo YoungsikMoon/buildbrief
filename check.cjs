@@ -125,13 +125,14 @@ const migratedLicensing = R.normalizeAnswers(JSON.parse(JSON.stringify(licensing
 assert.equal(migratedLicensing.license_terms.legacy, licensing.license_terms);
 assert.equal(migratedLicensing.license_limits.legacy, licensing.license_limits);
 assert.deepEqual(R.normalizeAnswers(JSON.parse(JSON.stringify(migratedLicensing))), migratedLicensing);
-const privateFree = { ...licensing, code_release: '자체 코드 비공개', service_delivery: ['운영하는 웹·앱 서비스 이용'], customer_license: '무료 이용', license_unit: '별도 수량 제한 없음', license_inventory: '사용 목록과 조건을 정리함' };
+const privateFree = { ...licensing, code_release: '자체 코드 비공개', service_delivery: ['운영하는 웹·앱 서비스 이용'], customer_pricing: '무료', customer_license: '서비스 제공 기간 동안', entitlement_assignment: '별도 배정·교체 없이 이용', license_unit: '별도 수량 제한 없음', license_inventory: '사용 목록과 조건을 정리함' };
 for (const id of ['code_license', 'license_scope', 'license_limits', 'offline_license', 'license_review']) assert(!shown(id, privateFree), id);
 for (const value of ['AGPL 3.0', licensing.license_scope, licensing.license_limits, licensing.offline_license, licensing.license_review]) assert(!R.report(privateFree).includes(value), `Hide stale license choice: ${value}`);
 assert(shown('license_scope', { code_release: '코드 열람만 허용·재사용 제한' }));
 assert(!shown('code_license', { code_release: '코드 열람만 허용·재사용 제한' }));
 assert(!shown('code_license', { code_release: R.UNKNOWN }));
-assert(shown('license_terms', privateFree), 'Free hosted services also need duration and support decisions');
+assert(!shown('license_terms', privateFree), 'No assigned entitlement should force product renewal terms');
+assert(shown('support', privateFree) && shown('maintenance', privateFree), 'General support and shutdown planning remain available');
 assert(shown('license_terms', { service_delivery: ['고객 환경에 프로그램 설치'], customer_license: '무료 이용' }), 'Free installations still need offline and support rules');
 assert(R.readiness({ code_release: R.UNKNOWN }).before.some(i => i.id === 'code_release'));
 for (const state of ['아직 확인하지 않음', '일부 확인함']) assert(R.readiness({ license_inventory: state }).before.some(i => i.id === 'license_inventory'));
@@ -467,9 +468,22 @@ test('private source delivery retains contractual modification and redistributio
   assert(!shown('code_license', a), 'private delivery must not force an open-source license');
 });
 test('free hosted use retains duration and support terms', () => {
-  const a = { customer_license: '무료 이용', service_delivery: ['운영하는 웹·앱 서비스 이용'], license_terms: '30일 무료 이용, 만료 후 내보내기만 허용' };
+  const a = { customer_pricing: '무료', customer_license: '기간제 이용권', service_delivery: ['운영하는 웹·앱 서비스 이용'], license_terms: '30일 무료 이용, 만료 후 내보내기만 허용' };
   assert(shown('license_terms', a), 'free does not mean unlimited duration');
   assert(R.report(a).includes(a.license_terms));
+  const legacy = R.normalizeAnswers({...a,customer_license:'무료 이용'});
+  assert(R.report(legacy).includes(a.license_terms), 'Older free-use answers retain terms while duration is reselected');
+});
+test('existing service terms remain available until assignment scope is explicitly excluded', () => {
+  const original = {customer_pricing:'무료',customer_license:'서비스 제공 기간 동안',license_unit:'별도 수량 제한 없음',service_delivery:['운영하는 웹·앱 서비스 이용'],license_terms:'서비스 종료 30일 전에 공지하고 운영 기간 동안 이메일 오류 신고를 지원'};
+  for (const entitlement_assignment of [undefined,R.UNKNOWN]) {
+    const a = R.normalizeAnswers({...original,entitlement_assignment});
+    assert(shown('license_terms',a));
+    assert(R.report(a).includes(original.license_terms));
+  }
+  const excluded = R.normalizeAnswers({...original,entitlement_assignment:'별도 배정·교체 없이 이용'});
+  assert(!shown('license_terms',excluded));
+  assert.equal(excluded.license_terms.legacy,original.license_terms,'Hiding obsolete terms must preserve the original draft');
 });
 test('read-only subscription restriction retains timing and retry rules', () => {
   const a = { features: ['결제·구독'], payment_model: '정기 구독', renewal_failure: '읽기 전용으로 전환', payment_grace: '7일 동안 재시도 후 읽기 전용 전환' };
@@ -1214,6 +1228,128 @@ test('basic permissions remain a required decision while extra exceptions reuse 
   const app = ui({}, { version: 1, step: 2, details: false, answers: a });
   assert(app.markup().includes('data-reuse-question="access_rules"'));
   for (const value of Object.values(a)) assert(R.testPlanText(a).includes(value));
+});
+
+test('explicit undecided answers remain editable and out of resolved progress', () => {
+  const a = R.normalizeAnswers({ summary: '미정', audience: ' 미정 ', main_journey: '미정', minors: '아직 대상 미정' });
+  const unresolved = [...R.readiness(a).before, ...R.readiness(a).during];
+  for (const id of Object.keys(a)) assert(unresolved.some(item => item.id === id), id);
+  assert.equal(R.stats(a).confirmed, 0);
+  assert.equal(R.stats(a).unresolved, 4);
+  assert.equal(R.stats(a).delegated, 0, 'Writing undecided does not implicitly delegate or lock an input');
+  assert.equal(R.stats(a).percent, 0);
+  assert.equal(R.decisionSummary(a).length, 0);
+  assert(!R.matches({ id: 'summary', answered: true }, a));
+  assert(!R.isUndecided('없음'));
+  assert(!R.isUndecided('미정인 날짜를 선택하는 기능'));
+  assert(R.isUndecided('기타: 미정'));
+  const app = ui({}, {version:1,step:1,answers:a});
+  assert(app.markup().includes('answer-indicator">미정'));
+  assert(!/id="input-audience"[^>]*disabled/.test(app.markup()));
+  assert.equal(app.get().audience, ' 미정 ', 'Preserve what the user wrote');
+  assert(R.report(a).includes('미정으로 작성 — 결정 필요'));
+});
+
+test('partial cards and literal undecided fields use the same pending rules as the report', () => {
+  const row = Object.fromEntries(Q.featureFields.map(f => [f.id, f.id === 'priority' ? '첫 출시에 필수' : '미정']));
+  const flow = Object.fromEntries(Q.testFlowFields.map(f => [f.id, '미정']));
+  const a = R.normalizeAnswers({feature_specs:[row],critical_tests:{basis:Q.testBasisOptions[1],flows:[flow]},role_matrix:{rows:[],legacy:'미정'}});
+  for (const id of Object.keys(a)) {
+    const q = R.allQuestions.find(q => q.id === id);
+    assert(!R.isResolved(q,a),id);
+    assert(R.pendingReason(q,a),id);
+    assert([...R.readiness(a).before,...R.readiness(a).during].some(item=>item.id===id),id);
+  }
+  assert.equal(R.stats(a).confirmed,0);
+  assert.deepEqual(R.normalizeAnswers(JSON.parse(JSON.stringify(a))),a);
+  const complete = Object.fromEntries(Q.featureFields.map(f => [f.id, f.id === 'priority' ? '첫 출시에 필수' : '없음']));
+  assert(R.isResolved(R.allQuestions.find(q=>q.id==='feature_specs'), {feature_specs:[complete,{priority:'추후 개발',name:'미정'}]}), 'Future details do not gate this release');
+});
+
+test('offline recovery checks server-only storage as well as a local-storage ban', () => {
+  const a = {project_type:'웹사이트',features:['글·콘텐츠 작성'],form_usage:'입력·수정 화면 있음',offline:'작성 내용만 임시 보관',draft_recovery:'복구 필요'};
+  for(const storage of ['서버에만 임시 저장','기기에 저장 금지']) assert(R.issues({...a,draft_storage:storage}).some(i=>i.id==='draft_storage'),storage);
+  assert(!R.issues({...a,draft_storage:'이 기기 저장 허용'}).some(i=>i.id==='draft_storage'));
+  assert(!R.issues({...a,offline:'온라인에서만 사용',draft_storage:'서버에만 임시 저장'}).some(i=>i.id==='draft_storage'));
+});
+
+test('product subscriptions retain collection and fulfillment failures without software entitlement', () => {
+  const a = R.normalizeAnswers({features:['결제·구독'],customer_pricing:'무료',payment_access:'상품·서비스 결제만 처리',payment_model:['정기 구독'],renewal_failure:'미결제 회차의 주문·배송·서비스 제공 보류',payment_grace:'3일 간격으로 2회 재시도하고 미결제 회차는 배송 보류'});
+  for(const id of ['renewal_failure','payment_grace']) {
+    assert(shown(id,a),id);
+    assert(R.report(a).includes(a[id]),id);
+  }
+  assert(!shown('paid_activation',a));
+  assert(!shown('renewal_failure',{...a,payment_model:['단건 결제']}));
+});
+
+test('custom signup combinations keep the restrictions in the brief', () => {
+  const a = R.normalizeAnswers({features:['회원가입·로그인'],signup_policy:'기타: 회사 이메일 + 초대 + 운영자 승인',signup_restrictions:'초대 링크는 24시간 후 만료, 운영자가 승인'});
+  assert(shown('signup_restrictions',a));
+  assert(R.report(a).includes(a.signup_restrictions));
+  assert(!shown('signup_restrictions',{...a,signup_policy:'누구나 가입'}));
+  assert.equal(R.normalizeProject({answers:a}).answers.signup_restrictions,a.signup_restrictions);
+});
+
+test('local files and offline reading do not invent cloud sharing or synchronization', () => {
+  const a = {project_type:'PC 프로그램',backend_mode:'기기 안에서만 실행',data_scope:'이 기기에서만 저장',features:['파일·이미지 첨부'],file_storage:'사용자 기기의 파일·앱 저장 공간'};
+  assert.equal(R.normalizeAnswers(a).file_storage,a.file_storage);
+  assert(shown('file_storage',a));
+  assert(!shown('file_visibility',a));
+  for(const offline of ['오프라인 조회만 허용','기기에서만 사용·동기화 없음']) {
+    const b={...a,offline};
+    assert.equal(R.normalizeAnswers(b).offline,offline);
+    assert(!shown('offline_conflict',b));
+    assert(!shown('offline_sync_rules',b));
+  }
+  assert(shown('offline_conflict',{...a,offline:'오프라인 조회·수정 후 동기화'}));
+});
+
+test('provider-managed databases do not demand manual replicas and warn about unsupported choices', () => {
+  const a = {database:'Firestore',db_hosting:'관리형 DB',db_redundancy:'제공자가 복제·장애 전환을 관리'};
+  assert(shown('db_redundancy',a));
+  for(const id of ['db_replication_ack','db_failover','db_replication_lag']) assert(!shown(id,a),id);
+  assert(!R.issues(a).some(i=>i.id==='db_redundancy'));
+  assert(R.issues({...a,db_redundancy:'복제 DB 1개'}).some(i=>i.id==='db_redundancy'));
+  assert(shown('db_failover',{...a,database:'PostgreSQL',db_redundancy:'복제 DB 1개'}));
+});
+
+test('input and entitlement scope hide only their irrelevant follow-ups while preserving old answers', () => {
+  const a = R.normalizeAnswers({project_type:'웹사이트',features:[R.SKIP],form_usage:'조회·안내만 제공',forms_library:['HTML 기본 폼·직접 검증'],draft_recovery:'복구 필요',draft_storage:'이 기기 저장 허용',customer_pricing:'무료',customer_license:'서비스 제공 기간 동안',license_unit:'별도 수량 제한 없음',service_delivery:['운영하는 웹·앱 서비스 이용'],entitlement_assignment:'별도 배정·교체 없이 이용',license_transfer:'기존 이용권 기록'});
+  for(const id of ['forms_library','form_validation','draft_recovery','draft_storage','license_terms','license_transfer']) assert(!shown(id,a),id);
+  assert.equal(a.license_transfer.legacy,'기존 이용권 기록');
+  assert(shown('forms_library',{...a,form_usage:'입력·수정 화면 있음'}));
+  assert(shown('license_transfer',{...a,entitlement_assignment:'특정 사람·조직·기기 등에 이용권을 배정'}));
+  assert(shown('license_terms',{...a,service_delivery:['고객 환경에 프로그램 설치']}),'Free installed products may still have terms');
+  for(const id of ['acceptance','definition_done','brand']) {
+    const q=R.allQuestions.find(q=>q.id===id);
+    assert(q.supplemental,id);
+    assert(![...R.readiness(a).before,...R.readiness(a).during].some(i=>i.id===id),id);
+    assert(R.report({...a,[id]:'추가 조건을 기록함'}).includes('추가 조건을 기록함'),id);
+  }
+});
+
+test('no external provider and no secrets are explicit choices rather than missing preparations', () => {
+  const a=R.normalizeAnswers({project_type:'PC 프로그램',backend_mode:'기기 안에서만 실행',features:['AI 기능'],external_api_usage:'호출하지 않음',integration_readiness:'외부 제공자 없이 구현',secret_storage:['보관할 비밀값 없음']});
+  assert.deepEqual(a.secret_storage,['보관할 비밀값 없음']);
+  assert(!shown('integration_fallback',a));
+  assert(!shown('integration_setup',a));
+  assert(!R.issues(a).some(i=>i.id==='integration_readiness'));
+  assert(shown('integration_setup',{...a,external_api_usage:'외부 API 호출'}));
+  assert(R.issues({...a,external_api_usage:'외부 API 호출'}).some(i=>i.id==='integration_readiness'));
+  assert.deepEqual(R.normalizeAnswers({secret_storage:['호스팅의 서버 전용 비밀 설정','보관할 비밀값 없음']}).secret_storage,['보관할 비밀값 없음']);
+});
+
+test('version history requires a final-version rule and background reliability is independent of queue tools', () => {
+  const edit={features:['글·콘텐츠 작성'],edit_conflict:'버전별 보관'};
+  assert(shown('conflict_resolution',edit));
+  assert(R.readiness(edit).before.some(i=>i.id==='conflict_resolution'));
+  const q=R.allQuestions.find(q=>q.id==='conflict_resolution');
+  assert(!R.readiness({...edit,conflict_resolution:q.options[0]}).before.some(i=>i.id==='conflict_resolution'));
+  const jobs={messaging:'사용 안 함',async_reliability_need:'유실·중복·순서 대응 필요',async_jobs:'응답 후 알림 보내기'};
+  assert(shown('message_reliability',jobs));
+  assert(!shown('message_reliability',{...jobs,async_reliability_need:'배경·예약 작업 없음'}));
+  assert(R.issues({messaging:'Kafka',async_reliability_need:'배경·예약 작업 없음'}).some(i=>i.id==='async_reliability_need'));
 });
 
 Promise.all(pending).then(() => {
