@@ -6,7 +6,7 @@ HTML, CSS, JavaScript만으로 동작하는 단계별 개발 요구사항 설문
 
 ## 공개 저장소와 이용 조건
 
-[서비스 이용](https://buildbrief-9ey.pages.dev/) · [GitHub 저장소](https://github.com/YoungsikMoon/buildbrief) · [버전별 다운로드](https://github.com/YoungsikMoon/buildbrief/releases) · [기여 방법](CONTRIBUTING.md)
+[서비스 이용](https://buildbrief.moon0sik.cloud/) · [GitHub 저장소](https://github.com/YoungsikMoon/buildbrief) · [버전별 다운로드](https://github.com/YoungsikMoon/buildbrief/releases) · [기여 방법](CONTRIBUTING.md)
 
 **BuildBrief 비상업적 소스 공개 라이선스 1.0**을 적용합니다. 아래 표는 요약이며 정확한 조건은 [LICENSE](LICENSE)를 따릅니다.
 
