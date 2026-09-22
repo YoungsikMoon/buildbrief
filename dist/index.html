@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#214eeb">
-  <meta name="description" content="전문가의 고려 사항을 이해하고 직접 선택하세요. 단계별 질문으로 설계하고 AI에게 전달할 개발 명세서를 완성하세요.">
-  <title>빌드브리프 — 생각을 개발 명세로</title>
+  <meta name="description" content="아이디어를 구체적인 기획과 설계로. 전문가의 고려 사항을 배우고 내 상황에 맞는 선택을 정리해 AI와 요구사항·설계 문서를 완성하세요.">
+  <title>빌드브리프 — 아이디어를 기획과 설계로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=ba83f6bd8296">
-  <script src="questions.js?v=7ce149d76670" defer></script>
-  <script src="report.js?v=61bbc0d70e1b" defer></script>
+  <link rel="stylesheet" href="styles.css?v=dda09a1c65c7">
+  <script src="questions.js?v=90ea6e9ac22b" defer></script>
+  <script src="report.js?v=cfd9142b3434" defer></script>
   <script src="projects.js?v=8e64131c1497" defer></script>
-  <script src="guides.js?v=a0462ce36389" defer></script>
-  <script src="app.js?v=819362b030bd" defer></script>
+  <script src="guides.js?v=b78a202d388f" defer></script>
+  <script src="app.js?v=32f3cefc1888" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -49,7 +49,7 @@
       <div id="form-view">
         <div class="page-topline"><div class="breadcrumb" id="breadcrumb"></div><span class="step-badge" id="step-badge"></span></div>
         <div class="page-heading"><div><h1 id="page-title"></h1><p id="page-description"></p></div><span class="chapter-number" id="chapter-number" aria-hidden="true"></span></div>
-        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>내 서비스에 필요한 질문을 순서대로 정리하세요.</strong> 앞선 답변에 따라 해당하는 질문이 이어져요. 선택지 옆 ?에서 뜻·장단점·적합한 상황을 비교하고, 선택 이유는 각 질문의 메모에 남길 수 있어요.</p></div>
+        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>아이디어를 정리하고, 비교하고, 설계로 연결하세요.</strong> 아는 내용부터 적어 주세요. 핵심 설계 질문에서는 내 답변에 따른 비교 후보를 안내해요. 선택지 옆 ?로 장단점을 이해하고 이유를 남기면, AI와 기획·요구사항·설계 문서를 구체화할 자료가 돼요. 모르는 내용은 추천 요청으로 남겨도 괜찮아요.</p></div>
         <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><span id="step-summary"></span><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
       </div>
       <section id="report-view" hidden aria-labelledby="report-title"></section>
@@ -62,7 +62,7 @@
   </div>
   <footer class="site-footer">
     <div class="site-footer-inner">
-      <div class="site-footer-about"><strong>빌드브리프</strong><p>내 아이디어를 구체적인 개발 계획으로.</p></div>
+      <div class="site-footer-about"><strong>빌드브리프</strong><p>내 아이디어를 이해할 수 있는 요구사항과 설계로.</p></div>
       <nav class="footer-links" aria-label="서비스 관련 링크">
         <a href="https://github.com/YoungsikMoon/buildbrief/releases" target="_blank" rel="noopener noreferrer" aria-label="변경 내역 (새 탭)">변경 내역 <span aria-hidden="true">↗</span></a>
         <a href="https://github.com/YoungsikMoon/buildbrief" target="_blank" rel="noopener noreferrer" aria-label="GitHub 저장소 (새 탭)">GitHub 저장소 <span aria-hidden="true">↗</span></a>

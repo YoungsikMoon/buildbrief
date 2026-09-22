@@ -11,4 +11,5 @@ node_modules/
 *.key
 *-답변백업.json
 *-개발명세서.md
+*-기획설계자료.md
 *-AI프롬프트.md

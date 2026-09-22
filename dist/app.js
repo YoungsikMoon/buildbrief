@@ -29,6 +29,13 @@
   const hasText = value => typeof value === 'string' && value.trim().length > 0;
   const factsMarkup = (guide, fields) => fields.filter(([key]) => hasText(guide[key])).map(([key, label]) => `<div class="help-fact"><dt>${label}</dt><dd>${escape(guide[key])}</dd></div>`).join('');
   const guideSource = guide => guide.source && /^https:\/\//.test(guide.source) ? `<a class="help-source" href="${escape(guide.source)}" target="_blank" rel="noopener noreferrer">공식 설명 더 보기 ↗</a>` : '';
+  function decisionAdviceMarkup(question) {
+    const advice = R.decisionAdvice(question, answers);
+    if (!advice) return '';
+    const options = R.choiceOptions(question);
+    const considered = advice.candidates.filter(item => item.level === 'consider');
+    return `<aside class="decision-advice" aria-labelledby="advice-${question.id}"><h3 id="advice-${question.id}">내 상황에서 비교할 후보</h3><p class="advice-note">${escape(advice.note)}</p>${advice.candidates.length ? `<ul class="advice-candidates">${advice.candidates.map(item => `<li class="advice-candidate ${item.level === 'caution' ? 'caution' : ''}"><div><span class="advice-label">${item.level === 'caution' ? '조건 확인' : '먼저 비교'}</span><strong>${escape(item.option)}</strong>${helpButton(question.id, options.indexOf(item.option), item.option)}</div><p>${escape(item.reason)}</p></li>`).join('')}</ul>` : ''}${advice.missing.length ? `<div class="advice-missing"><strong>후보를 판단하는 데 더 필요한 정보</strong>${advice.missing.map(item => `<button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button>`).join('')}</div>` : ''}${advice.basis.length ? `<details class="advice-basis" data-detail="basis-${question.id}"><summary>이 안내에 사용한 내 답변 ${advice.basis.length}개</summary><dl>${advice.basis.map(item => `<div><dt><button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button></dt><dd>${escape(item.value)}</dd></div>`).join('')}</dl></details>` : ''}${considered.length > 1 ? `<button type="button" class="text-button" data-compare-question="${question.id}" data-compare-first="${options.indexOf(considered[0].option)}" data-compare-second="${options.indexOf(considered[1].option)}">두 후보의 장단점 나란히 비교 →</button>` : ''}<p class="advice-footer">선택은 아래에서 직접 해 주세요. 다른 선택지도 모두 비교할 수 있어요.</p></aside>`;
+  }
   function showOptionHelp(id, index, open = true, compareIndex = -1) {
     const q = id === priorityQuestion.id ? priorityQuestion : id === testBasisQuestion.id ? testBasisQuestion : byId.get(id);
     if (!q) return;
@@ -282,7 +289,7 @@
     if (selectedGuides.length) controls += `<details class="decision-detail" data-detail="fit-${id}"><summary>내 선택의 적합성과 영향을 확인하세요</summary>${selectedGuides.map(({option, guide}) => `<h3>${escape(option)}</h3><dl>${factsMarkup(guide, [['fit','적합한 상황'],['avoid','다른 방식을 검토할 때'],['impact','이후 필요한 결정·작업']])}</dl>`).join('')}</details>`;
     const factual = Boolean(window.BriefGuides.facts?.[id]);
     controls += `<details class="decision-detail" data-detail="note-${id}" ${notes[id] ? 'open' : ''}><summary>${factual ? '작성 근거·확인할 내용 기록하기' : '선택 이유·추가 설계 메모'} <span>(선택)</span></summary><label for="note-${id}">${factual ? '작성한 내용의 근거와 확인할 내용' : '선택한 이유·추가 조건·다시 검토할 내용'}</label><textarea id="note-${id}" class="textarea-input" rows="2" maxlength="${question.noteMaxLength || question.maxLength || 6000}" data-note="${id}" placeholder="${factual ? '예: 현재 확인한 값과 추정한 값을 구분하고, 다시 확인할 시점을 적어 주세요.' : '예: 혼자 운영하고 예산이 적어서 선택. 운영 담당자가 늘거나 이용량이 증가하면 다시 검토.'}">${escape(notes[id] || '')}</textarea><p class="question-help">답변을 바꿨다면 이유도 함께 확인해 주세요. 이 기록은 리포트에 포함돼요.</p></details>`;
-    return `<fieldset class="question" id="field-${id}"><legend><span class="question-title">${type === 'text' || type === 'textarea' ? `<label for="input-${id}">${escape(label)}</label>` : escape(label)}${required ? '<span class="required-label">필수 입력</span>' : question.supplemental ? '<span class="required-label">선택 참고</span>' : ''}${type === 'multi' ? '<span class="multi-label">복수 선택</span>' : ''}</span></legend>${hasText(help) ? `<p class="question-help" id="${helpId}">${escape(help)}</p>` : ''}${question.supplemental ? '<p class="question-help">필요한 내용이 있을 때만 적으세요. 빈칸은 미응답이나 미결정으로 세지 않아요.</p>' : ''}${questionLearning(question)}${question.reuse?.length ? `<div data-reuse-question="${id}">${reusedAnswersMarkup(question)}</div>` : ''}${controls}<div class="question-footer"><span>${!required && (!question.supplemental || delegated) && ['text', 'textarea', 'featurelist', 'testplan','worksheet'].includes(type) ? `<button type="button" class="uncertain-button ${delegated ? 'selected' : ''}" id="unknown-${id}" data-unknown="${id}">${delegated ? '직접 작성으로 바꾸기' : '아직 몰라요 · AI에게 추천받기'}</button>${helpButton(id, 0, R.UNKNOWN)}` : `<button type="button" class="clear-answer" data-clear="${id}">답변 지우기</button>`}</span><span class="answer-indicator">${answerIndicator(question, value)}</span></div></fieldset>`;
+    return `<fieldset class="question" id="field-${id}"><legend><span class="question-title">${type === 'text' || type === 'textarea' ? `<label for="input-${id}">${escape(label)}</label>` : escape(label)}${required ? '<span class="required-label">필수 입력</span>' : question.supplemental ? '<span class="required-label">선택 참고</span>' : ''}${type === 'multi' ? '<span class="multi-label">복수 선택</span>' : ''}</span></legend>${hasText(help) ? `<p class="question-help" id="${helpId}">${escape(help)}</p>` : ''}${question.supplemental ? '<p class="question-help">필요한 내용이 있을 때만 적으세요. 빈칸은 미응답이나 미결정으로 세지 않아요.</p>' : ''}${questionLearning(question)}${question.reuse?.length ? `<div data-reuse-question="${id}">${reusedAnswersMarkup(question)}</div>` : ''}${decisionAdviceMarkup(question)}${controls}<div class="question-footer"><span>${!required && (!question.supplemental || delegated) && ['text', 'textarea', 'featurelist', 'testplan','worksheet'].includes(type) ? `<button type="button" class="uncertain-button ${delegated ? 'selected' : ''}" id="unknown-${id}" data-unknown="${id}">${delegated ? '직접 작성으로 바꾸기' : '아직 몰라요 · AI에게 추천받기'}</button>${helpButton(id, 0, R.UNKNOWN)}` : `<button type="button" class="clear-answer" data-clear="${id}">답변 지우기</button>`}</span><span class="answer-indicator">${answerIndicator(question, value)}</span></div></fieldset>`;
   }
   function renderQuestions() {
     const openDetails = new Set([...document.querySelectorAll('[data-detail][open]')].map(el => el.dataset.detail));
@@ -309,7 +316,7 @@
     $('#chapter-number').textContent = step.icon;
     $('#step-tip').textContent = step.tip;
     $('#previous-button').disabled = currentStep === 0;
-    $('#next-button').textContent = currentStep === steps.length - 1 ? '제출하고 리포트 만들기 ↗' : '다음 단계 →';
+    $('#next-button').textContent = currentStep === steps.length - 1 ? '기획·설계 자료 정리하기 ↗' : '다음 단계 →';
     renderQuestions();
     updateProgress();
     if (focus) {
@@ -336,13 +343,22 @@
     focusAnswer(field);
   }
   function reviewMarkup(review) {
-    return `<section class="readiness-card" aria-labelledby="readiness-title"><div class="readiness-heading"><span class="eyebrow">BEFORE YOU BUILD</span><h2 id="readiness-title">개발 전 확인과 개발 중 결정을 나눴어요</h2><p>빈 답변을 임의로 결정하지 않아요. 미정이어도 리포트는 만들 수 있어요.</p></div>
-      <details class="readiness-section" open><summary>개발 전 확인 <strong>${review.before.length}</strong></summary><p>서비스 동작과 데이터·권한에 영향을 주는 결정이에요. 해당 기능을 구현하기 전에 확인하세요.</p>${review.before.length ? `<ul>${review.before.map(item => `<li><button type="button" class="review-link" data-jump="${item.id}">${escape(item.label)} <span aria-hidden="true">↗</span></button><small>${escape(item.reason)}</small></li>`).join('')}</ul>` : '<p class="review-complete">지정된 핵심 항목에 답했어요. 답변의 충분성과 서로 모순되는 내용이 없는지 검토해 주세요.</p>'}</details>
-      <details class="readiness-section"><summary>개발 중 결정 <strong>${review.during.length}</strong></summary><p>세부 기술과 설정은 정한 진행 방침에 따라 결정할 수 있어요. 비용·공개 범위·데이터에 영향이 커지면 먼저 확인하세요.</p><ul>${review.during.map(item => `<li><button type="button" class="review-link" data-jump="${item.id}">${escape(item.label)} <span aria-hidden="true">↗</span></button><small>${escape(item.reason)}</small></li>`).join('')}</ul></details></section>`;
+    return `<section class="readiness-card" aria-labelledby="readiness-title"><div class="readiness-heading"><span class="eyebrow">OPEN QUESTIONS</span><h2 id="readiness-title">AI와 함께 구체화할 질문</h2><p>아직 모르는 답변이 있어도 시작할 수 있어요. 한꺼번에 모두 답하는 대신, 문서의 방향을 바꾸는 질문부터 확인하세요.</p></div>
+      <details class="readiness-section"><summary>기획 방향을 먼저 확인 <strong>${review.before.length}</strong></summary><p>목표·범위·동작과 주요 설계를 정하는 질문이에요. AI는 아래 질문을 그대로 반복하기보다 이미 작성한 답변을 참고해 필요한 내용부터 물어야 해요.</p>${review.before.length ? `<ul>${review.before.map(item => `<li><button type="button" class="review-link" data-jump="${item.id}">${escape(item.label)} <span aria-hidden="true">↗</span></button><small>${escape(item.reason)}</small></li>`).join('')}</ul>` : '<p class="review-complete">지정된 핵심 항목에 답했어요. 답변의 충분성과 서로 모순되는 내용이 없는지 검토해 주세요.</p>'}</details>
+      <details class="readiness-section"><summary>설계하면서 구체화 <strong>${review.during.length}</strong></summary><p>앞의 방향을 바탕으로 비교할 세부 결정이에요. 미룰 경우에는 필요한 정보와 다시 결정할 시점을 문서에 남겨요.</p><ul>${review.during.map(item => `<li><button type="button" class="review-link" data-jump="${item.id}">${escape(item.label)} <span aria-hidden="true">↗</span></button><small>${escape(item.reason)}</small></li>`).join('')}</ul></details></section>`;
+  }
+  function planningReviewMarkup() {
+    const review = R.planningReview(answers, notes);
+    return `<section class="planning-map" aria-labelledby="planning-map-title"><h2 id="planning-map-title">내 답변이 어떤 문서로 이어지나요?</h2><p>아래는 AI와 함께 완성할 문서의 구성과 연결된 답변이에요. 답변을 적었다고 설계 검토까지 끝난 것은 아니에요.</p><div class="planning-sections">${review.sections.map(section => `<details class="planning-section"><summary>${escape(section.title)}</summary><p>${escape(section.description)}</p>${section.questions.length ? `<ul>${section.questions.map(item => `<li><button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button><span>${escape(item.status)}${item.reason ? ` · ${escape(item.reason)}` : ''}</span></li>`).join('')}</ul>` : '<p>현재 답변에 연결된 항목이 없어요. 적용 여부는 AI와 문서를 검토할 때 확인하세요.</p>'}</details>`).join('')}</div>${review.checks.length ? `<div class="planning-checks"><h3>먼저 보완하면 좋은 연결</h3><p>아래는 정해진 기준으로 찾은 확인 사항이에요. 이 목록에 없더라도 누락이나 모순이 있을 수 있어요.</p><ul>${review.checks.map(item => `<li><button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button><p>${escape(item.reason)}</p></li>`).join('')}</ul></div>` : ''}</section>`;
+  }
+  function decisionRecordsMarkup() {
+    const records = R.decisionRecords(answers, notes);
+    if (!records.length) return '';
+    return `<details class="decision-records report-section"><summary>주요 설계 선택과 판단 근거</summary><div class="report-section-body"><p>선택한 이름뿐 아니라 그 이유와 이어서 정할 내용을 함께 검토해요. 기록된 선택은 적합성이 검증된 결정과 구분해요.</p>${records.map(item => `<article class="decision-record"><h3><button type="button" class="text-button" data-jump="${item.id}">${escape(item.label)} →</button></h3><p class="decision-status">${escape(item.status)}</p><dl><div><dt>현재 기록</dt><dd>${escape(item.value || '미응답')}</dd></div><div><dt>선택 이유·추가 조건</dt><dd>${escape(item.reason || '아직 기록하지 않았어요. 비교한 대안과 선택 이유, 다시 검토할 조건을 AI와 확인하세요.')}</dd></div></dl>${item.followups.length ? `<div class="related-decisions"><strong>이어서 연결할 결정</strong>${item.followups.map(q => `<button type="button" class="text-button" data-jump="${q.id}">${escape(q.label)} →</button>`).join('')}</div>` : ''}</article>`).join('')}</div></details>`;
   }
   function decisionSummaryMarkup() {
     const items = R.decisionSummary(answers);
-    return `<section class="decision-summary"><h2>현재 선택한 방향</h2><p>핵심 결정만 먼저 모았어요. 상세 답변과 미정 사항은 아래에 그대로 담겨요.</p>${items.length ? `<dl>${items.map(item => `<div><dt>${escape(item.label)}</dt><dd>${escape(item.value)}</dd></div>`).join('')}</dl>` : '<p>아직 확정해 적은 핵심 결정이 없어요.</p>'}</section>`;
+    return `<section class="decision-summary"><h2>현재 기록한 방향</h2><p>직접 적고 선택한 내용이에요. AI가 문서를 작성할 때 적합성과 서로 미치는 영향을 검토해야 해요.</p>${items.length ? `<dl>${items.map(item => `<div><dt>${escape(item.label)}</dt><dd>${escape(item.value)}</dd></div>`).join('')}</dl>` : '<p>아직 기록한 핵심 방향이 없어요. 알고 있는 내용부터 작성하거나 AI와 함께 구체화하세요.</p>'}</section>`;
   }
   function renderReport() {
     isReport = true;
@@ -356,22 +372,25 @@
       return `<details class="report-section"><summary>${step.icon}. ${escape(step.short)}</summary><div class="report-section-body">${groups.map(group => `<h3>${escape(group.title)}</h3><dl>${group.questions.map(q => `<div class="report-answer"><dt>${escape(q.label)}</dt><dd>${escape(R.needsReselection(q, answers[q.id]) ? `이전 답변: ${R.display(answers[q.id])} — 재선택 필요, 확정하지 않음` : R.answerText(q, answers))}</dd>${notes[q.id] ? `<dt>선택 이유·추가 설계 메모</dt><dd>${escape(notes[q.id])}</dd>` : ''}</div>`).join('')}</dl>`).join('')}</div></details>`;
     }).join('');
     $('#report-view').innerHTML = `
-      <div class="report-kicker">YOUR DEVELOPMENT BRIEF <span>↗</span></div>
-      <h1 id="report-title">${review.before.length ? '개발 전에 확인할 결정이 있어요' : '개발 브리프를 검토해 주세요'}</h1>
-      <p class="report-intro">답변을 바탕으로 정리한 문서예요. 미정인 선택은 그대로 남겼어요.<br>전체 명세와 확인할 항목을 AI에게 함께 전달할 수 있어요.</p>
+      <div class="report-kicker">YOUR PLANNING BRIEF <span>↗</span></div>
+      <h1 id="report-title">내 아이디어를 기획·설계 문서로</h1>
+      <p class="report-intro">답변과 선택 이유, 아직 정하지 못한 내용을 모았어요.<br>AI에게 전달하면 부족한 정보를 확인하고 기획·요구사항·설계 문서를 함께 다듬을 수 있어요.</p>
       <div class="summary-name">${escape(R.display(answers.project_name) || '이름 미정 프로젝트')}</div>
-      <div class="report-stats"><div class="report-stat"><strong>${stat.answered}<small style="font-size:13px;font-weight:400;color:#6c7d98"> / ${stat.total}</small></strong><span>답변 수 · 추천 요청 포함</span></div><div class="report-stat"><strong>${review.before.length}</strong><span>개발 전 확인</span></div><div class="report-stat"><strong>${review.during.length}</strong><span>개발 중 결정</span></div></div>
-      <div class="report-actions"><button type="button" class="button primary" id="copy-prompt">AI 프롬프트 복사 ↗</button><button type="button" class="button secondary" id="download-report">명세서 .md</button><button type="button" class="button secondary" id="download-prompt">프롬프트 .md</button><button type="button" class="button secondary" id="print-report">인쇄 / PDF</button><button type="button" class="button secondary" id="back-to-form">계속 작성</button></div>
-      ${warnings.length ? `<div class="warning-card"><h2>개발 전에 확인할 조합 ${warnings.length}건</h2>${warnings.map(w => `<div class="warning-item"><strong>${escape(w.title)}</strong>${escape(w.message)}<br><button class="text-button" data-jump="${w.id}">해당 답변 수정 →</button></div>`).join('')}</div>` : ''}
+      <div class="report-stats"><div class="report-stat"><strong>${stat.answered}<small style="font-size:13px;font-weight:400;color:#6c7d98"> / ${stat.total}</small></strong><span>답변 수 · 추천 요청 포함</span></div><div class="report-stat"><strong>${review.before.length}</strong><span>기획 방향 확인</span></div><div class="report-stat"><strong>${review.during.length}</strong><span>설계하며 구체화</span></div></div>
+      <div class="report-actions"><button type="button" class="button primary" id="copy-prompt">AI 문서 작성 요청 복사 ↗</button><button type="button" class="button secondary" id="download-report">기획 자료 .md</button><button type="button" class="button secondary" id="download-prompt">AI 요청문 .md</button><button type="button" class="button secondary" id="print-report">인쇄 / PDF</button><button type="button" class="button secondary" id="back-to-form">계속 작성</button></div>
+      <ol class="handoff-steps"><li><strong>자료 전달</strong><span>복사한 요청문과 실제 참고 파일을 AI 대화에 전달하세요.</span></li><li><strong>함께 검토</strong><span>추가 질문에 답하고 제안된 방식과 가정을 확인하세요.</span></li><li><strong>문서 구체화</strong><span>범위·동작·설계·검증 기준을 정리한 뒤 구현 여부를 별도로 결정하세요.</span></li></ol>
+      ${warnings.length ? `<div class="warning-card"><h2>함께 확인할 답변 조합 ${warnings.length}건</h2>${warnings.map(w => `<div class="warning-item"><strong>${escape(w.title)}</strong>${escape(w.message)}<br><button class="text-button" data-jump="${w.id}">해당 답변 수정 →</button></div>`).join('')}</div>` : ''}
       ${decisionSummaryMarkup()}
+      ${planningReviewMarkup()}
+      ${decisionRecordsMarkup()}
       ${reviewMarkup(review)}
       <div class="pending-card"><p><strong>미응답 ${stat.pending}개 · 미정·보완 ${stat.unresolved}개 · AI 추천 요청 ${stat.delegated}개 · 이전 답변 재선택 ${stat.recheck}개</strong><br>작성률은 현재 설계 질문 중 정리 완료 항목의 비율이며 개발 준비도 점수가 아니에요. 미정·보완 항목과 추천 요청은 정리 완료로 세지 않아요. 선택 참고 정보는 작성률에서 제외하고, 빈칸은 확인 목록에 넣지 않아요. 일부만 작성한 기능 명세와 작성표는 위에서 안내해요.</p></div>
-      <div class="report-tabs" role="tablist" aria-label="리포트 보기"><button class="report-tab" id="tab-spec" role="tab" aria-controls="panel-spec" data-tab="spec" aria-selected="${reportTab === 'spec'}" tabindex="${reportTab === 'spec' ? '0' : '-1'}">개발 명세서</button><button class="report-tab" id="tab-prompt" role="tab" aria-controls="panel-prompt" data-tab="prompt" aria-selected="${reportTab === 'prompt'}" tabindex="${reportTab === 'prompt' ? '0' : '-1'}">AI 전달 프롬프트</button></div>
+      <div class="report-tabs" role="tablist" aria-label="리포트 보기"><button class="report-tab" id="tab-spec" role="tab" aria-controls="panel-spec" data-tab="spec" aria-selected="${reportTab === 'spec'}" tabindex="${reportTab === 'spec' ? '0' : '-1'}">질문별 기록</button><button class="report-tab" id="tab-prompt" role="tab" aria-controls="panel-prompt" data-tab="prompt" aria-selected="${reportTab === 'prompt'}" tabindex="${reportTab === 'prompt' ? '0' : '-1'}">AI 문서 작성 요청</button></div>
       <div id="panel-spec" role="tabpanel" aria-labelledby="tab-spec" ${reportTab === 'spec' ? '' : 'hidden'}>${specification || '<p class="report-note">작성한 답변이 생기면 이곳에 명세를 정리해요. 아직 정하지 않은 항목은 위 확인 목록에 있어요.</p>'}</div>
-      <div id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" ${reportTab === 'prompt' ? '' : 'hidden'}><textarea readonly class="report-code" id="prompt-text" aria-label="AI에게 전달할 전체 개발 프롬프트"></textarea></div>
-      <p class="report-note">답변을 문서로 정리한 결과이며 AI 모델의 자동 분석은 아니에요. 현재 조건에 해당하지 않는 질문의 이전 답변은 보관하되 리포트에서는 제외해요. 개발 전 확인 목록은 중요한 결정의 점검표이며 전체 품질을 보증하지 않아요.</p>`;
+      <div id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" ${reportTab === 'prompt' ? '' : 'hidden'}><textarea readonly class="report-code" id="prompt-text" aria-label="AI에게 전달할 기획·설계 문서 작성 요청"></textarea></div>
+      <p class="report-note">이 사이트는 답변을 정리하고 정해진 기준으로 비교를 안내해요. AI 모델을 호출하거나 답변의 정확성을 검증하지 않아요. 현재 조건에 해당하지 않는 이전 답변은 보관하되 리포트에서는 제외해요. 확정·제안·가정·미정을 구분한 문서는 전달받은 AI와 검토하며 완성하세요.</p>`;
     $('#prompt-text').value = R.report(answers, true, notes);
-    $('#step-tip').textContent = '개발 전 확인을 먼저 살펴보세요. 정하지 못한 항목이 있어도 리포트를 내려받아 AI와 함께 결정할 수 있어요.';
+    $('#step-tip').textContent = 'AI의 첫 작업은 누락과 모순을 찾고 문서를 구체화하는 것이에요. 정하지 못한 항목은 질문과 대안을 제안받고, 구현은 문서를 검토한 뒤 별도로 요청하세요.';
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function download(content, extension, suffix, title = R.display(answers.project_name) || 'buildbrief') {
@@ -386,7 +405,7 @@
   }
   async function copyPrompt() {
     const text = R.report(answers, true, notes);
-    try { await navigator.clipboard.writeText(text); toast('전체 AI 개발 프롬프트를 복사했어요.'); }
+    try { await navigator.clipboard.writeText(text); toast('답변을 포함한 기획·설계 문서 작성 요청을 복사했어요.'); }
     catch {
       reportTab = 'prompt';
       renderReport();
@@ -530,6 +549,7 @@
       return toast('프로젝트를 삭제했어요.');
     }
     if (button.id === 'export-all-projects') return download(JSON.stringify({ format: 'buildbrief-projects', ...collectWorkspace(), exportedAt: new Date().toISOString() }, null, 2), 'json', '전체프로젝트백업', 'buildbrief');
+    if (button.dataset.compareQuestion) return showOptionHelp(button.dataset.compareQuestion, Number(button.dataset.compareFirst), true, Number(button.dataset.compareSecond));
     if (button.dataset.helpQuestion) return showOptionHelp(button.dataset.helpQuestion, Number(button.dataset.helpIndex));
     if (button.id === 'close-option-help') return $('#option-help-dialog').close();
     if (button.dataset.addWorksheet) {
@@ -600,11 +620,11 @@
     if (button.id === 'previous-button') renderStep(currentStep - 1, true);
     if (button.id === 'back-to-form') renderStep(currentStep, true);
     if (button.id === 'copy-prompt') copyPrompt();
-    if (button.id === 'download-report') download(R.report(answers, false, notes), 'md', '개발명세서');
+    if (button.id === 'download-report') download(R.report(answers, false, notes), 'md', '기획설계자료');
     if (button.id === 'download-prompt') download(R.report(answers, true, notes), 'md', 'AI프롬프트');
     if (button.id === 'print-report') {
       const spec = $('#panel-spec'), prompt = $('#panel-prompt');
-      const opened = [...document.querySelectorAll('.report-section, .readiness-section')].map(el => [el, el.open]);
+      const opened = [...document.querySelectorAll('.report-section, .readiness-section, .planning-section')].map(el => [el, el.open]);
       spec.hidden = false; prompt.hidden = true;
       opened.forEach(([el]) => { el.open = true; });
       const restore = () => { opened.forEach(([el, open]) => { el.open = open; }); spec.hidden = reportTab !== 'spec'; prompt.hidden = reportTab !== 'prompt'; };

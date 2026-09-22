@@ -11,6 +11,7 @@ const { steps, featureFields, testBasisOptions, testFlowFields } = require('./di
 const R = require('./dist/report.js');
 const G = require('./dist/guides.js');
 require('./scripts/check-projects.cjs');
+require('./scripts/check-planning.cjs');
 const ids = R.allQuestions.map(q => q.id);
 assert.equal(new Set(ids).size, ids.length, 'Question IDs must be unique');
 for (const step of steps) for (const group of step.groups) {
@@ -90,13 +91,16 @@ assert(R.readiness({ feature_specs: [] }).before.some(i => i.id === 'feature_spe
 assert(R.readiness({ delivery_level: R.UNKNOWN, cache: R.UNKNOWN }).before.some(i => i.id === 'delivery_level'));
 assert(R.readiness({ delivery_level: R.UNKNOWN, cache: R.UNKNOWN }).during.some(i => i.id === 'cache'));
 assert(!R.readiness({ features: [R.SKIP] }).before.some(i => i.id === 'features'));
-for (const id of ['pricing', 'refunds', 'visibility', 'file_visibility', 'personal_data', 'deletion', 'deployment_permission']) assert(R.readiness({ features: ['결제·구독', '공개 페이지·공유', '파일·이미지 첨부'] }).before.some(i => i.id === id), `${id} is a decision before implementation`);
-assert(R.report({}).includes('개발 전 확인'), 'Incomplete drafts still produce a report');
+for (const id of ['pricing', 'refunds', 'visibility', 'file_visibility', 'personal_data', 'deletion']) assert(R.readiness({ features: ['결제·구독', '공개 페이지·공유', '파일·이미지 첨부'] }).before.some(i => i.id === id), `${id} is a decision before implementation`);
+assert(R.report({}).includes('먼저 구체화할 사항'), 'Incomplete drafts still produce a planning document with open questions');
 const featureReport = R.report(restored, true);
 assert(featureReport.includes(feature.acceptance));
 assert(featureReport.includes('다음 버전 기능'));
 assert(!featureReport.includes('[object Object]'));
-for (const item of R.readiness(restored).before) assert(featureReport.includes(`${item.label} — ${item.reason}`));
+for (const item of R.readiness(restored).before) {
+  assert(featureReport.includes(`**[${item.id}] ${item.label}**`));
+  for (const line of item.reason.split(/\r?\n/)) assert(featureReport.includes(`> ${line}`), 'Unresolved reasons remain quoted data in the new document outline');
+}
 assert.deepEqual(R.normalizeAnswers({ feature_specs: [null, [], 'bad', { name: '정상', unknown: 'drop', priority: 'invalid', failure: 'x'.repeat(6001) }] }).feature_specs, [{ name: '정상' }]);
 assert.throws(() => R.normalizeAnswers({ feature_specs: Array(R.MAX_FEATURES + 1).fill({}) }));
 assert.deepEqual(R.normalizeAnswers({ app_permissions: ['필요 없음', '카메라'] }).app_permissions, ['필요 없음']);
@@ -104,7 +108,7 @@ assert.deepEqual(R.normalizeAnswers({ signup_required: ['이메일', '추가 정
 
 // Skip is a question-specific decision; legacy backups remain recoverable but not silently accepted.
 const byId = new Map(R.allQuestions.map(q => [q.id, q]));
-for (const id of ['project_type', 'frontend_language', 'architecture', 'docker', 'login_methods', 'payment_model', 'deployment_permission']) assert(!R.choiceOptions(byId.get(id)).includes(R.SKIP), id);
+for (const id of ['project_type', 'frontend_language', 'architecture', 'docker', 'login_methods', 'payment_model']) assert(!R.choiceOptions(byId.get(id)).includes(R.SKIP), id);
 for (const id of ['features', 'navigation', 'pagination', 'file_processing', 'search_quality', 'sharing', 'ai_requirements']) assert(R.choiceOptions(byId.get(id)).includes(R.SKIP), id);
 const oldSkipped = R.normalizeAnswers({ architecture: R.SKIP, features: [R.SKIP], summary: R.SKIP });
 assert.equal(oldSkipped.architecture, R.SKIP, 'Keep old answers for review');
@@ -672,7 +676,7 @@ test('all empty steps and report render with real guides loaded', () => {
     assert(app.markup().length > 0, `step ${step} must render`);
   }
   app.click({ id: 'report-button' });
-  assert(app.reportMarkup().includes('개발 전에 확인할 결정이 있어요'));
+  assert(app.reportMarkup().includes('AI와 함께 구체화할 질문'));
   assert(app.reportMarkup().includes('id="panel-prompt"'));
   assert.equal(Object.keys(app.get()).length, 0, 'rendering must not invent answers');
 });
@@ -1012,6 +1016,44 @@ test('each question shows its own reason, writing scaffold and related decisions
   assert(app.markup().includes(G.get({ id: 'frontend_language' }, 'JavaScript').fit));
   assert(app.markup().includes(G.get({ id: 'frontend_language' }, 'JavaScript').impact));
 });
+test('contextual candidates expose evidence and comparison without selecting or erasing user work', () => {
+  const answers = { project_type: '웹사이트', team_size: '혼자 + AI', backend_mode: '직접 백엔드 개발', architecture: '모듈형 모놀리식' };
+  const index = Q.steps.findIndex(step => step.groups.some(group => group.questions.some(question => question.id === 'architecture')));
+  const app = ui({}, { version: 1, step: index, answers, notes: { architecture: '업무를 나누되 함께 배포하려고 선택' } });
+  const before = app.exportBackup();
+  const question = R.allQuestions.find(item => item.id === 'architecture');
+  const advice = R.decisionAdvice(question, app.get());
+  const candidates = advice.candidates.filter(item => item.level === 'consider');
+  assert(candidates.length >= 2, 'The solo-project example should explain alternatives, not dictate one architecture');
+  assert(app.markup().includes('내 상황에서 비교할 후보'));
+  assert(app.markup().includes('이 안내에 사용한 내 답변'));
+  app.click({ dataset: { compareQuestion: question.id, compareFirst: String(R.choiceOptions(question).indexOf(candidates[0].option)), compareSecond: String(R.choiceOptions(question).indexOf(candidates[1].option)) } });
+  assert(app.helpMarkup().includes('option-comparison'));
+  for (const candidate of candidates.slice(0, 2)) assert(app.helpMarkup().includes(G.get(question, candidate.option).meaning));
+  const after = app.exportBackup();
+  for (const key of ['answers', 'drafts', 'notes']) assert.deepEqual(after[key], before[key], `Comparing must preserve ${key}`);
+});
+test('legacy implementation hand-off answers survive browser migration reload and import without becoming planning approval', async () => {
+  const legacy = {
+    version: 1, step: 14,
+    answers: { ai_workflow: '이미 정한 명세대로 구현', unknown_policy: '되돌리기 쉬운 결정은 가정 명시 후 진행', deliverables: ['실행 가능한 소스', 'API 명세'], deployment_permission: '운영 배포까지 요청' },
+    drafts: { ai_workflow: '설계 확인 후 단계별 구현', deliverables: ['설치·실행 설명', '배포 안내'], deployment_permission: '검증 환경까지' },
+    notes: { ai_workflow: '기존 개발 방식 이유', deliverables: '기존 전달물의 조건', deployment_permission: '과거에만 검토했던 배포 권한' }
+  };
+  const app = ui({}, legacy);
+  const backup = app.exportBackup();
+  const reloaded = ui({}, app.stored());
+  await reloaded.importBackup(backup);
+  const restored = reloaded.exportBackup();
+  for (const key of ['answers', 'drafts', 'notes']) assert.deepEqual(restored[key], backup[key]);
+  for (const key of ['answers', 'drafts', 'notes']) assert.equal(restored[key].deployment_permission, legacy[key].deployment_permission, `Retired permission must survive ${key}`);
+  for (const id of ['ai_workflow', 'unknown_policy', 'deliverables']) assert(R.needsReselection(R.allQuestions.find(question => question.id === id), restored.answers[id]), id);
+  reloaded.click({ id: 'report-button' });
+  assert(reloaded.reportMarkup().includes('이전 답변 재선택'));
+  assert(reloaded.reportMarkup().includes('구현 여부를 별도로 결정'));
+  assert(R.report(restored.answers, true, restored.notes).includes('기존 개발 방식 이유'));
+  assert(!R.report(restored.answers, true, restored.notes).includes('과거에만 검토했던 배포 권한'));
+});
 test('converted free-text decisions retain full old text, drafts and notes through backups', async () => {
   for (const q of R.allQuestions.filter(q => q.legacyFreeText)) {
     for (const text of [' 이전에 적은 세부 조건\n두 번째 줄 ', '가'.repeat(6000)]) {
@@ -1257,7 +1299,7 @@ test('both report formats carry supplied source facts and notes without claiming
 test('report suppresses empty sections while retaining pending decisions and note-only answers', () => {
   const app=ui();app.click({id:'report-button'});
   assert(!app.reportMarkup().includes('class="report-section"'));
-  assert(app.reportMarkup().includes('개발 전 확인'));
+  assert(app.reportMarkup().includes('기획 방향을 먼저 확인'));
   assert(!R.report({}).includes('### 프로젝트 소개'));
   const groups=Q.steps.flatMap(s=>R.reportGroups(s,{}, {summary:'다음 주 확인'}));
   assert.equal(groups.flatMap(g=>g.questions).length,1);
