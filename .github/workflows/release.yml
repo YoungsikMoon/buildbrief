@@ -25,6 +25,7 @@ jobs:
           package-manager-cache: false
       - run: node check.cjs
       - run: node scripts/release.cjs --test
+      - run: node scripts/build.cjs --test
 
   release:
     needs: check

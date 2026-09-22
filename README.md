@@ -32,7 +32,10 @@ HTML, CSS, JavaScript만으로 동작하는 단계별 개발 요구사항 설문
 - 같은 커밋을 재실행하면 기존 버전을 재사용합니다. 테스트 실패 시 발급하지 않습니다.
 - 하루 99개를 초과하면 오류로 중단합니다. `.100`을 만들거나 기존 번호를 덮어쓰지 않습니다.
 - 변경이 없는 날짜에는 버전을 만들지 않습니다. 필요한 경우 Actions에서 수동 실행할 수 있습니다.
+
 - 태그를 삭제·이동하지 마세요. 릴리스에는 해당 커밋의 소스 ZIP·tar.gz 다운로드가 제공됩니다.
+
+공개 앱 상단의 버전은 빌드한 커밋을 가리키는 Git 릴리스 태그로 채웁니다. `v260922.14`처럼 표시되며 누르면 해당 GitHub Release를 새 탭에서 엽니다. 브라우저에서 최신 버전을 조회하거나 날짜로 추측하지 않으므로, 예전 배포를 열면 그 배포의 버전이 표시됩니다. 로컬 빌드는 항상 `개발 버전`이며 Pages 미리보기도 일치하는 태그가 없으면 `개발 버전`으로 표시됩니다.
 
 동시 실행은 순서대로 처리합니다. GitHub Actions 대기열은 최대 100개이며, 그 이상으로 취소된 실행은 나중에 재실행해야 합니다. 첫 공개 이전의 비공개 개발 기록과 운영용 배포 설정은 공개 저장소에 포함하지 않습니다. 공개 버전과 기존 호스팅 서비스의 배포 번호는 별개입니다.
 
@@ -58,12 +61,14 @@ Cloudflare에서 Workers & Pages → Create application → Pages → 기존 Git
 | Production branch | `main` |
 | Root directory | 저장소 루트 |
 | Framework preset | 없음 |
-| Build command | `node check.cjs && node scripts/release.cjs --test` |
+| Build command | `node scripts/build.cjs` |
 | Build output directory | `dist` |
 | 빌드 환경 변수 | `NODE_VERSION=24` |
 | 공개 파일 | `wrangler.jsonc`의 `pages_build_output_dir`인 `./dist` |
 
-Cloudflare가 `main`의 GitHub push마다 자체 검증을 실행하고 성공한 커밋을 배포합니다. GitHub 버전 발급 작업과는 독립적으로 실행되므로 GitHub Actions 완료를 기다리는 방식은 아닙니다. 빌드 명령의 검증을 제거하지 마세요. 배포는 Pages가 처리하므로 별도 `wrangler deploy` 명령을 추가하지 않습니다. 배포 경로를 저장소 루트로 바꾸면 공개할 필요가 없는 파일까지 노출할 수 있으므로 `./dist`를 유지하세요.
+Cloudflare가 `main`의 GitHub push마다 `build.cjs`를 실행합니다. 이 명령은 기존 앱 검사, 릴리스 검사, 버전 표시 검사를 통과한 뒤 `CF_PAGES_COMMIT_SHA`가 현재 체크아웃과 같은지 확인하고 해당 커밋의 원격 태그만 읽습니다. GitHub 버전 발급과 Pages 빌드는 독립적으로 시작하므로 운영 빌드는 태그를 10초 간격으로 최대 5분 기다립니다. 일치하는 태그를 얻지 못하거나 태그가 모호하면 실패해 잘못된 버전을 배포하지 않습니다. 릴리스 작업이 늦게 끝났다면 성공 후 Pages 빌드를 다시 실행하세요. 환경 변수는 [Cloudflare Pages 빌드 설정](https://developers.cloudflare.com/pages/configuration/build-configuration/#environment-variables)을 따릅니다.
+
+버전은 `dist/index.html`의 지정한 표시 영역에만 빌드 시 반영하며 JS·CSS 파일의 콘텐츠 해시 검사와 브라우저 보안 정책은 유지합니다. 로컬 빌드는 원격 태그를 조회하지 않고 항상 개발 버전으로 표시합니다. Pages 미리보기는 일치하는 태그가 없거나 원격 조회가 불가능하면 기다리지 않고 개발 버전으로 표시합니다. 배포는 Pages가 처리하므로 별도 `wrangler deploy` 명령을 추가하지 않습니다. 배포 경로를 저장소 루트로 바꾸면 공개할 필요가 없는 파일까지 노출할 수 있으므로 `./dist`를 유지하세요.
 
 `dist/_headers`는 스크립트 출처 제한(CSP), 다른 사이트의 프레임 삽입 차단, MIME 형식 보호 등의 응답 헤더를 설정합니다. 외부 폰트만 허용하고 스크립트의 외부 통신은 차단합니다. 답변은 계속 사용자의 브라우저에만 저장되며, 클라우드 배포가 답변의 서버 동기화나 암호화를 추가하지는 않습니다. 사이트 주소가 바뀌면 기존 주소의 브라우저 답변은 자동 이전되지 않으므로 JSON 백업으로 옮기세요.
 
@@ -72,6 +77,7 @@ Cloudflare가 `main`의 GitHub push마다 자체 검증을 실행하고 성공�
 ```sh
 node check.cjs
 node scripts/check-release.cjs
+node scripts/build.cjs --test
 ```
 
 ## 구성
@@ -82,6 +88,7 @@ node scripts/check-release.cjs
 - `dist/app.js`: 단계 이동, 입력, 브라우저 자동 저장, JSON 백업·복원, 복사·다운로드
 - `dist/styles.css`: 반응형 레이아웃과 인쇄 스타일
 - `dist/index.html`: 페이지 구조
+- `scripts/build.cjs`: 검증 실행과 배포 커밋에 맞는 앱 버전 표시
 
 ## 데이터와 동작 범위
 

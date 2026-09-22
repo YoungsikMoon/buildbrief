@@ -7,7 +7,7 @@
   <meta name="description" content="전문가의 고려 사항을 이해하고 직접 선택하세요. 단계별 질문으로 설계하고 AI에게 전달할 개발 명세서를 완성하세요.">
   <title>빌드브리프 — 생각을 개발 명세로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=22228de0aaf0">
+  <link rel="stylesheet" href="styles.css?v=e1cabd421415">
   <script src="questions.js?v=ed19313e4dbf" defer></script>
   <script src="report.js?v=8cd379a27a02" defer></script>
   <script src="guides.js?v=a1b4865187a6" defer></script>
@@ -16,7 +16,10 @@
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
   <header class="topbar">
-    <a class="brand" href="#" aria-label="빌드브리프 처음으로"><span class="brand-mark">b<span>·</span></span>빌드브리프<span class="brand-en">BUILD BRIEF</span></a>
+    <div class="brand-group">
+      <a class="brand" href="#" aria-label="빌드브리프 처음으로"><span class="brand-mark">b<span>·</span></span>빌드브리프</a>
+      <!-- app-version --><span class="app-version" id="app-version">개발 버전</span><!-- /app-version -->
+    </div>
     <div class="top-actions"><button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog" title="저장 유지 조건과 백업 방법"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-help-icon" aria-hidden="true">?</span></button><button class="button secondary small" id="report-button">리포트 미리보기 <span aria-hidden="true">↗</span></button></div>
   </header>
   <div class="workspace">
@@ -54,11 +57,13 @@
   </div>
   <footer class="site-footer">
     <div class="site-footer-inner">
-      <div class="site-footer-credit"><strong>빌드브리프 · BUILD BRIEF</strong><span>YoungsikMoon 및 기여자</span></div>
+      <div class="site-footer-about"><strong>빌드브리프</strong><p>내 아이디어를 구체적인 개발 계획으로.</p></div>
       <nav class="footer-links" aria-label="서비스 관련 링크">
-        <a href="https://github.com/YoungsikMoon/buildbrief/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="라이선스 (새 탭)">라이선스 <span aria-hidden="true">↗</span></a>
+        <a href="https://github.com/YoungsikMoon/buildbrief/releases" target="_blank" rel="noopener noreferrer" aria-label="변경 내역 (새 탭)">변경 내역 <span aria-hidden="true">↗</span></a>
         <a href="https://github.com/YoungsikMoon/buildbrief" target="_blank" rel="noopener noreferrer" aria-label="GitHub 저장소 (새 탭)">GitHub 저장소 <span aria-hidden="true">↗</span></a>
+        <a href="https://github.com/YoungsikMoon/buildbrief/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="라이선스 (새 탭)">라이선스 <span aria-hidden="true">↗</span></a>
       </nav>
+      <p class="site-footer-credit">YoungsikMoon과 기여자들이 함께 만듭니다.</p>
     </div>
   </footer>
   <div id="toast" class="toast" role="status" hidden></div>
