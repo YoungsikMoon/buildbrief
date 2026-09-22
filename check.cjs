@@ -287,6 +287,7 @@ function ui(answers = {}, savedDraft, options = {}) {
       node('#question-form').handlers.input({ target: { dataset: { worksheet: id, row: String(row), part }, value } });
     },
     textOf: selector => node(selector).textContent,
+    htmlOf: selector => node(selector).innerHTML,
     isOpen: selector => node(selector).open === true,
     isHidden: selector => node(selector).hidden,
     storageChange() { windowEvents.storage({ key: 'buildbrief.project.v1' }); },
@@ -333,6 +334,24 @@ function ui(answers = {}, savedDraft, options = {}) {
     }
   };
 }
+
+test('progress starts with one clear completion count and separates unfinished answer states', () => {
+  const app = ui({project_name:'진행률 확인',summary:'미정',audience:R.UNKNOWN,architecture:R.SKIP,known_stack:'HTML'});
+  app.click({dataset:{step:'0'}});
+  let stat = R.stats(app.get());
+  assert.equal(app.textOf('#progress-caption'),`현재 필요한 ${stat.total}개 중 1개 정리 완료`);
+  const detail = app.htmlOf('#progress-breakdown');
+  for (const label of ['정리 완료','미정·추가 작성 필요','AI 추천 요청','이전 선택 확인 필요']) assert(detail.includes(`<dt>${label}</dt><dd>1개</dd>`),label);
+  assert(detail.includes(`<dt>아직 답변하지 않음</dt><dd>${stat.pending}개</dd>`));
+  assert(!app.textOf('#progress-caption').includes('추천'),'Only the completion count belongs in the main caption');
+  app.set('summary','동네 행사를 찾아보는 서비스');
+  stat=R.stats(app.get());
+  assert.equal(app.textOf('#progress-caption'),`현재 필요한 ${stat.total}개 중 2개 정리 완료`);
+  assert(!app.htmlOf('#progress-breakdown').includes('미정·추가 작성 필요'),'Zero-count secondary states do not clutter the detail');
+  app.set('form_usage','조회·안내만 제공');
+  assert(R.stats(app.get()).total < stat.total,'Changing scope updates the denominator');
+  assert.equal(app.get().summary,'동네 행사를 찾아보는 서비스','Progress changes must not clear existing answers');
+});
 
 test('storage help preserves answers and backs up unsaved edits after storage failures or tab conflicts', () => {
   const app = ui();
@@ -1350,6 +1369,41 @@ test('version history requires a final-version rule and background reliability i
   assert(shown('message_reliability',jobs));
   assert(!shown('message_reliability',{...jobs,async_reliability_need:'배경·예약 작업 없음'}));
   assert(R.issues({messaging:'Kafka',async_reliability_need:'배경·예약 작업 없음'}).some(i=>i.id==='async_reliability_need'));
+});
+
+test('progress reaches 100 percent only when every relevant question is resolved', () => {
+  const row = fields => Object.fromEntries(fields.map(field => [field.id, field.options?.[0] || `${field.label} 확인함`]));
+  const sample = Object.fromEntries(R.allQuestions.map(q => [q.id,
+    q.type === 'single' ? q.options[0] :
+    q.type === 'multi' ? [q.options[0]] :
+    q.type === 'featurelist' ? [row(Q.featureFields)] :
+    q.type === 'testplan' ? { basis: Q.testBasisOptions[1], flows: [row(Q.testFlowFields)] } :
+    q.type === 'worksheet' ? { rows: [row(q.fields)] } : `${q.label} 확인함`
+  ]));
+  const complete = R.normalizeAnswers({ ...sample,
+    features: R.allQuestions.find(q => q.id === 'features').options,
+    data_scope: '같은 계정의 여러 기기에서 사용', backend_mode: '직접 백엔드 개발',
+    license_inventory: '사용 목록과 조건을 정리함'
+  });
+  assert(R.activeQuestions(complete).filter(q => !q.supplemental).every(q => R.isResolved(q, complete)));
+  const full = R.stats(complete);
+  assert(full.total >= 200, 'Exercise a denominator where rounding one unfinished answer could produce 100 percent');
+  assert.equal(full.confirmed, full.total);
+  assert.equal(full.percent, 100);
+  const unfinished = R.stats({ ...complete, summary: '미정' });
+  assert.equal(unfinished.total, full.total);
+  assert.equal(unfinished.confirmed, full.total - 1);
+  assert.equal(unfinished.unresolved, 1);
+  assert(unfinished.percent < 100);
+  const empty = R.stats({});
+  assert.equal(empty.percent, 0);
+  assert.equal(empty.pending, empty.total);
+  assert(R.stats({project_name:'첫 답변'}).percent > 0,'Completing the first answer must visibly advance progress');
+  const mixed = R.stats(R.normalizeAnswers({ ...complete, summary: '미정', project_name: '', core_features: R.UNKNOWN, frontend_language: R.SKIP }));
+  for (const key of ['unresolved', 'pending', 'delegated', 'recheck']) assert.equal(mixed[key], 1, key);
+  for (const stat of [full, unfinished, empty, mixed]) {
+    assert.equal(stat.confirmed + stat.pending + stat.unresolved + stat.delegated + stat.recheck, stat.total);
+  }
 });
 
 Promise.all(pending).then(() => {

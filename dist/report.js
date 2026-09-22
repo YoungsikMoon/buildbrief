@@ -68,7 +68,7 @@
     const recheck = questions.filter(q => needsReselection(q, answers[q.id])).length;
     const delegated = questions.filter(q => isUnknown(answers[q.id])).length;
     const confirmed = questions.filter(q => isResolved(q, answers)).length;
-    return { total: questions.length, answered, confirmed, delegated, unresolved: answered - confirmed - delegated, recheck, pending: questions.length - answered - recheck, percent: questions.length ? Math.round(confirmed / questions.length * 100) : 0 };
+    return { total: questions.length, answered, confirmed, delegated, unresolved: answered - confirmed - delegated, recheck, pending: questions.length - answered - recheck, percent: questions.length ? Math.floor(confirmed / questions.length * 1000) / 10 : 0 };
   };
   function mergeReferenceInput(input) {
     const result = { ...input };

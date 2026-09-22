@@ -7,11 +7,11 @@
   <meta name="description" content="전문가의 고려 사항을 이해하고 직접 선택하세요. 단계별 질문으로 설계하고 AI에게 전달할 개발 명세서를 완성하세요.">
   <title>빌드브리프 — 생각을 개발 명세로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=8135430ccc96">
+  <link rel="stylesheet" href="styles.css?v=b1d14fbffa53">
   <script src="questions.js?v=ee8508a7a7bc" defer></script>
-  <script src="report.js?v=930d8dde7636" defer></script>
+  <script src="report.js?v=691a19c4f45c" defer></script>
   <script src="guides.js?v=e4bee61aae9e" defer></script>
-  <script src="app.js?v=1b3ad589599b" defer></script>
+  <script src="app.js?v=1a21021c1227" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -22,9 +22,18 @@
   <div class="workspace">
     <aside class="sidebar" aria-label="질문 단계">
       <div class="sidebar-heading"><span class="eyebrow">MY PROJECT</span><strong id="project-label">새로운 아이디어</strong></div>
-      <div class="progress-label"><span>작성 진행률</span><strong id="progress-number">0%</strong></div>
-      <div class="progress-track"><div id="progress-bar"></div></div>
+      <div class="progress-label"><span id="progress-label">답변 정리 현황</span><strong id="progress-number">0%</strong></div>
+      <div class="progress-track"><div id="progress-bar" role="progressbar" aria-labelledby="progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="progress-caption"></div></div>
       <p class="progress-caption" id="progress-caption"></p>
+      <details class="progress-details">
+        <summary>진행 현황 자세히</summary>
+        <dl id="progress-breakdown"></dl>
+        <p><strong>무엇을 완료로 세나요?</strong>답변을 입력·선택하고, 미정·필수 빈칸·이전 선택 확인 등 보완할 항목이 없는 질문이에요. 작성표와 기능 카드는 칸이나 행 수와 관계없이 질문 하나로 세어요. 답변의 정확성이나 개발 준비도를 평가하는 점수는 아니에요.</p>
+        <p>‘AI 추천 요청’은 AI와 함께 정할 답변이에요. 추천을 자동 실행하거나 완료로 세지는 않아요.</p>
+        <p><strong>왜 진행률이 바뀌나요?</strong>선택에 따라 필요한 질문이 늘거나 줄어요. 질문이 추가되면 진행률이 낮아질 수 있지만, 작성한 답변은 유지돼요.</p>
+        <p id="progress-scope"></p>
+        <p>참고 자료·추가 의견처럼 선택해서 적는 참고 정보는 계산에서 제외해요. 100%가 아니어도 리포트를 만들 수 있어요.</p>
+      </details>
       <nav id="step-nav"></nav>
       <div class="sidebar-bottom"><button class="text-button" id="export-answers">답변 백업</button><button class="text-button" id="import-answers">백업 불러오기</button><button class="text-button muted" id="reset-button">새 프로젝트</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
     </aside>

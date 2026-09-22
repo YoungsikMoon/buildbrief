@@ -121,7 +121,15 @@
     const stat = R.stats(answers);
     $('#progress-number').textContent = `${stat.percent}%`;
     $('#progress-bar').style.width = `${stat.percent}%`;
-    $('#progress-caption').textContent = `설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개 중 현재 관련 ${stat.total}개 · 정리 완료 ${stat.confirmed}개 · 추천 요청 ${stat.delegated}개 · 미정·보완 ${stat.unresolved}개 · 미응답 ${stat.pending}개 · 선택 참고 정보는 작성률에서 제외`;
+    const progressText = `현재 필요한 ${stat.total}개 중 ${stat.confirmed}개 정리 완료`;
+    $('#progress-caption').textContent = progressText;
+    $('#progress-bar').setAttribute('aria-valuenow', String(stat.percent));
+    $('#progress-bar').setAttribute('aria-valuetext', progressText);
+    $('#progress-breakdown').innerHTML = [
+      ['정리 완료', stat.confirmed], ['아직 답변하지 않음', stat.pending],
+      ['미정·추가 작성 필요', stat.unresolved], ['AI 추천 요청', stat.delegated], ['이전 선택 확인 필요', stat.recheck]
+    ].filter(([, count], index) => count > 0 || index === 0).map(([label, count]) => `<div><dt>${label}</dt><dd>${count}개</dd></div>`).join('');
+    $('#progress-scope').textContent = `전체 설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개를 모두 답할 필요는 없어요. 지금 답변을 기준으로 필요한 ${stat.total}개만 계산하며, 접혀 있는 상세 질문도 포함해요.`;
     $('#project-label').textContent = R.display(answers.project_name) || '새로운 아이디어';
     $('#step-nav').innerHTML = steps.map((step, index) => {
       const qs = R.activeGroups(step, answers).flatMap(g => g.questions).filter(q => !q.supplemental);
