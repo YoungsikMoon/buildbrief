@@ -1,6 +1,7 @@
 .sites-runtime/
 tmp/
 node_modules/
+.wrangler/
 *.tar.gz
 .openai/
 .env

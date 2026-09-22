@@ -46,6 +46,26 @@ python -m http.server 4173 --bind 127.0.0.1 --directory dist
 
 브라우저에서 `http://127.0.0.1:4173`을 엽니다. 추가 패키지 설치나 빌드 과정은 없습니다.
 
+## Cloudflare 무료 배포
+
+Workers Static Assets로 `dist`의 정적 파일만 제공합니다. Worker 서버 코드, 데이터베이스, API 키는 필요하지 않습니다. [현재 요금 안내](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)에 따르면 정적 파일 요청은 무료·무제한이며, Free 플랜의 [Git 빌드 한도](https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/)는 월 3,000분입니다. 유료 플랜이나 별도 도메인을 구매하지 않아도 기본 HTTPS 주소로 사용할 수 있습니다. 이후 서버 기능을 추가하면 그 기능의 한도·요금을 별도로 확인하세요.
+
+Cloudflare에서 Workers & Pages → Create application → Import repository로 이 GitHub 저장소를 연결합니다.
+
+| 설정 | 값 |
+| --- | --- |
+| Worker 이름 | `buildbrief` |
+| Production branch | `main` |
+| Root directory | 저장소 루트 |
+| Build command | `node check.cjs && node scripts/release.cjs --test` |
+| Deploy command | `npx wrangler deploy` |
+| 빌드 환경 변수 | `NODE_VERSION=24` |
+| 공개 파일 | `wrangler.jsonc`의 `assets.directory`인 `./dist` |
+
+Cloudflare가 GitHub push마다 자체 검증을 실행하고 성공한 커밋을 배포합니다. GitHub 버전 발급 작업과는 독립적으로 실행되므로 GitHub Actions 완료를 기다리는 방식은 아닙니다. 빌드 명령의 검증을 제거하지 마세요. 배포 경로를 저장소 루트로 바꾸면 공개할 필요가 없는 파일까지 노출할 수 있으므로 `./dist`를 유지하세요.
+
+`dist/_headers`는 스크립트 출처 제한(CSP), 다른 사이트의 프레임 삽입 차단, MIME 형식 보호 등의 응답 헤더를 설정합니다. 외부 폰트만 허용하고 스크립트의 외부 통신은 차단합니다. 답변은 계속 사용자의 브라우저에만 저장되며, 클라우드 배포가 답변의 서버 동기화나 암호화를 추가하지는 않습니다. 사이트 주소가 바뀌면 기존 주소의 브라우저 답변은 자동 이전되지 않으므로 JSON 백업으로 옮기세요.
+
 ## 검증
 
 ```sh

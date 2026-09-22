@@ -1,6 +1,12 @@
 // Run: node check.cjs — no test framework or dependencies.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const deployment = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
+assert.equal(deployment.assets.directory, './dist', 'Only public static assets may be deployed');
+assert(!deployment.main, 'This deployment must not invoke a server-side Worker');
+const responseHeaders = fs.readFileSync('dist/_headers', 'utf8');
+for (const rule of ["script-src 'self'", "connect-src 'none'", "object-src 'none'", "frame-ancestors 'none'", 'X-Content-Type-Options: nosniff']) assert(responseHeaders.includes(rule), `Missing response protection: ${rule}`);
+assert(!/script-src[^;\n]*(?:unsafe-inline|unsafe-eval)/.test(responseHeaders));
 const { steps, featureFields, testBasisOptions, testFlowFields } = require('./dist/questions.js');
 const R = require('./dist/report.js');
 const G = require('./dist/guides.js');
