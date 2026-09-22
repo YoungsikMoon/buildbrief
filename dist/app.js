@@ -24,7 +24,7 @@
   const priorityQuestion = { id: 'feature_priority', label: '이 기능은 언제 필요한가요?', options: featureFields.find(f => f.id === 'priority').options };
   const testBasisQuestion = { id: 'test_basis', label: '여러 기능을 잇는 별도 흐름이 필요한가요?', options: testBasisOptions };
   const answerIndicator = (q, value) => R.needsReselection(q, value) ? '다시 선택 필요' : R.isUnknown(value) ? '추천 요청' : R.isUndecided(value) ? '미정' : R.isAnswered(value) ? R.isResolved(q, answers) ? '답변됨' : '보완 필요' : '';
-  const helpButton = (id, index, label) => `<button type="button" class="option-help" data-help-question="${id}" data-help-index="${index}" aria-label="${escape(label)} 설명" aria-haspopup="dialog" aria-controls="option-help-dialog"><span aria-hidden="true">?</span></button>`;
+  const helpButton = (id, index, label) => label === R.UNKNOWN ? '' : `<button type="button" class="option-help" data-help-question="${id}" data-help-index="${index}" aria-label="${escape(label)} 설명" aria-haspopup="dialog" aria-controls="option-help-dialog"><span aria-hidden="true">?</span></button>`;
   const guideFields = [['meaning', '어떤 방식인가요?'], ['example', '실제로는 이렇게 동작해요'], ['pros', '얻는 점'], ['cons', '감수할 점'], ['fit', '이럴 때 검토하세요'], ['avoid', '다른 방식을 검토할 때'], ['impact', '선택하면 이어서 할 일'], ['cost', '비용을 좌우하는 것'], ['effort', '구현할 때 준비할 것'], ['operations', '운영하면서 맡을 일']];
   const hasText = value => typeof value === 'string' && value.trim().length > 0;
   const factsMarkup = (guide, fields) => fields.filter(([key]) => hasText(guide[key])).map(([key, label]) => `<div class="help-fact"><dt>${label}</dt><dd>${escape(guide[key])}</dd></div>`).join('');
