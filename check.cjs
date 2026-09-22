@@ -16,7 +16,7 @@ for (const step of steps) for (const group of step.groups) {
   for (const id of [group.when, ...group.questions.map(q => q.when)].flatMap(R.conditionIds)) assert(ids.includes(id), `Unknown dependency: ${id}`);
 }
 const answers = {
-  project_name: '테스트 프로젝트', summary: '시설을 예약하는 웹 서비스', core_features: '예약 신청과 취소',
+  project_name: '테스트 프로젝트', summary: '시설을 예약하는 웹 서비스', feature_specs: [Object.fromEntries(featureFields.map(f => [f.id, f.options ? f.options[0] : `내용 ${f.id}`]))],
   features: ['파일·이미지 첨부', '공개 페이지·공유', 'AI 기능'], file_storage: '서버 디스크', hosting: 'Vercel',
   backend_mode: '직접 백엔드 개발', backend_language: 'Python', backend_framework: 'Spring Boot',
   file_visibility: '모두 공개', visibility: ['비공개'], ai_usecase: '숨겨질 AI 답변', cache: R.UNKNOWN
@@ -224,7 +224,7 @@ function test(name, run) {
 }
 function ui(answers = {}, savedDraft, options = {}) {
   const nodes = new Map(), events = {}, windowEvents = {}, timers = [], downloads = [];
-  let saved = JSON.stringify(savedDraft || { version: 1, step: 8, details: true, answers });
+  let saved = options.rawSaved ?? JSON.stringify(savedDraft || { version: 1, step: 8, details: true, answers });
   const doc = {
     activeElement: null,
     querySelector: node,
@@ -293,6 +293,7 @@ function ui(answers = {}, savedDraft, options = {}) {
     storageChange() { windowEvents.storage({ key: 'buildbrief.project.v1' }); },
     set: ctx.__audit.set,
     stored: () => JSON.parse(saved),
+    rawStored: () => saved,
     markup: () => node('#question-groups').innerHTML,
     reportMarkup: () => node('#report-view').innerHTML,
     helpMarkup: () => node('#help-content').innerHTML,
@@ -301,6 +302,10 @@ function ui(answers = {}, savedDraft, options = {}) {
     exportBackup(id = 'export-answers') {
       events.click({ target: { closest: () => ({ id, dataset: {} }) } });
       return JSON.parse(downloads.at(-1));
+    },
+    exportOriginal() {
+      events.click({ target: { closest: () => ({ id: 'storage-original', dataset: {} }) } });
+      return downloads.at(-1);
     },
     async importBackup(backup) {
       const text = JSON.stringify(backup);
@@ -1008,13 +1013,15 @@ test('question conditions never depend on a later question', () => {
   for (const step of Q.steps) for (const group of step.groups) for (const q of group.questions)
     for (const parent of [group.when,q.when].flatMap(R.conditionIds)) assert(order.get(parent) < order.get(q.id), `${parent} before ${q.id}`);
 });
-test('ordered advanced sections retain prerequisite order in the DOM', () => {
+test('all applicable questions are directly visible in prerequisite order without advanced sections', () => {
   const app = ui({}, {version:1,step:0,answers:{},details:false});
   for(let i=0;i<Q.steps.length;i++){
     app.click({dataset:{step:String(i)}});
     const expected=R.activeGroups(Q.steps[i],{}).flatMap(g=>g.questions).map(q=>q.id);
     const actual=[...app.markup().matchAll(/<fieldset class="question" id="field-([^"]+)"/g)].map(m=>m[1]);
     assert.deepEqual(actual,expected);
+    assert(!app.markup().includes('advanced-details'));
+    assert(!app.markup().includes('더 꼼꼼하게 정하기'));
     assert(!/<p class="question-help" id="[^"]+">\s*<\/p>/.test(app.markup()));
   }
 });
@@ -1112,19 +1119,16 @@ test('optional supplements do not lower completion or create blank readiness tas
   assert([...R.readiness({ references: R.UNKNOWN }).before, ...R.readiness({ references: R.UNKNOWN }).during].some(item => item.id === 'references'), 'A saved explicit advice request remains unresolved');
 });
 
-test('prior experience is late optional context with no new recommendation button', () => {
-  const step = Q.steps.findIndex(step => step.groups.some(group => group.questions.some(q => q.id === 'known_stack')));
-  assert.equal(Q.steps[step].id, 'handoff');
-  const q = R.allQuestions.find(q => q.id === 'known_stack');
-  assert(q.advanced && q.supplemental);
-  const app = ui({}, { version: 1, step, details: true, answers: { known_stack: 'HTML 수업을 수강함' } });
-  assert(app.markup().includes('id="field-known_stack"'));
-  assert(!app.markup().includes('data-unknown="known_stack"'));
-  assert.equal(app.get().known_stack, 'HTML 수업을 수강함');
-  const delegated = ui({}, { version: 1, step, answers: { known_stack: R.UNKNOWN }, drafts: { known_stack: '보관한 경험' } });
-  assert(delegated.markup().includes('data-unknown="known_stack"'), 'Old recommendation can return to editing');
-  delegated.clickUnknown('known_stack');
-  assert.equal(delegated.get().known_stack, '보관한 경험');
+test('retired experience survives backups without returning as a question or report requirement', () => {
+  assert(!R.allQuestions.some(q => q.id === 'known_stack'));
+  const saved={ version: 1, step: 14, answers: { known_stack: R.UNKNOWN }, drafts: { known_stack: '보관한 경험' }, notes:{known_stack:'경험의 근거'} };
+  const app = ui({}, saved);
+  assert(!app.markup().includes('field-known_stack'));
+  const backup=app.exportBackup();
+  for(const bucket of ['answers','drafts','notes']) assert.equal(backup[bucket].known_stack,saved[bucket].known_stack);
+  assert(!R.report(backup.answers,false,backup.notes).includes('보관한 경험'));
+  assert(!R.report(backup.answers,false,backup.notes).includes('경험의 근거'));
+  assert.deepEqual(R.stats({known_stack:'경험'}),R.stats({}));
 });
 
 test('merged references retain both maximum-length answers and notes idempotently', () => {
@@ -1238,7 +1242,7 @@ test('basic permissions remain a required decision while extra exceptions reuse 
   const basic = R.allQuestions.find(q => q.id === 'role_matrix');
   const extra = R.allQuestions.find(q => q.id === 'access_rules');
   assert(!basic.advanced && !basic.supplemental);
-  assert(extra.advanced && extra.supplemental);
+  assert(!extra.advanced && extra.supplemental);
   assert(extra.reuse.includes('role_matrix'));
   assert(R.allQuestions.indexOf(basic) < R.allQuestions.indexOf(extra));
   assert(R.readiness({}).before.some(item => item.id === 'role_matrix'));
@@ -1340,7 +1344,7 @@ test('input and entitlement scope hide only their irrelevant follow-ups while pr
   assert(shown('forms_library',{...a,form_usage:'입력·수정 화면 있음'}));
   assert(shown('license_transfer',{...a,entitlement_assignment:'특정 사람·조직·기기 등에 이용권을 배정'}));
   assert(shown('license_terms',{...a,service_delivery:['고객 환경에 프로그램 설치']}),'Free installed products may still have terms');
-  for(const id of ['acceptance','definition_done','brand']) {
+  for(const id of ['definition_done','brand']) {
     const q=R.allQuestions.find(q=>q.id===id);
     assert(q.supplemental,id);
     assert(![...R.readiness(a).before,...R.readiness(a).during].some(i=>i.id===id),id);
@@ -1399,11 +1403,155 @@ test('progress reaches 100 percent only when every relevant question is resolved
   assert.equal(empty.percent, 0);
   assert.equal(empty.pending, empty.total);
   assert(R.stats({project_name:'첫 답변'}).percent > 0,'Completing the first answer must visibly advance progress');
-  const mixed = R.stats(R.normalizeAnswers({ ...complete, summary: '미정', project_name: '', core_features: R.UNKNOWN, frontend_language: R.SKIP }));
+  const mixed = R.stats(R.normalizeAnswers({ ...complete, summary: '미정', project_name: '', feature_specs: R.UNKNOWN, frontend_language: R.SKIP }));
   for (const key of ['unresolved', 'pending', 'delegated', 'recheck']) assert.equal(mixed[key], 1, key);
   for (const stat of [full, unfinished, empty, mixed]) {
     assert.equal(stat.confirmed + stat.pending + stat.unresolved + stat.delegated + stat.recheck, stat.total);
   }
+});
+
+test('eleven retired questions are absent and feature acceptance remains a required card field', () => {
+  const retired=['known_stack','core_features','later_features','acceptance','screens','admin_actions','notification_events','architecture_reason','dont_change','runtime_versions','backend_versions'];
+  for(const id of retired) assert(!R.allQuestions.some(q=>q.id===id),id);
+  assert(Q.featureFields.some(f=>f.id==='acceptance'));
+  assert(R.allQuestions.find(q=>q.id==='feature_specs').required);
+  assert(R.allQuestions.every(q=>!Object.hasOwn(q,'advanced')));
+  assert(!source.includes('advanced-details'));
+  assert(!source.includes('detail-toggle'));
+  const index=fs.readFileSync(path.join(root,'dist/index.html'),'utf8');
+  assert(!index.includes('detail-toggle'));
+});
+
+test('retired answers drafts and notes migrate once with their source and preserve existing targets', async () => {
+  const ids=['core_features','admin_actions','later_features','acceptance','screens','notification_events','architecture_reason','dont_change','runtime_versions','backend_versions'];
+  const raw={version:1,answers:{project_type:'웹사이트',features:['관리자 화면','알림·이메일'],backend_mode:'직접 백엔드 개발',constraints:'기존 필수 조건',definition_done:'기존 인수 조건',excluded_features:'기존 제외 조건',screen_details:{rows:[{screen:'기존 화면'}],legacy:'기존 화면 원문'},notification_rules:{rows:[],legacy:'기존 알림 원문'},known_stack:'이전 경험 보관'},drafts:{constraints:'이전 제약 초안'},notes:{feature_specs:'현재 기능 메모',architecture:'현재 구조 메모'}};
+  for(const id of ids){raw.answers[id]=`원래 답변 ${id}\n둘째 줄`;raw.drafts[id]=`추천 전 입력 ${id}`;raw.notes[id]=`선택 이유 ${id}`;}
+  const original=JSON.stringify(raw), p=R.normalizeProject(raw);
+  const values=value=>typeof value==='string'?[value]:value&&typeof value==='object'?Object.values(value).flatMap(values):[];
+  for(const bucket of ['answers','drafts','notes']) for(const id of ids){assert(values(p).some(value=>value.includes(raw[bucket][id])),`${bucket}.${id}`);assert(!Object.hasOwn(p[bucket],id),`${bucket}.${id} retired`);}
+  assert(p.answers.constraints.includes('기존 필수 조건'));
+  assert(p.answers.definition_done.includes('기존 인수 조건'));
+  assert(p.answers.excluded_features.includes('기존 제외 조건'));
+  assert(p.answers.excluded_features.includes('이번 개발의 확정 범위 아님'));
+  assert.deepEqual(p.answers.screen_details.rows,raw.answers.screen_details.rows);
+  assert(!p.answers.feature_specs,'Do not invent feature behavior from an old list');
+  assert(p.notes.feature_specs.includes('현재 기능 메모'));
+  assert(p.notes.architecture.includes('현재 구조 메모'));
+  assert.equal(p.answers.known_stack,raw.answers.known_stack);
+  assert.equal(JSON.stringify(raw),original,'Migration must not mutate its input');
+  assert.deepEqual(R.normalizeProject(p),p,'Migration must be idempotent');
+  const app=ui({},raw),backup=app.exportBackup();
+  await app.importBackup(backup);
+  for(const bucket of ['answers','drafts','notes'])assert.deepEqual(app.exportBackup()[bucket],backup[bucket]);
+  const report=R.report(p.answers,false,p.notes);
+  assert(report.includes('원래 답변 core_features'));
+  assert(!report.includes('이전 경험 보관'));
+  assert(R.readiness(p.answers).before.some(x=>x.id==='feature_specs'));
+});
+
+test('merged advice requests stay undecided and target recommendation drafts retain both sources', () => {
+  const p=R.normalizeProject({answers:{definition_done:'이미 정한 기준',acceptance:R.UNKNOWN,screen_details:{rows:[{screen:'목록'}],legacy:'화면 원문'},screens:R.UNKNOWN},drafts:{acceptance:'확인 후 되살릴 기준',screens:'확인 후 되살릴 화면'}});
+  for(const id of ['definition_done','screen_details']){const q=R.allQuestions.find(q=>q.id===id);assert(!R.isResolved(q,p.answers),id);assert([...R.readiness(p.answers).before,...R.readiness(p.answers).during].some(x=>x.id===id),id);}
+  assert.equal(p.answers.screen_details.rows[0].screen,'목록');
+  assert(p.drafts.definition_done.includes('확인 후 되살릴 기준'));
+  assert(p.drafts.screen_details.legacy.includes('확인 후 되살릴 화면'));
+  const requested=R.normalizeProject({answers:{definition_done:R.UNKNOWN,acceptance:'기존 공통 완료 기준'},drafts:{definition_done:'현재 추천 전 인수 기준',acceptance:'이전 추천 전 공통 기준'}});
+  assert.equal(requested.answers.definition_done,R.UNKNOWN);
+  for(const text of ['기존 공통 완료 기준','현재 추천 전 인수 기준','이전 추천 전 공통 기준'])assert(requested.drafts.definition_done.includes(text));
+  const literal=R.normalizeProject({answers:{definition_done:'미정',acceptance:'추가 검사'}});
+  assert(!R.isResolved(R.allQuestions.find(q=>q.id==='definition_done'),literal.answers));
+  assert.deepEqual(R.normalizeProject(requested),requested);
+});
+
+test('migrated screen and notification lists remain incomplete without inventing detailed specifications', () => {
+  for(const [sourceId,target] of [['screens','screen_details'],['notification_events','notification_rules']]) {
+    const a={features:['알림·이메일'],[sourceId]:'이전 목록 원문'};
+    const p=R.normalizeProject({answers:a});
+    const q=R.allQuestions.find(q=>q.id===target);
+    assert.equal(p.answers[target].needsDetailReview,true);
+    assert(!R.isResolved(q,p.answers));
+    assert.match(R.pendingReason(q,p.answers),/이전 목록/);
+    assert.deepEqual(R.normalizeProject(p),p);
+    const row=Object.fromEntries(q.fields.map(f=>[f.id,`${f.label} 확인함`]));
+    assert(R.isResolved(q,{...p.answers,[target]:{...p.answers[target],rows:[row]}}));
+    const existing=R.normalizeProject({answers:{...a,[target]:'이전에 작성한 충분한 세부 설명'}});
+    assert(!existing.answers[target].needsDetailReview,'Do not mark an existing detailed target incomplete merely because a list was appended');
+    assert(R.isResolved(q,existing.answers));
+  }
+});
+
+test('backups containing only retired descriptions still import when their data moves into notes', async () => {
+  for(const [old,target] of [['core_features','feature_specs'],['architecture_reason','architecture']]){
+    const app=ui({project_name:'현재 프로젝트'});
+    await app.importBackup({format:'buildbrief',version:1,answers:{[old]:'메모로 옮겨질 이전 설명'}});
+    assert(app.exportBackup().notes[target].includes('메모로 옮겨질 이전 설명'));
+    assert(!Object.hasOwn(app.get(),old));
+    const existing=ui({}, {version:1,answers:{[old]:'취소하면 유지할 이전 설명'}}, {confirm:false});
+    assert.equal(Object.keys(existing.get()).length,0,'Exercise a migrated project with notes but no current answers');
+    const before=existing.exportBackup();
+    await existing.importBackup({format:'buildbrief',version:1,answers:{project_name:'교체할 다른 프로젝트'}});
+    const after=existing.exportBackup();
+    for(const bucket of ['answers','drafts','notes'])assert.deepEqual(after[bucket],before[bucket],`${old}: declined replacement must preserve ${bucket}`);
+    assert(after.notes[target].includes('취소하면 유지할 이전 설명'));
+  }
+});
+
+test('hidden retired requirements stay backup-only until their original scope applies', () => {
+  const raw={answers:{project_type:'API·백엔드 서비스',api_ui:'API만 제공',backend_mode:'서버 없는 정적 사이트',features:[R.SKIP],constraints:'현재 적용 조건',runtime_versions:'숨긴 웹 버전',backend_versions:'숨긴 JDK 버전',admin_actions:'숨긴 관리자 업무',screens:'숨긴 화면',notification_events:'숨긴 알림'},drafts:{backend_versions:'숨긴 서버 초안'},notes:{backend_versions:'숨긴 서버 이유'}};
+  const p=R.normalizeProject(raw);
+  assert.equal(p.answers.constraints,'현재 적용 조건');
+  for(const id of ['runtime_versions','backend_versions','admin_actions','screens','notification_events'])assert.equal(p.answers[id],raw.answers[id]);
+  assert.equal(p.drafts.backend_versions,raw.drafts.backend_versions);
+  assert.equal(p.notes.backend_versions,raw.notes.backend_versions);
+  const report=R.report(p.answers,false,p.notes);
+  assert(!report.includes('숨긴'));
+  assert.deepEqual(R.normalizeProject(p),p);
+  const back=R.normalizeProject({...p,answers:{...p.answers,project_type:'웹사이트',backend_mode:'직접 백엔드 개발',features:['관리자 화면','알림·이메일']}});
+  assert(back.answers.constraints.includes('숨긴 JDK 버전'));
+  assert(back.notes.feature_specs.includes('숨긴 관리자 업무'));
+  assert(back.answers.screen_details.legacy.includes('숨긴 화면'));
+});
+
+test('maximum old field lengths survive merges while actual overflow fails explicitly', () => {
+  const six=prefix=>prefix+'가'.repeat(6000-prefix.length);
+  const raw={answers:{project_type:'웹사이트',features:['관리자 화면','알림·이메일'],backend_mode:'직접 백엔드 개발',constraints:R.UNKNOWN,screen_details:R.UNKNOWN},drafts:{constraints:six('제약초안'),screen_details:{rows:[{screen:'화면행'}],legacy:six('화면초안')}},notes:{feature_specs:six('기능메모'),architecture:six('구조메모'),constraints:six('제약메모')}};
+  for(const id of ['core_features','admin_actions','architecture_reason','dont_change','runtime_versions','backend_versions','screens'])for(const bucket of ['answers','drafts','notes'])raw[bucket][id]=six(`${bucket}_${id}`);
+  const p=R.normalizeProject(raw);
+  assert(p.notes.feature_specs.length>42000);
+  assert(p.notes.architecture.length>24000);
+  assert(p.drafts.constraints.length>42000);
+  assert(p.drafts.screen_details.legacy.length>18000);
+  assert.equal(p.drafts.screen_details.rows[0].screen,'화면행');
+  assert.deepEqual(R.normalizeProject(p),p);
+  const tooLong={answers:{core_features:'추가 내용'},notes:{feature_specs:'나'.repeat(45000)}};
+  assert.throws(()=>R.normalizeProject(tooLong),/넘어요/);
+});
+
+test('malformed and unsupported local storage cannot be overwritten and exact originals can be downloaded', async () => {
+  for(const rawSaved of ['{broken json',JSON.stringify({version:99,answers:{project_name:'미지원 원본'}})]){
+    const app=ui({},undefined,{rawSaved,confirm:false});
+    app.set('project_name','새로 작성한 답변');
+    app.click({dataset:{step:'1'}});
+    assert.equal(app.rawStored(),rawSaved);
+    assert.equal(app.exportOriginal(),rawSaved);
+    assert.equal(app.exportBackup().answers.project_name,'새로 작성한 답변');
+    await app.importBackup({format:'buildbrief',version:1,answers:{project_name:'가져올 답변'}});
+    assert.equal(app.rawStored(),rawSaved,'Declined replacement preserves the original');
+    const permitted=ui({},undefined,{rawSaved});
+    await permitted.importBackup({format:'buildbrief',version:1,answers:{project_name:'복구된 답변'}});
+    assert.equal(permitted.stored().answers.project_name,'복구된 답변');
+    permitted.set('summary','다시 저장 가능');
+    assert.equal(permitted.stored().answers.summary,'다시 저장 가능');
+  }
+});
+
+test('migration overflow leaves local storage intact and permits a separate new-answer backup', () => {
+  const rawSaved=JSON.stringify({version:1,answers:{core_features:'추가 내용'},notes:{feature_specs:'나'.repeat(45000)}});
+  const app=ui({},undefined,{rawSaved});
+  app.set('summary','읽기 오류 후 작성');
+  assert.equal(app.rawStored(),rawSaved);
+  assert.equal(app.exportOriginal(),rawSaved);
+  assert.equal(app.exportBackup().answers.summary,'읽기 오류 후 작성');
 });
 
 Promise.all(pending).then(() => {

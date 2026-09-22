@@ -7,11 +7,11 @@
   <meta name="description" content="전문가의 고려 사항을 이해하고 직접 선택하세요. 단계별 질문으로 설계하고 AI에게 전달할 개발 명세서를 완성하세요.">
   <title>빌드브리프 — 생각을 개발 명세로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=b1d14fbffa53">
-  <script src="questions.js?v=ee8508a7a7bc" defer></script>
-  <script src="report.js?v=691a19c4f45c" defer></script>
-  <script src="guides.js?v=e4bee61aae9e" defer></script>
-  <script src="app.js?v=1a21021c1227" defer></script>
+  <link rel="stylesheet" href="styles.css?v=22228de0aaf0">
+  <script src="questions.js?v=ed19313e4dbf" defer></script>
+  <script src="report.js?v=8cd379a27a02" defer></script>
+  <script src="guides.js?v=a1b4865187a6" defer></script>
+  <script src="app.js?v=729eaf0dc32c" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -41,7 +41,7 @@
       <div id="form-view">
         <div class="page-topline"><div class="breadcrumb" id="breadcrumb"></div><span class="step-badge" id="step-badge"></span></div>
         <div class="page-heading"><div><h1 id="page-title"></h1><p id="page-description"></p></div><span class="chapter-number" id="chapter-number" aria-hidden="true"></span></div>
-        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>고민하는 이유부터, 선택 이후의 영향까지.</strong> 선택지 옆 ?에서 뜻·장단점·비용·구현과 운영 부담·적합한 상황을 확인하고 두 방식을 비교하세요. 자신의 선택과 이유를 기록하면 다음 프로젝트에서도 판단의 근거로 쓸 수 있어요.</p><label class="detail-toggle"><input id="detail-toggle" type="checkbox"><span>상세 질문 펼치기</span></label></div>
+        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>내 서비스에 필요한 질문을 순서대로 정리하세요.</strong> 앞선 답변에 따라 해당하는 질문이 이어져요. 선택지 옆 ?에서 뜻·장단점·적합한 상황을 비교하고, 선택 이유는 각 질문의 메모에 남길 수 있어요.</p></div>
         <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><span id="step-summary"></span><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
       </div>
       <section id="report-view" hidden aria-labelledby="report-title"></section>
@@ -71,10 +71,11 @@
       <div class="help-fact"><dt>어디에서 이어 쓸 수 있나요?</dt><dd>같은 기기·브라우저·프로필에서 같은 사이트 주소로 접속해 주세요. 이 브라우저의 저장 공간(localStorage)을 사용하며, 답변을 서버에 보관하거나 계정·다른 기기에 자동으로 동기화하지 않아요. 주소가 바뀌면 백업 파일로 옮겨야 해요.</dd></div>
       <div class="help-fact"><dt>어떤 경우에 사라질 수 있나요?</dt><dd>사이트 데이터 삭제, 종료 시 데이터 자동 삭제 설정, 시크릿 모드 종료, 브라우저 초기화·프로필 삭제로 사라질 수 있어요. 브라우저의 저장 공간 정리나 기기 고장도 대비해야 해요. ‘새 프로젝트’를 확인하면 현재 답변이 지워지고, 백업을 불러오면 현재 답변이 바뀌어요.</dd></div>
       <div class="help-fact"><dt>저장 오류나 다른 탭 변경 안내가 보이면요?</dt><dd>최근 입력이 저장되지 않았을 수 있으니 새로고침하거나 탭을 닫기 전에 이 탭의 답변부터 백업해 주세요. 다른 탭에서 답변을 바꾸면 서로 덮어쓰지 않도록 이 탭의 자동 저장을 멈춰요. 백업 후 새로고침하면 브라우저에 마지막으로 저장된 답변을 불러와요. 백업이 성공했는지도 확인해 주세요.</dd></div>
+      <div class="help-fact"><dt>기존 답변을 읽지 못했다는 안내가 보이면요?</dt><dd>기존 저장 내용을 덮어쓰지 않도록 자동 저장을 멈춰요. 아래 ‘복구용 저장 원본’을 내려받고, 새로 입력한 내용은 ‘답변 백업’으로 따로 보관해 주세요. 복구용 원본은 읽기 오류가 있는 기록이므로 일반 백업처럼 바로 불러오지 못할 수 있어요. ‘새 프로젝트’나 백업 교체를 확인하기 전까지 기존 원본을 유지해요.</dd></div>
       <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>아래 ‘답변 백업’으로 JSON 파일을 내려받아 보관하세요. 새 주소나 다른 기기에서 ‘백업 불러오기’를 누르면 이어 쓸 수 있어요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
     </dl>
     <p class="storage-privacy">브라우저 답변과 JSON 백업은 이 서비스가 별도로 암호화하지 않아요. API 키·비밀번호는 입력하지 말고, 백업 파일은 내용을 읽어도 되는 사람에게만 공유해 주세요.</p>
-    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">답변 백업 (.json)</button></div>
+    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">답변 백업 (.json)</button><button type="button" class="button secondary" id="storage-original" hidden>복구용 저장 원본 (.json)</button></div>
   </dialog>
   <dialog id="reset-dialog"><h2>새 프로젝트를 시작할까요?</h2><p>현재 브라우저의 답변이 지워져요. 보관하려면 먼저 ‘답변 백업’을 눌러주세요.</p><div class="dialog-actions"><button class="button secondary" id="cancel-reset">취소</button><button class="button danger" id="confirm-reset">지우고 시작</button></div></dialog>
   <dialog id="option-help-dialog" class="option-help-dialog" aria-labelledby="help-title">
