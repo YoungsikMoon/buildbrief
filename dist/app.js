@@ -298,8 +298,7 @@
       <div class="report-tabs" role="tablist" aria-label="리포트 보기"><button class="report-tab" id="tab-spec" role="tab" aria-controls="panel-spec" data-tab="spec" aria-selected="${reportTab === 'spec'}" tabindex="${reportTab === 'spec' ? '0' : '-1'}">개발 명세서</button><button class="report-tab" id="tab-prompt" role="tab" aria-controls="panel-prompt" data-tab="prompt" aria-selected="${reportTab === 'prompt'}" tabindex="${reportTab === 'prompt' ? '0' : '-1'}">AI 전달 프롬프트</button></div>
       <div id="panel-spec" role="tabpanel" aria-labelledby="tab-spec" ${reportTab === 'spec' ? '' : 'hidden'}>${specification || '<p class="report-note">작성한 답변이 생기면 이곳에 명세를 정리해요. 아직 정하지 않은 항목은 위 확인 목록에 있어요.</p>'}</div>
       <div id="panel-prompt" role="tabpanel" aria-labelledby="tab-prompt" ${reportTab === 'prompt' ? '' : 'hidden'}><textarea readonly class="report-code" id="prompt-text" aria-label="AI에게 전달할 전체 개발 프롬프트"></textarea></div>
-      <p class="report-note">답변을 문서로 정리한 결과이며 AI 모델의 자동 분석은 아니에요. 현재 조건에 해당하지 않는 질문의 이전 답변은 보관하되 리포트에서는 제외해요. 개발 전 확인 목록은 중요한 결정의 점검표이며 전체 품질을 보증하지 않아요.</p>
-      <div class="footer-brand">빌드브리프 · BUILD BRIEF — 아이디어에서 첫 번째 실행까지</div>`;
+      <p class="report-note">답변을 문서로 정리한 결과이며 AI 모델의 자동 분석은 아니에요. 현재 조건에 해당하지 않는 질문의 이전 답변은 보관하되 리포트에서는 제외해요. 개발 전 확인 목록은 중요한 결정의 점검표이며 전체 품질을 보증하지 않아요.</p>`;
     $('#prompt-text').value = R.report(answers, true, notes);
     $('#step-tip').textContent = '개발 전 확인을 먼저 살펴보세요. 정하지 못한 항목이 있어도 리포트를 내려받아 AI와 함께 결정할 수 있어요.';
     window.scrollTo({ top: 0, behavior: 'instant' });
