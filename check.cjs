@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const deployment = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
-assert.equal(deployment.assets.directory, './dist', 'Only public static assets may be deployed');
+assert.equal(deployment.pages_build_output_dir, './dist', 'Only public static assets may be deployed');
 assert(!deployment.main, 'This deployment must not invoke a server-side Worker');
 const responseHeaders = fs.readFileSync('dist/_headers', 'utf8');
 for (const rule of ["script-src 'self'", "connect-src 'none'", "object-src 'none'", "frame-ancestors 'none'", 'X-Content-Type-Options: nosniff']) assert(responseHeaders.includes(rule), `Missing response protection: ${rule}`);
