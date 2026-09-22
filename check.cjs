@@ -1055,6 +1055,13 @@ test('question and topic guides share one dialog without changing answers', () =
   app.click({ dataset: { helpQuestion: 'frontend_language', helpIndex: '1' } });
   assert(!app.isHidden('#help-browse'));
   assert(app.helpMarkup().includes(G.get({ id: 'frontend_language' }, 'TypeScript').fit));
+  app.click({ dataset: { questionGuide: 'architecture' } });
+  assert(!app.helpMarkup().includes('이 선택과 관련된 내 답변'));
+  assert(app.helpMarkup().includes('먼저 정리하면 선택에 도움이 되는 질문'));
+  assert(!app.helpMarkup().includes('undefined'));
+  const custom = ui({}, { version: 1, answers: { team_size: '기타: 외부 협력팀' } });
+  custom.click({ dataset: { questionGuide: 'architecture' } });
+  assert(custom.helpMarkup().includes('직접 입력한 방식은 이름만으로 해석하지 않아요.'));
   assert.equal(JSON.stringify(app.get()), before);
 });
 test('contextual candidates expose evidence and comparison without selecting or erasing user work', () => {
@@ -1066,10 +1073,20 @@ test('contextual candidates expose evidence and comparison without selecting or 
   const advice = R.decisionAdvice(question, app.get());
   const candidates = advice.candidates.filter(item => item.level === 'consider');
   assert(candidates.length >= 2, 'The solo-project example should explain alternatives, not dictate one architecture');
-  assert(app.markup().includes('내 답변으로 판단하기'));
-  for (const item of advice.basis) assert(app.markup().includes(item.value));
+  assert(!/내 답변으로 판단|question-meta|question-number|answer-indicator|decision-context/.test(app.markup()));
+  for (const step of app.htmlOf('#step-nav').matchAll(/<button[^>]*data-step="(\d+)"[^>]*>([\s\S]*?)<\/button>/g)) {
+    assert.equal(step[2].includes('nav-count'), Q.steps[Number(step[1])].phase !== '설계 검토');
+  }
+  app.click({ dataset: { questionGuide: question.id } });
+  assert(app.isHidden('#help-browse'));
+  for (const item of [...advice.basis, ...advice.missing]) {
+    assert.equal(app.helpMarkup().split(`data-jump="${item.id}"`).length, 2, 'Each related question has one link');
+  }
+  for (const item of advice.basis) assert(app.helpMarkup().includes(item.value));
+  assert.equal(app.helpMarkup().split(G.questions.architecture.criteria).length, 2);
+  assert(app.helpMarkup().includes(advice.verify));
   assert(app.markup().includes('class="choice-shell suggested-choice"'));
-  assert.match(app.textOf('#step-summary'), /요구사항 0\/1 정리 · 설계 2개/, 'Technical selections must not count as completed requirements');
+  assert.match(app.textOf('#step-summary'), /^요구사항 0\/1 정리$/, 'Technical selections must not count as completed requirements');
   app.click({ dataset: { compareQuestion: question.id, compareFirst: String(R.choiceOptions(question).indexOf(candidates[0].option)), compareSecond: String(R.choiceOptions(question).indexOf(candidates[1].option)) } });
   assert(app.helpMarkup().includes('option-comparison'));
   for (const candidate of candidates.slice(0, 2)) assert(app.helpMarkup().includes(G.get(question, candidate.option).meaning));
@@ -1545,7 +1562,7 @@ test('explicit undecided answers remain editable and out of resolved progress', 
   assert(!R.isUndecided('미정인 날짜를 선택하는 기능'));
   assert(R.isUndecided('기타: 미정'));
   const app = ui({}, {version:1,step: 1,answers:a});
-  assert(app.markup().includes('answer-indicator">미정'));
+  assert(app.markup().includes('> 미정 </textarea>'));
   assert(!/id="input-audience"[^>]*disabled/.test(app.markup()));
   assert.equal(app.get().audience, ' 미정 ', 'Preserve what the user wrote');
   assert(R.report(a).includes('미정으로 작성 — 결정 필요'));
