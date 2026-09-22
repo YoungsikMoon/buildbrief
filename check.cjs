@@ -10,6 +10,7 @@ assert(!/script-src[^;\n]*(?:unsafe-inline|unsafe-eval)/.test(responseHeaders));
 const { steps, featureFields, testBasisOptions, testFlowFields } = require('./dist/questions.js');
 const R = require('./dist/report.js');
 const G = require('./dist/guides.js');
+require('./scripts/check-projects.cjs');
 const ids = R.allQuestions.map(q => q.id);
 assert.equal(new Set(ids).size, ids.length, 'Question IDs must be unique');
 for (const step of steps) for (const group of step.groups) {
@@ -189,11 +190,12 @@ for (const q of guidedQuestions) for (const option of R.choiceOptions(q)) {
 assert.equal(G.get(byId.get('architecture'), R.SKIP), undefined);
 assert(G.get(byId.get('features'), R.SKIP).meaning.includes('목록'));
 
-for (const asset of ['styles.css', 'questions.js', 'report.js', 'guides.js', 'app.js']) assert(fs.existsSync(`dist/${asset}`));
+for (const asset of ['styles.css', 'questions.js', 'report.js', 'guides.js', 'projects.js', 'app.js']) assert(fs.existsSync(`dist/${asset}`));
 const html = fs.readFileSync('dist/index.html', 'utf8');
 assert(html.includes('lang="ko"'));
 assert(!html.includes('OPENAI_API_KEY'));
 assert(html.indexOf('guides.js') < html.indexOf('app.js'));
+assert(html.indexOf('report.js') < html.indexOf('projects.js') && html.indexOf('projects.js') < html.indexOf('app.js'));
 assert(html.includes('aria-labelledby="help-title"'));
 console.log(`PASS: ${steps.length} steps, ${ids.length} questions; option help coverage, skip policy and legacy migration, condition branches, feature backups, reports and assets.`);
 
@@ -209,6 +211,8 @@ const root = __dirname;
 const Q = require(path.join(root, 'dist/questions.js'));
 const R = require(path.join(root, 'dist/report.js'));
 const G = require(path.join(root, 'dist/guides.js'));
+const P = require(path.join(root, 'dist/projects.js'));
+const crypto = require('node:crypto').webcrypto;
 const source = fs.readFileSync(path.join(root, 'dist/app.js'), 'utf8');
 const shown = (id, answers) => R.activeQuestions(answers).some(q => q.id === id);
 let passed = 0, failed = 0;
@@ -224,7 +228,20 @@ function test(name, run) {
 }
 function ui(answers = {}, savedDraft, options = {}) {
   const nodes = new Map(), events = {}, windowEvents = {}, timers = [], downloads = [];
-  let saved = options.rawSaved ?? JSON.stringify(savedDraft || { version: 1, step: 8, details: true, answers });
+  const storage = new Map(options.storageEntries || []);
+  if (!options.storageEntries && !Object.hasOwn(options, 'rawWorkspace') && !options.workspace) {
+    storage.set(P.LEGACY_KEY, options.rawSaved ?? JSON.stringify({ version: 1, ...(savedDraft || { step: 8, answers }) }));
+  }
+  if (Object.hasOwn(options, 'rawWorkspace')) storage.set(P.KEY, options.rawWorkspace);
+  if (options.workspace) storage.set(P.KEY, JSON.stringify(options.workspace));
+  const workspace = () => {
+    const raw = storage.get(P.KEY);
+    return raw == null ? null : JSON.parse(raw);
+  };
+  const stored = () => {
+    const current = workspace();
+    return current ? current.projects.find(project => project.id === current.activeId) : JSON.parse(storage.get(P.LEGACY_KEY));
+  };
   const doc = {
     activeElement: null,
     querySelector: node,
@@ -244,7 +261,8 @@ function ui(answers = {}, savedDraft, options = {}) {
       classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
       addEventListener(type, handler) { this.handlers[type] = handler; },
       querySelector() { return null; },
-      setAttribute() {}, removeAttribute() {},
+      setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; },
+      reset() {},
       showModal() { this.open = true; }, close() { this.open = false; }, click() {},
       focus() { doc.activeElement = this; },
       setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; },
@@ -254,8 +272,13 @@ function ui(answers = {}, savedDraft, options = {}) {
   }
   const ctx = {
     document: doc,
-    window: { BriefQuestions: Q, BriefReport: R, BriefGuides: G, addEventListener(type, handler) { windowEvents[type] = handler; }, confirm: () => options.confirm !== false, scrollTo() {} },
-    localStorage: { getItem: () => saved, setItem(key, value) { if (options.storageFails) throw new Error('Storage unavailable'); saved = value; } },
+    window: { BriefQuestions: Q, BriefReport: R, BriefGuides: G, BriefProjects: P, crypto, addEventListener(type, handler) { windowEvents[type] = handler; }, confirm: () => options.confirm !== false, scrollTo() {} },
+    crypto,
+    localStorage: {
+      getItem(key) { return storage.get(key) ?? null; },
+      setItem(key, value) { if (options.storageFails) throw new Error('Storage unavailable'); storage.set(key, value); },
+      removeItem(key) { if (options.storageFails) throw new Error('Storage unavailable'); storage.delete(key); }
+    },
     Blob: class { constructor(parts) { this.text = parts.join(''); } },
     URL: { createObjectURL(blob) { downloads.push(blob.text); return 'blob:vm-test'; }, revokeObjectURL() {} },
     setTimeout(fn) { timers.push(fn); return timers.length; },
@@ -290,10 +313,15 @@ function ui(answers = {}, savedDraft, options = {}) {
     htmlOf: selector => node(selector).innerHTML,
     isOpen: selector => node(selector).open === true,
     isHidden: selector => node(selector).hidden,
-    storageChange() { windowEvents.storage({ key: 'buildbrief.project.v1' }); },
+    storageChange(key = P.KEY) { windowEvents.storage({ key }); },
+    replaceStoredWorkspace(value) { storage.set(P.KEY, JSON.stringify(value)); },
+    failStorage(value = true) { options.storageFails = value; },
     set: ctx.__audit.set,
-    stored: () => JSON.parse(saved),
-    rawStored: () => saved,
+    stored,
+    workspace,
+    rawWorkspace: () => storage.get(P.KEY),
+    rawStored: () => storage.get(P.LEGACY_KEY),
+    storageEntries: () => Array.from(storage.entries()),
     markup: () => node('#question-groups').innerHTML,
     reportMarkup: () => node('#report-view').innerHTML,
     helpMarkup: () => node('#help-content').innerHTML,
@@ -301,6 +329,10 @@ function ui(answers = {}, savedDraft, options = {}) {
     compareHelp(index) { node('#help-compare').handlers.change({ target: { value: String(index) } }); },
     exportBackup(id = 'export-answers') {
       events.click({ target: { closest: () => ({ id, dataset: {} }) } });
+      return JSON.parse(downloads.at(-1));
+    },
+    exportProject(id) {
+      events.click({ target: { closest: () => ({ dataset: { projectBackup: id } }) } });
       return JSON.parse(downloads.at(-1));
     },
     exportOriginal() {
@@ -318,6 +350,14 @@ function ui(answers = {}, savedDraft, options = {}) {
       node('#question-form').handlers.input({ target: { dataset: { note: id }, value } });
     },
     click(button) { events.click({ target: { closest: () => ({ dataset: {}, ...button }) } }); },
+    submitProjectName(name) {
+      node('#project-name').value = name;
+      node('#project-name-form').handlers.submit({ preventDefault() {} });
+    },
+    switchProject(id) {
+      node('#project-select').value = id;
+      node('#project-select').handlers.change({ target: node('#project-select') });
+    },
     active: () => doc.activeElement,
     focusTargets(id) {
       const field = node(`#field-${id}`), hidden = node('#closed-guide-link'), input = node(`#input-${id}`);
@@ -592,20 +632,26 @@ test('export and import preserve original drafts, notes and feature cards', asyn
   const backup = app.exportBackup();
   assert.equal(backup.format, 'buildbrief');
   assert.equal(backup.version, 1);
-  const restored = ui({ summary: '교체할 기존 답변' });
+  const restored = ui({ summary: '보존할 기존 답변' });
+  const priorId = restored.workspace().activeId;
   await restored.importBackup(backup);
   const exportedAgain = restored.exportBackup();
   for (const key of ['answers', 'drafts', 'notes']) assert.deepEqual(exportedAgain[key], backup[key], `${key} must round-trip`);
+  assert.equal(restored.workspace().projects.find(project => project.id === priorId).answers.summary, '보존할 기존 답변');
   restored.clickUnknown('main_journey');
   assert.equal(restored.get().main_journey, '신청 → 확인\n다음 줄');
   restored.clickUnknown('feature_specs');
   assert.equal(restored.get().feature_specs[0].name, rows[0].name);
 });
-test('reset clears answers, recommendation drafts and reasons from storage and export', () => {
+test('deleting the last project creates a clean project without its answers, drafts or notes', () => {
   const app = ui({ main_journey: '삭제할 원문', summary: '삭제할 서비스' });
   app.note('summary', '삭제할 이유');
   app.clickUnknown('main_journey');
-  app.click({ id: 'confirm-reset' });
+  const deletedId = app.workspace().activeId;
+  app.click({ dataset: { projectDelete: deletedId } });
+  app.click({ id: 'confirm-delete-project' });
+  assert.equal(app.workspace().projects.length, 1);
+  assert.notEqual(app.workspace().activeId, deletedId);
   for (const key of ['answers', 'drafts', 'notes']) {
     assert.deepEqual(app.stored()[key], {}, `${key} must be cleared in storage`);
     assert.deepEqual(app.exportBackup()[key], {}, `${key} must be cleared in backup`);
@@ -908,11 +954,12 @@ test('basis help changes no answer and both new choices have explanations', () =
     assert.equal(json(app.get()), before);
   }
 });
-test('reset removes test plan, legacy text, preserved drafts and notes', () => {
+test('deleting a project removes its test plan, legacy text, preserved drafts and notes', () => {
   const app = qualityUI({ critical_tests: { ...plan(flow('삭제할 흐름')), legacy: '삭제할 원문' } });
   app.note('critical_tests', '삭제할 이유');
   app.clickUnknown('critical_tests');
-  app.click({ id: 'confirm-reset' });
+  app.click({ dataset: { projectDelete: app.workspace().activeId } });
+  app.click({ id: 'confirm-delete-project' });
   for (const key of ['answers', 'drafts', 'notes']) assert.deepEqual(app.exportBackup()[key], {});
 });
 
@@ -1486,13 +1533,15 @@ test('backups containing only retired descriptions still import when their data 
     await app.importBackup({format:'buildbrief',version:1,answers:{[old]:'메모로 옮겨질 이전 설명'}});
     assert(app.exportBackup().notes[target].includes('메모로 옮겨질 이전 설명'));
     assert(!Object.hasOwn(app.get(),old));
-    const existing=ui({}, {version:1,answers:{[old]:'취소하면 유지할 이전 설명'}}, {confirm:false});
+    const existing=ui({}, {version:1,answers:{[old]:'추가 가져오기에도 유지할 이전 설명'}}, {confirm:false});
     assert.equal(Object.keys(existing.get()).length,0,'Exercise a migrated project with notes but no current answers');
     const before=existing.exportBackup();
-    await existing.importBackup({format:'buildbrief',version:1,answers:{project_name:'교체할 다른 프로젝트'}});
-    const after=existing.exportBackup();
-    for(const bucket of ['answers','drafts','notes'])assert.deepEqual(after[bucket],before[bucket],`${old}: declined replacement must preserve ${bucket}`);
-    assert(after.notes[target].includes('취소하면 유지할 이전 설명'));
+    const beforeId=existing.workspace().activeId;
+    await existing.importBackup({format:'buildbrief',version:1,answers:{project_name:'추가할 다른 프로젝트'}});
+    const retained=existing.workspace().projects.find(project=>project.id===beforeId);
+    for(const bucket of ['answers','drafts','notes'])assert.deepEqual(retained[bucket],before[bucket],`${old}: adding an import must preserve ${bucket}`);
+    assert(retained.notes[target].includes('추가 가져오기에도 유지할 이전 설명'));
+    assert.equal(existing.get().project_name,'추가할 다른 프로젝트','Adding a project does not ask for overwrite permission');
   }
 });
 
@@ -1552,6 +1601,250 @@ test('migration overflow leaves local storage intact and permits a separate new-
   assert.equal(app.rawStored(),rawSaved);
   assert.equal(app.exportOriginal(),rawSaved);
   assert.equal(app.exportBackup().answers.summary,'읽기 오류 후 작성');
+});
+
+test('legacy migration preserves its exact source and reloads the active project with independent data', () => {
+  const legacy = {version:1,step:5,answers:{project_name:'기존 프로젝트',main_journey:R.UNKNOWN},drafts:{main_journey:'기존 입력 원문'},notes:{main_journey:'선택한 이유'}};
+  const rawSaved=JSON.stringify(legacy);
+  const app=ui({},undefined,{rawSaved});
+  const workspace=app.workspace();
+  assert.equal(workspace.version,1);
+  assert.equal(workspace.projects.length,1);
+  assert.equal(workspace.projects[0].id,workspace.activeId);
+  assert.equal(app.stored().step,5);
+  for(const key of ['answers','drafts','notes'])assert.deepEqual(app.stored()[key],legacy[key]);
+  assert.equal(app.rawStored(),rawSaved,'Successful migration must leave the old key untouched');
+  app.click({id:'add-project'});
+  app.submitProjectName('두 번째 아이디어');
+  const secondId=app.workspace().activeId;
+  assert.notEqual(secondId,workspace.activeId);
+  assert.equal(app.stored().step,0);
+  assert.deepEqual(app.exportBackup().drafts,{});
+  assert.deepEqual(app.exportBackup().notes,{});
+  assert.equal(app.get().main_journey,undefined);
+  app.set('main_journey','두 번째 프로젝트 원문');
+  app.note('main_journey','두 번째 선택 이유');
+  app.clickUnknown('main_journey');
+  app.click({dataset:{step:'3'}});
+  app.switchProject(workspace.activeId);
+  assert.equal(app.stored().step,5);
+  assert.equal(app.exportBackup().drafts.main_journey,'기존 입력 원문');
+  assert.equal(app.exportBackup().notes.main_journey,'선택한 이유');
+  app.clickUnknown('main_journey');
+  assert.equal(app.get().main_journey,'기존 입력 원문');
+  const reloaded=ui({},undefined,{storageEntries:app.storageEntries()});
+  assert.equal(reloaded.workspace().activeId,workspace.activeId);
+  reloaded.switchProject(secondId);
+  assert.equal(reloaded.stored().step,3);
+  assert(R.isUnknown(reloaded.get().main_journey));
+  assert.equal(reloaded.exportBackup().drafts.main_journey,'두 번째 프로젝트 원문');
+  assert.equal(reloaded.exportBackup().notes.main_journey,'두 번째 선택 이유');
+  reloaded.clickUnknown('main_journey');
+  assert.equal(reloaded.get().main_journey,'두 번째 프로젝트 원문');
+  assert.equal(reloaded.rawStored(),rawSaved,'Switching and editing must never rewrite the legacy source');
+});
+
+test('project management renames only its target and safely displays user-entered names', () => {
+  const app=ui({project_name:'첫 번째',summary:'보존할 첫 번째 답변'});
+  const firstId=app.workspace().activeId;
+  app.click({id:'manage-projects'});
+  assert(app.isOpen('#projects-dialog'));
+  app.click({id:'create-project'});
+  app.submitProjectName('두 번째');
+  const secondId=app.workspace().activeId;
+  const unsafeName='<img src=x onerror="alert(1)"> & "이름"';
+  app.click({dataset:{projectRename:firstId}});
+  app.submitProjectName(unsafeName);
+  const first=app.workspace().projects.find(project=>project.id===firstId);
+  assert.equal(first.answers.project_name,unsafeName);
+  assert.equal(first.answers.summary,'보존할 첫 번째 답변');
+  assert.equal(app.workspace().activeId,secondId,'Renaming an inactive project must not open it');
+  assert.equal(app.exportProject(firstId).answers.summary,'보존할 첫 번째 답변');
+  assert.equal(app.workspace().activeId,secondId,'Backing up an inactive project must not open it');
+  app.click({id:'manage-projects'});
+  for(const selector of ['#project-select','#project-list']){
+    const markup=app.htmlOf(selector);
+    assert(markup.includes('&lt;img'),'Project names must be escaped in '+selector);
+    assert(!markup.includes('<img src=x'),'Project names must never become HTML');
+    assert(markup.includes('&amp;'));
+  }
+  app.click({dataset:{projectOpen:firstId}});
+  assert.equal(app.get().project_name,unsafeName);
+  app.click({id:'close-projects'});
+  assert(!app.isOpen('#projects-dialog'));
+});
+
+test('project names reject empty or oversized input without losing the open project', () => {
+  const app=ui({project_name:'보관할 프로젝트',summary:'현재 원문'});
+  const before=app.rawWorkspace();
+  app.click({id:'add-project'});
+  for(const name of ['   ','가'.repeat(6001)]){
+    app.submitProjectName(name);
+    assert.equal(app.rawWorkspace(),before);
+    assert.equal(app.get().summary,'현재 원문');
+    assert(app.isOpen('#project-name-dialog'));
+  }
+  app.submitProjectName('  새 프로젝트  ');
+  assert.equal(app.get().project_name,'새 프로젝트');
+  assert.equal(app.workspace().projects.length,2);
+});
+
+test('deleting one project preserves the others and only switches away from a deleted active project', () => {
+  const app=ui({project_name:'첫 번째',summary:'첫 번째 내용'});
+  const firstId=app.workspace().activeId;
+  app.click({id:'add-project'});app.submitProjectName('두 번째');
+  const secondId=app.workspace().activeId;
+  app.set('summary','두 번째 내용');
+  app.click({id:'add-project'});app.submitProjectName('세 번째');
+  const thirdId=app.workspace().activeId;
+  app.set('summary','세 번째 내용');
+  app.click({dataset:{projectDelete:secondId}});
+  app.click({id:'cancel-delete-project'});
+  assert.equal(app.workspace().projects.length,3,'Cancelling delete must be inert');
+  app.click({dataset:{projectDelete:secondId}});
+  app.click({id:'confirm-delete-project'});
+  assert.equal(app.workspace().activeId,thirdId);
+  assert.equal(app.workspace().projects.length,2);
+  assert(!app.workspace().projects.some(project=>project.id===secondId));
+  assert.equal(app.workspace().projects.find(project=>project.id===firstId).answers.summary,'첫 번째 내용');
+  app.click({dataset:{projectDelete:thirdId}});
+  app.click({id:'confirm-delete-project'});
+  assert.equal(app.workspace().activeId,firstId);
+  assert.equal(app.get().summary,'첫 번째 내용');
+});
+
+test('whole-workspace backups import by addition with fresh IDs and preserve the backed-up active project', async () => {
+  const sourceApp=ui({project_name:'원본 하나',main_journey:'하나의 원문'});
+  sourceApp.note('main_journey','하나의 메모');
+  sourceApp.clickUnknown('main_journey');
+  sourceApp.click({id:'add-project'});sourceApp.submitProjectName('원본 둘');
+  sourceApp.set('summary','둘의 설명');
+  sourceApp.click({dataset:{step:'6'}});
+  const backup=sourceApp.exportBackup('export-all-projects');
+  assert.equal(backup.format,'buildbrief-projects');
+  assert.equal(backup.version,1);
+  assert.equal(backup.projects.length,2);
+  const oldIds=new Set(backup.projects.map(project=>project.id));
+  const destination=ui({},undefined,{workspace:sourceApp.workspace(),confirm:false});
+  const original=destination.workspace();
+  await destination.importBackup(backup);
+  const combined=destination.workspace();
+  assert.equal(combined.projects.length,4);
+  assert.equal(new Set(combined.projects.map(project=>project.id)).size,4);
+  for(const prior of original.projects){
+    const retained=combined.projects.find(project=>project.id===prior.id);
+    for(const key of ['id','createdAt','step','answers','drafts','notes'])assert.deepEqual(retained[key],prior[key],'An import must not overwrite existing '+key);
+  }
+  const imported=combined.projects.filter(project=>!oldIds.has(project.id));
+  assert.equal(imported.length,2);
+  for(const expected of backup.projects){
+    const actual=imported.find(project=>project.answers.project_name===expected.answers.project_name);
+    assert(actual);
+    for(const key of ['answers','drafts','notes','step'])assert.deepEqual(actual[key],expected[key],key+' must survive workspace backup');
+  }
+  assert.equal(destination.get().project_name,'원본 둘');
+  assert.equal(destination.stored().step,6);
+  await destination.importBackup(backup);
+  assert.equal(destination.workspace().projects.length,6);
+  assert.equal(new Set(destination.workspace().projects.map(project=>project.id)).size,6,'Repeated imports also need fresh IDs');
+});
+
+test('invalid whole-workspace imports are rejected atomically before any project is added', async () => {
+  const app=ui({project_name:'유지할 프로젝트',summary:'유지할 원문'});
+  const first=P.createProject({answers:{project_name:'유효한 첫 항목'}});
+  const second=P.createProject({answers:{project_name:'잘못된 두 번째 항목'}});
+  const backup={format:'buildbrief-projects',version:1,activeId:first.id,projects:[first,second]};
+  const before=app.rawWorkspace();
+  for(const invalid of [
+    {...backup,activeId:'없는 식별자'},
+    {...backup,projects:[first,{...second,answers:null}]},
+    {...backup,projects:[first,{...second,id:first.id}]}
+  ]){
+    await app.importBackup(invalid);
+    assert.equal(app.rawWorkspace(),before);
+    assert.equal(app.get().summary,'유지할 원문');
+    assert.equal(app.workspace().projects.length,1);
+  }
+});
+
+test('failed project writes cannot switch, create, rename or delete existing projects', () => {
+  for(const action of ['create','switch','rename','delete']){
+    const app=ui({project_name:'첫 번째',summary:'첫 번째 원문'});
+    const firstId=app.workspace().activeId;
+    app.click({id:'add-project'});app.submitProjectName('두 번째');
+    app.set('summary','두 번째 원문');
+    const before=app.rawWorkspace();
+    const current=app.exportBackup();
+    if(action==='create')app.click({id:'add-project'});
+    if(action==='rename')app.click({dataset:{projectRename:firstId}});
+    if(action==='delete')app.click({dataset:{projectDelete:app.workspace().activeId}});
+    app.failStorage();
+    if(action==='create'||action==='rename')app.submitProjectName('저장되지 않을 이름');
+    if(action==='switch')app.switchProject(firstId);
+    if(action==='delete')app.click({id:'confirm-delete-project'});
+    assert.equal(app.rawWorkspace(),before,action+': persisted workspace must remain intact');
+    const after=app.exportBackup();
+    for(const key of ['answers','drafts','notes'])assert.deepEqual(after[key],current[key],action+': current memory must remain intact');
+    assert.match(app.textOf('#save-status'),/저장|백업/);
+  }
+});
+
+test('storage failure and cross-tab changes block project mutations while backing up current unsaved work', async () => {
+  for(const blocker of ['quota','tab','clear']){
+    const app=ui({project_name:'첫 번째'});
+    const firstId=app.workspace().activeId;
+    app.click({id:'add-project'});app.submitProjectName('두 번째');
+    const secondId=app.workspace().activeId;
+    const before=app.rawWorkspace();
+    if(blocker==='quota')app.failStorage();
+    else app.storageChange(blocker==='clear'?null:P.KEY);
+    app.set('summary','저장되지 않은 최신 설명');
+    app.switchProject(firstId);
+    app.click({id:'add-project'});app.submitProjectName('추가 금지');
+    app.click({dataset:{projectDelete:secondId}});app.click({id:'confirm-delete-project'});
+    await app.importBackup({format:'buildbrief',version:1,answers:{project_name:'가져오기 금지'}});
+    assert.equal(app.rawWorkspace(),before,blocker+': no blocked action may change storage');
+    assert.equal(app.get().project_name,'두 번째');
+    assert.equal(app.exportBackup().answers.summary,'저장되지 않은 최신 설명');
+    const memory=app.exportBackup('export-all-projects');
+    assert.equal(memory.projects.length,2);
+    assert.equal(memory.activeId,secondId);
+    assert.equal(memory.projects.find(project=>project.id===secondId).answers.summary,'저장되지 않은 최신 설명');
+    assert.equal(memory.projects.find(project=>project.id===firstId).answers.summary,undefined);
+  }
+});
+
+test('unreadable workspace recovery requires confirmation and preserves legacy storage', async () => {
+  for(const rawWorkspace of ['{broken workspace',JSON.stringify({version:99,projects:[]})]){
+    const legacyRaw=JSON.stringify({version:1,answers:{project_name:'이전 키 원본'}});
+    const entries=[[P.KEY,rawWorkspace],[P.LEGACY_KEY,legacyRaw]];
+    const declined=ui({},undefined,{storageEntries:entries,confirm:false});
+    declined.set('summary','별도로 백업할 현재 입력');
+    assert.equal(declined.rawWorkspace(),rawWorkspace);
+    assert.equal(declined.exportOriginal(),rawWorkspace);
+    assert.equal(declined.exportBackup().answers.summary,'별도로 백업할 현재 입력');
+    await declined.importBackup({format:'buildbrief',version:1,answers:{project_name:'복구할 프로젝트'}});
+    assert.equal(declined.rawWorkspace(),rawWorkspace,'Refusing recovery must preserve the unreadable workspace');
+    const recovered=ui({},undefined,{storageEntries:entries});
+    await recovered.importBackup({format:'buildbrief',version:1,answers:{project_name:'복구할 프로젝트'}});
+    assert.equal(recovered.stored().answers.project_name,'복구할 프로젝트');
+    assert.equal(recovered.rawStored(),legacyRaw,'Recovery cannot erase the separate legacy source');
+    recovered.set('summary','복구 후 저장');
+    assert.equal(recovered.stored().answers.summary,'복구 후 저장');
+  }
+});
+
+test('an external write is detected before the storage event and cannot be overwritten', () => {
+  const app=ui({project_name:'현재 탭'});
+  const other=P.createProject({answers:{project_name:'다른 탭에서 추가'}});
+  const external={...app.workspace(),projects:[...app.workspace().projects,other]};
+  app.replaceStoredWorkspace(external);
+  const expected=app.rawWorkspace();
+  app.set('summary','이 탭에서만 작성한 설명');
+  assert.equal(app.rawWorkspace(),expected,'Read-before-write protection must preserve a newer workspace');
+  assert.match(app.textOf('#save-status'),/다른 탭/);
+  assert.equal(app.exportBackup().answers.summary,'이 탭에서만 작성한 설명');
+  assert.equal(app.exportBackup('export-all-projects').projects.length,1,'A backup must contain this tab’s complete memory, without inventing a merge');
 });
 
 Promise.all(pending).then(() => {

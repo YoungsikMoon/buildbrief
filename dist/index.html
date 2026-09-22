@@ -7,11 +7,12 @@
   <meta name="description" content="전문가의 고려 사항을 이해하고 직접 선택하세요. 단계별 질문으로 설계하고 AI에게 전달할 개발 명세서를 완성하세요.">
   <title>빌드브리프 — 생각을 개발 명세로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=e1cabd421415">
+  <link rel="stylesheet" href="styles.css?v=ba83f6bd8296">
   <script src="questions.js?v=ed19313e4dbf" defer></script>
   <script src="report.js?v=8cd379a27a02" defer></script>
+  <script src="projects.js?v=8e64131c1497" defer></script>
   <script src="guides.js?v=a1b4865187a6" defer></script>
-  <script src="app.js?v=729eaf0dc32c" defer></script>
+  <script src="app.js?v=819362b030bd" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -24,7 +25,11 @@
   </header>
   <div class="workspace">
     <aside class="sidebar" aria-label="질문 단계">
-      <div class="sidebar-heading"><span class="eyebrow">MY PROJECT</span><strong id="project-label">새로운 아이디어</strong></div>
+      <div class="sidebar-heading project-switcher">
+        <div class="project-switcher-heading"><label for="project-select">내 프로젝트</label><button type="button" class="text-button" id="manage-projects" aria-haspopup="dialog" aria-controls="projects-dialog">관리</button></div>
+        <div class="project-switcher-controls"><select class="select-input" id="project-select" aria-label="프로젝트 선택"><option value="">새로운 아이디어</option></select><button type="button" class="button secondary small" id="add-project" aria-haspopup="dialog" aria-controls="project-name-dialog">+ 새 프로젝트</button></div>
+        <strong class="visually-hidden" id="project-label">새로운 아이디어</strong>
+      </div>
       <div class="progress-label"><span id="progress-label">답변 정리 현황</span><strong id="progress-number">0%</strong></div>
       <div class="progress-track"><div id="progress-bar" role="progressbar" aria-labelledby="progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="progress-caption"></div></div>
       <p class="progress-caption" id="progress-caption"></p>
@@ -38,7 +43,7 @@
         <p>참고 자료·추가 의견처럼 선택해서 적는 참고 정보는 계산에서 제외해요. 100%가 아니어도 리포트를 만들 수 있어요.</p>
       </details>
       <nav id="step-nav"></nav>
-      <div class="sidebar-bottom"><button class="text-button" id="export-answers">답변 백업</button><button class="text-button" id="import-answers">백업 불러오기</button><button class="text-button muted" id="reset-button">새 프로젝트</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+      <div class="sidebar-bottom"><button type="button" class="text-button" id="export-answers">이 프로젝트 백업</button><button type="button" class="text-button" id="import-answers">백업에서 추가</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
     </aside>
     <main id="main" tabindex="-1">
       <div id="form-view">
@@ -73,16 +78,39 @@
     <div class="storage-current"><strong>현재 저장 상태</strong><p id="storage-help-status" role="status">이 브라우저에 자동 저장</p><p id="storage-help-warning" hidden>최근 입력이 저장되지 않았을 수 있어요. 새로고침하거나 탭을 닫기 전에 이 탭의 답변을 백업해 주세요.</p></div>
     <dl>
       <div class="help-fact"><dt>새로고침하거나 PC를 꺼도 괜찮나요?</dt><dd>일반 모드에서 ‘이 브라우저에 저장됨’을 확인했다면 새로고침, 브라우저 종료, PC 재부팅 후에도 답변과 작성 단계를 불러와요. 입력·선택한 답변과 메모는 바꿀 때마다 자동 저장해요.</dd></div>
-      <div class="help-fact"><dt>어디에서 이어 쓸 수 있나요?</dt><dd>같은 기기·브라우저·프로필에서 같은 사이트 주소로 접속해 주세요. 이 브라우저의 저장 공간(localStorage)을 사용하며, 답변을 서버에 보관하거나 계정·다른 기기에 자동으로 동기화하지 않아요. 주소가 바뀌면 백업 파일로 옮겨야 해요.</dd></div>
-      <div class="help-fact"><dt>어떤 경우에 사라질 수 있나요?</dt><dd>사이트 데이터 삭제, 종료 시 데이터 자동 삭제 설정, 시크릿 모드 종료, 브라우저 초기화·프로필 삭제로 사라질 수 있어요. 브라우저의 저장 공간 정리나 기기 고장도 대비해야 해요. ‘새 프로젝트’를 확인하면 현재 답변이 지워지고, 백업을 불러오면 현재 답변이 바뀌어요.</dd></div>
+      <div class="help-fact"><dt>프로젝트를 여러 개 작성할 수 있나요?</dt><dd>‘내 프로젝트’에서 작성할 프로젝트를 선택하세요. ‘+ 새 프로젝트’로 추가하면 기존 프로젝트는 그대로 남아요. 프로젝트마다 답변·메모·작성 단계를 따로 보관하며, ‘관리’에서 이름을 바꾸거나 삭제할 수 있어요.</dd></div>
+      <div class="help-fact"><dt>어디에서 이어 쓸 수 있나요?</dt><dd>같은 기기·브라우저·프로필에서 같은 사이트 주소로 접속해 주세요. 이 브라우저의 저장 공간(localStorage)에 프로젝트를 보관하며, 서버나 계정·다른 기기에 자동으로 동기화하지 않아요. 주소가 바뀌면 백업 파일로 옮겨야 해요.</dd></div>
+      <div class="help-fact"><dt>어떤 경우에 사라질 수 있나요?</dt><dd>사이트 데이터 삭제, 종료 시 데이터 자동 삭제 설정, 시크릿 모드 종료, 브라우저 초기화·프로필 삭제로 프로젝트가 사라질 수 있어요. 브라우저의 저장 공간 정리나 기기 고장도 대비해야 해요. ‘관리’에서 프로젝트를 삭제하기 전에도 필요한 답변을 먼저 백업해 주세요.</dd></div>
       <div class="help-fact"><dt>저장 오류나 다른 탭 변경 안내가 보이면요?</dt><dd>최근 입력이 저장되지 않았을 수 있으니 새로고침하거나 탭을 닫기 전에 이 탭의 답변부터 백업해 주세요. 다른 탭에서 답변을 바꾸면 서로 덮어쓰지 않도록 이 탭의 자동 저장을 멈춰요. 백업 후 새로고침하면 브라우저에 마지막으로 저장된 답변을 불러와요. 백업이 성공했는지도 확인해 주세요.</dd></div>
-      <div class="help-fact"><dt>기존 답변을 읽지 못했다는 안내가 보이면요?</dt><dd>기존 저장 내용을 덮어쓰지 않도록 자동 저장을 멈춰요. 아래 ‘복구용 저장 원본’을 내려받고, 새로 입력한 내용은 ‘답변 백업’으로 따로 보관해 주세요. 복구용 원본은 읽기 오류가 있는 기록이므로 일반 백업처럼 바로 불러오지 못할 수 있어요. ‘새 프로젝트’나 백업 교체를 확인하기 전까지 기존 원본을 유지해요.</dd></div>
-      <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>아래 ‘답변 백업’으로 JSON 파일을 내려받아 보관하세요. 새 주소나 다른 기기에서 ‘백업 불러오기’를 누르면 이어 쓸 수 있어요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
+      <div class="help-fact"><dt>기존 답변을 읽지 못했다는 안내가 보이면요?</dt><dd>기존 저장 내용을 덮어쓰지 않도록 자동 저장을 멈춰요. 아래 ‘복구용 저장 원본’을 내려받고, 새로 입력한 내용은 ‘이 프로젝트 백업’으로 따로 보관해 주세요. 복구용 원본은 읽기 오류가 있는 기록이므로 일반 백업처럼 바로 불러오지 못할 수 있어요. 복구가 끝날 때까지 내려받은 원본 파일을 보관해 주세요.</dd></div>
+      <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>‘이 프로젝트 백업’으로 현재 프로젝트를, ‘관리’의 ‘전체 프로젝트 백업’으로 모든 프로젝트를 JSON 파일에 보관하세요. 새 주소나 다른 기기에서 ‘백업에서 추가’를 누르면 기존 프로젝트를 유지하면서 백업의 프로젝트를 추가해요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
     </dl>
     <p class="storage-privacy">브라우저 답변과 JSON 백업은 이 서비스가 별도로 암호화하지 않아요. API 키·비밀번호는 입력하지 말고, 백업 파일은 내용을 읽어도 되는 사람에게만 공유해 주세요.</p>
-    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">답변 백업 (.json)</button><button type="button" class="button secondary" id="storage-original" hidden>복구용 저장 원본 (.json)</button></div>
+    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">이 프로젝트 백업 (.json)</button><button type="button" class="button secondary" id="storage-original" hidden>복구용 저장 원본 (.json)</button></div>
   </dialog>
-  <dialog id="reset-dialog"><h2>새 프로젝트를 시작할까요?</h2><p>현재 브라우저의 답변이 지워져요. 보관하려면 먼저 ‘답변 백업’을 눌러주세요.</p><div class="dialog-actions"><button class="button secondary" id="cancel-reset">취소</button><button class="button danger" id="confirm-reset">지우고 시작</button></div></dialog>
+  <dialog id="projects-dialog" class="projects-dialog" aria-labelledby="projects-title">
+    <div class="help-top"><h2 id="projects-title">내 프로젝트</h2><button type="button" class="button secondary small" id="close-projects" autofocus>닫기 ×</button></div>
+    <p class="projects-intro">프로젝트별로 답변과 메모를 따로 보관해요. 이 기기·브라우저에서 이어 쓸 수 있어요.</p>
+    <div id="project-list" class="project-list"></div>
+    <p id="projects-error" class="field-error" role="status"></p>
+    <div class="dialog-actions"><button type="button" class="button primary" id="create-project" aria-haspopup="dialog" aria-controls="project-name-dialog">+ 프로젝트 만들기</button><button type="button" class="button secondary" id="export-all-projects">전체 프로젝트 백업</button></div>
+  </dialog>
+  <dialog id="project-name-dialog" class="project-name-dialog" aria-labelledby="project-name-title" aria-describedby="project-name-description">
+    <form id="project-name-form">
+      <h2 id="project-name-title">새 프로젝트 만들기</h2>
+      <p id="project-name-description">기존 프로젝트는 그대로 두고, 새 프로젝트를 추가해요. 이름은 나중에 바꿀 수 있어요.</p>
+      <label for="project-name">프로젝트 이름</label><input class="text-input" id="project-name" name="project-name" type="text" maxlength="6000" required autocomplete="off" autofocus>
+      <p id="project-name-error" class="field-error" role="status"></p>
+      <div class="dialog-actions"><button type="button" class="button secondary" id="cancel-project-name">취소</button><button type="submit" class="button primary">프로젝트 만들기</button></div>
+    </form>
+  </dialog>
+  <dialog id="delete-project-dialog" class="delete-project-dialog" aria-labelledby="delete-project-title" aria-describedby="delete-project-description">
+    <h2 id="delete-project-title">프로젝트를 삭제할까요?</h2>
+    <strong id="delete-project-name"></strong>
+    <p id="delete-project-description">이 프로젝트의 답변과 메모를 이 브라우저에서 삭제해요. 삭제 후 되돌릴 수 없으니, 보관하려면 취소한 뒤 관리 목록에서 이 프로젝트의 ‘백업’을 내려받아 주세요. 다른 프로젝트는 유지돼요.</p>
+    <p id="delete-project-error" class="field-error" role="status"></p>
+    <div class="dialog-actions"><button type="button" class="button secondary" id="cancel-delete-project" autofocus>취소</button><button type="button" class="button danger" id="confirm-delete-project">프로젝트 삭제</button></div>
+  </dialog>
   <dialog id="option-help-dialog" class="option-help-dialog" aria-labelledby="help-title">
     <div class="help-top"><span class="eyebrow">선택 도우미</span><button type="button" class="button secondary small" id="close-option-help" autofocus>닫기 ×</button></div>
     <p id="help-context" class="help-context"></p><h2 id="help-title"></h2>

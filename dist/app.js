@@ -2,20 +2,23 @@
   'use strict';
   const { steps, featureFields, testBasisOptions, testFlowFields } = window.BriefQuestions;
   const R = window.BriefReport;
-  const STORAGE_KEY = 'buildbrief.project.v1';
+  const P = window.BriefProjects;
   const $ = selector => document.querySelector(selector);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let answers = {}, drafts = {}, notes = {}, currentStep = 0, reportTab = 'spec', isReport = false;
   let storageWorking = true, externalChange = false, loadFailed = false, originalStorage = null, toastTimer;
+  const initialProject = P.createProject();
+  let workspace = { version: 1, activeId: initialProject.id, projects: [initialProject] };
+  let storedRaw = null, legacyAtLoad = null;
   try {
-    originalStorage = localStorage.getItem(STORAGE_KEY);
-    const saved = JSON.parse(originalStorage || 'null');
-    if (saved !== null && saved?.version !== 1) throw new Error('지원하지 않는 저장 형식');
-    if (saved?.version === 1) {
-      ({ answers, drafts, notes } = R.normalizeProject(saved));
-      currentStep = Number.isInteger(saved.step) ? Math.min(Math.max(saved.step, 0), steps.length - 1) : 0;
+    storedRaw = originalStorage = localStorage.getItem(P.KEY);
+    if (storedRaw !== null) workspace = P.normalizeWorkspace(JSON.parse(storedRaw));
+    else {
+      legacyAtLoad = originalStorage = localStorage.getItem(P.LEGACY_KEY);
+      if (legacyAtLoad !== null) workspace = P.fromLegacy(JSON.parse(legacyAtLoad));
     }
   } catch { storageWorking = false; loadFailed = true; }
+  activateProject();
   const conditionDependencies = new Set(steps.flatMap(s => s.groups.flatMap(g => [g.when, ...g.questions.map(q => q.when)].flatMap(R.conditionIds))));
   const byId = new Map(R.allQuestions.map(q => [q.id, q]));
   const priorityQuestion = { id: 'feature_priority', label: '이 기능은 언제 필요한가요?', options: featureFields.find(f => f.id === 'priority').options };
@@ -66,23 +69,90 @@
     $('#storage-help-dialog').dataset.attention = String(!storageWorking || externalChange);
     $('#storage-original').hidden = !loadFailed || originalStorage === null;
   }
-  function save() {
-    if (loadFailed) {
+  function collectWorkspace() {
+    return { ...workspace, projects: workspace.projects.map(project => project.id === workspace.activeId
+      ? { ...project, answers, drafts, notes, step: currentStep }
+      : project) };
+  }
+  function activateProject() {
+    const project = workspace.projects.find(item => item.id === workspace.activeId);
+    ({ answers, drafts, notes } = project);
+    currentStep = project.step;
+    reportTab = 'spec';
+  }
+  function save(next = collectWorkspace(), recover = false) {
+    if (loadFailed && !recover) {
       updateSaveStatus(originalStorage === null ? '저장 공간 확인 불가 · 자동 저장 중지' : '기존 답변 읽기 실패 · 원본 보존 중');
-      return;
-    }
-    if (externalChange) {
-      updateSaveStatus('다른 탭 변경 감지 · 백업 후 새로고침');
-      return;
+      return false;
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, step: currentStep, answers, drafts, notes }));
+      // ponytail: 다른 탭 변경은 전체 저장을 잠근다. 동시 편집이 필요해지면 프로젝트별 병합을 도입한다.
+      if (externalChange || localStorage.getItem(P.KEY) !== storedRaw ||
+          (storedRaw === null && localStorage.getItem(P.LEGACY_KEY) !== legacyAtLoad)) {
+        externalChange = true;
+        updateSaveStatus('다른 탭 변경 감지 · 백업 후 새로고침');
+        return false;
+      }
+      next = { ...next, projects: next.projects.map(project => project.id === workspace.activeId ? { ...project, updatedAt: new Date().toISOString() } : project) };
+      const raw = JSON.stringify(next);
+      localStorage.setItem(P.KEY, raw);
+      workspace = next;
+      storedRaw = raw;
       storageWorking = true;
+      if (recover) { loadFailed = false; originalStorage = null; }
       updateSaveStatus('이 브라우저에 저장됨');
+      return true;
     } catch {
       storageWorking = false;
       updateSaveStatus('저장 불가 · 답변을 백업해 주세요');
+      return false;
     }
+  }
+  function commitProjects(next, recover = false) {
+    if (!save(next, recover)) {
+      const message = '저장하지 못해 프로젝트를 바꾸지 않았어요. 이 창을 닫고 저장 안내를 확인한 뒤 현재 답변을 백업해 주세요.';
+      $('#project-name-error').textContent = message;
+      $('#delete-project-error').textContent = message;
+      $('#projects-error').textContent = message;
+      toast(message);
+      return false;
+    }
+    activateProject();
+    renderStep(currentStep);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    return true;
+  }
+  function updateProjectPicker() {
+    $('#project-select').innerHTML = workspace.projects.map(project => `<option value="${project.id}">${escape(P.projectTitle(project))}</option>`).join('');
+    $('#project-select').value = workspace.activeId;
+  }
+  function renderProjects() {
+    $('#project-list').innerHTML = collectWorkspace().projects.map(project => {
+      const stat = R.stats(project.answers), active = project.id === workspace.activeId;
+      return `<section class="project-item" ${active ? 'aria-current="true"' : ''}><div class="project-item-info"><strong>${escape(P.projectTitle(project))}</strong><p>${active ? '작성 중 · ' : ''}${stat.confirmed}/${stat.total}개 정리 완료 (${stat.percent}%)</p><p>최근 저장 ${escape(new Date(project.updatedAt).toLocaleString('ko-KR'))}</p></div><div class="project-item-actions"><button type="button" class="button secondary small" data-project-open="${project.id}">${active ? '계속 작성' : '열기'}</button><button type="button" class="text-button" data-project-rename="${project.id}">이름 변경</button><button type="button" class="text-button" data-project-backup="${project.id}">백업</button><button type="button" class="text-button danger-text" data-project-delete="${project.id}">삭제</button></div></section>`;
+    }).join('');
+  }
+  function openProjectName(id = '') {
+    const project = workspace.projects.find(item => item.id === id);
+    if (id && !project) return;
+    $('#project-name-dialog').dataset.project = id;
+    $('#project-name-error').textContent = '';
+    $('#project-name-title').textContent = id ? '프로젝트 이름 변경' : '새 프로젝트 만들기';
+    $('#project-name-description').textContent = id ? '질문지의 프로젝트 이름에도 함께 반영돼요. 답변과 메모는 그대로 유지돼요.' : '기존 프로젝트는 그대로 두고, 새 프로젝트를 추가해요. 이름은 나중에 바꿀 수 있어요.';
+    $('#project-name-form button[type="submit"]').textContent = id ? '이름 변경' : '프로젝트 만들기';
+    $('#project-name').value = project ? R.display(project.answers.project_name) : '';
+    $('#project-name-dialog').showModal();
+    $('#project-name').focus();
+  }
+  function openProject(id) {
+    if (!workspace.projects.some(project => project.id === id)) return false;
+    return commitProjects({ ...collectWorkspace(), activeId: id });
+  }
+  function backupProject(id = workspace.activeId) {
+    const project = collectWorkspace().projects.find(item => item.id === id);
+    if (!project) return;
+    const { answers, drafts, notes, step } = project;
+    download(JSON.stringify({ format: 'buildbrief', version: 1, exportedAt: new Date().toISOString(), step, answers, drafts, notes }, null, 2), 'json', '답변백업', P.projectTitle(project));
   }
   function toast(message) {
     clearTimeout(toastTimer);
@@ -137,6 +207,7 @@
     ].filter(([, count], index) => count > 0 || index === 0).map(([label, count]) => `<div><dt>${label}</dt><dd>${count}개</dd></div>`).join('');
     $('#progress-scope').textContent = `전체 설계 질문 ${R.allQuestions.filter(q => !q.supplemental).length}개를 모두 답할 필요는 없어요. 지금 답변을 기준으로 필요한 ${stat.total}개만 표시하고 계산해요.`;
     $('#project-label').textContent = R.display(answers.project_name) || '새로운 아이디어';
+    updateProjectPicker();
     $('#step-nav').innerHTML = steps.map((step, index) => {
       const qs = R.activeGroups(step, answers).flatMap(g => g.questions).filter(q => !q.supplemental);
       const done = qs.filter(q => R.isResolved(q, answers)).length;
@@ -303,8 +374,8 @@
     $('#step-tip').textContent = '개발 전 확인을 먼저 살펴보세요. 정하지 못한 항목이 있어도 리포트를 내려받아 AI와 함께 결정할 수 있어요.';
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
-  function download(content, extension, suffix) {
-    const name = (R.display(answers.project_name) || 'buildbrief').replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 70);
+  function download(content, extension, suffix, title = R.display(answers.project_name) || 'buildbrief') {
+    const name = title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 70);
     const blob = new Blob([content], { type: extension === 'json' ? 'application/json;charset=utf-8' : 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -406,11 +477,59 @@
     if (currentStep < steps.length - 1) return renderStep(currentStep + 1, true);
     renderReport(); $('#report-title').setAttribute('tabindex', '-1'); $('#report-title').focus({ preventScroll: true });
   });
+  $('#project-select').addEventListener('change', event => {
+    if (!openProject(event.target.value)) event.target.value = workspace.activeId;
+  });
+  $('#project-name-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const name = $('#project-name').value.trim(), id = $('#project-name-dialog').dataset.project;
+    if (!name || name.length > 6000) { $('#project-name-error').textContent = '프로젝트 이름을 1~6,000자로 적어 주세요.'; $('#project-name').focus(); return; }
+    let next = collectWorkspace();
+    if (id) {
+      if (!next.projects.some(project => project.id === id)) return;
+      next.projects = next.projects.map(project => project.id === id ? { ...project, answers: { ...project.answers, project_name: name }, updatedAt: new Date().toISOString() } : project);
+    } else {
+      const project = P.createProject({ answers: { project_name: name } });
+      next = { ...next, activeId: project.id, projects: [...next.projects, project] };
+    }
+    if (!commitProjects(next)) return;
+    $('#project-name-dialog').close();
+    if (id) { renderProjects(); $('#close-projects').focus(); }
+    else $('#projects-dialog').close();
+    toast(id ? '프로젝트 이름을 바꿨어요.' : '기존 프로젝트를 보관하고 새 프로젝트를 만들었어요.');
+  });
   document.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
     if (button.id === 'save-help-button') return $('#storage-help-dialog').showModal();
     if (button.id === 'close-storage-help') return $('#storage-help-dialog').close();
+    if (button.id === 'manage-projects') { $('#projects-error').textContent = ''; renderProjects(); return $('#projects-dialog').showModal(); }
+    if (button.id === 'close-projects') return $('#projects-dialog').close();
+    if (button.id === 'add-project' || button.id === 'create-project') return openProjectName();
+    if (button.id === 'cancel-project-name') return $('#project-name-dialog').close();
+    if (button.dataset.projectOpen) { if (openProject(button.dataset.projectOpen)) $('#projects-dialog').close(); return; }
+    if (button.dataset.projectRename) return openProjectName(button.dataset.projectRename);
+    if (button.dataset.projectBackup) return backupProject(button.dataset.projectBackup);
+    if (button.dataset.projectDelete) {
+      const project = workspace.projects.find(item => item.id === button.dataset.projectDelete);
+      if (!project) return;
+      $('#delete-project-dialog').dataset.project = project.id;
+      $('#delete-project-error').textContent = '';
+      $('#delete-project-name').textContent = P.projectTitle(project);
+      return $('#delete-project-dialog').showModal();
+    }
+    if (button.id === 'cancel-delete-project') return $('#delete-project-dialog').close();
+    if (button.id === 'confirm-delete-project') {
+      const id = $('#delete-project-dialog').dataset.project, next = collectWorkspace();
+      if (!next.projects.some(project => project.id === id)) return;
+      next.projects = next.projects.filter(project => project.id !== id);
+      if (!next.projects.length) next.projects.push(P.createProject());
+      if (next.activeId === id) next.activeId = next.projects[0].id;
+      if (!commitProjects(next)) return;
+      $('#delete-project-dialog').close(); renderProjects(); $('#close-projects').focus();
+      return toast('프로젝트를 삭제했어요.');
+    }
+    if (button.id === 'export-all-projects') return download(JSON.stringify({ format: 'buildbrief-projects', ...collectWorkspace(), exportedAt: new Date().toISOString() }, null, 2), 'json', '전체프로젝트백업', 'buildbrief');
     if (button.dataset.helpQuestion) return showOptionHelp(button.dataset.helpQuestion, Number(button.dataset.helpIndex));
     if (button.id === 'close-option-help') return $('#option-help-dialog').close();
     if (button.dataset.addWorksheet) {
@@ -492,15 +611,9 @@
       window.addEventListener('afterprint', restore, { once: true });
       window.print();
     }
-    if (button.id === 'export-answers' || button.id === 'storage-backup') download(JSON.stringify({ format: 'buildbrief', version: 1, exportedAt: new Date().toISOString(), answers, drafts, notes }, null, 2), 'json', '답변백업');
+    if (button.id === 'export-answers' || button.id === 'storage-backup') backupProject();
     if (button.id === 'storage-original' && loadFailed && originalStorage !== null) download(originalStorage, 'json', '복구용저장원본');
     if (button.id === 'import-answers') $('#import-file').click();
-    if (button.id === 'reset-button') $('#reset-dialog').showModal();
-    if (button.id === 'cancel-reset') $('#reset-dialog').close();
-    if (button.id === 'confirm-reset') {
-      answers = {}; drafts = {}; notes = {}; currentStep = 0; externalChange = false; loadFailed = false; originalStorage = null;
-      save(); $('#reset-dialog').close(); renderStep(0, true); toast('새 프로젝트를 시작해요.');
-    }
   });
   document.addEventListener('keydown', event => {
     if (!event.target.matches('.report-tab') || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -517,25 +630,36 @@
     try {
       if (file.size > 64 * 1024 * 1024) throw new Error('백업 파일은 64MB 이하만 불러올 수 있어요.');
       const imported = JSON.parse(await file.text());
-      if (imported.format !== 'buildbrief' || imported.version !== 1) throw new Error('빌드브리프 답변 백업 파일을 선택해 주세요.');
-      const { answers: normalized, drafts: importedDrafts, notes: importedNotes } = R.normalizeProject(imported);
-      if (Object.keys(imported.answers).length && ![normalized, importedDrafts, importedNotes].some(values => Object.keys(values).length)) throw new Error('사용할 수 있는 답변이 없는 백업 파일이에요.');
-      if ((loadFailed || [answers, drafts, notes].some(values => Object.keys(values).length)) && !window.confirm(loadFailed ? '읽지 못한 기존 저장 원본을 이 백업으로 바꿀까요? 먼저 저장 안내에서 원본을 내려받아 보관해 주세요.' : '현재 답변을 백업 파일의 내용으로 바꿀까요? 기존 답변은 덮어써져요.')) return;
-      answers = normalized; drafts = importedDrafts; notes = importedNotes; currentStep = 0; externalChange = false; loadFailed = false; originalStorage = null;
-      save(); renderStep(0, true); toast('백업에서 답변을 불러왔어요.');
+      let incoming;
+      if (imported?.format === 'buildbrief' && imported.version === 1) {
+        incoming = P.fromLegacy(imported);
+        const project = incoming.projects[0];
+        if (Object.keys(imported.answers).length && ![project.answers, project.drafts, project.notes].some(values => Object.keys(values).length)) throw new Error('사용할 수 있는 답변이 없는 백업 파일이에요.');
+      } else if (imported?.format === 'buildbrief-projects') {
+        incoming = P.normalizeWorkspace(imported);
+        const ids = new Map(incoming.projects.map(project => [project.id, P.createProject().id]));
+        incoming = { ...incoming, activeId: ids.get(incoming.activeId), projects: incoming.projects.map(project => ({ ...project, id: ids.get(project.id) })) };
+      } else throw new Error('빌드브리프 프로젝트 백업 파일을 선택해 주세요.');
+      if (loadFailed && !window.confirm('읽지 못한 기존 저장 원본을 이 백업으로 복구할까요? 먼저 저장 안내에서 원본과 새로 입력한 답변을 각각 내려받아 보관해 주세요.')) return;
+      const next = { ...incoming, projects: [...(loadFailed ? [] : collectWorkspace().projects), ...incoming.projects] };
+      if (!commitProjects(next, loadFailed)) return;
+      toast(`백업에서 프로젝트 ${incoming.projects.length}개를 추가했어요.`);
     } catch (error) { toast(error instanceof SyntaxError ? 'JSON 형식이 올바르지 않아요. 백업 파일을 확인해 주세요.' : error.message); }
     finally { event.target.value = ''; }
   });
   window.addEventListener('storage', event => {
-    if (event.key === STORAGE_KEY || event.key === null) {
+    if (event.key === P.KEY || event.key === P.LEGACY_KEY || event.key === null) {
       externalChange = true;
       updateSaveStatus('다른 탭 변경 감지 · 백업 후 새로고침');
       toast('다른 탭의 답변을 덮어쓰지 않도록 자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.');
     }
   });
+  if (!loadFailed && storedRaw === null) save();
   renderStep(currentStep);
   if (!storageWorking) {
-    updateSaveStatus(originalStorage === null ? '저장 공간 확인 불가 · 자동 저장 중지' : '기존 답변 읽기 실패 · 원본 보존 중');
-    toast(originalStorage === null ? '브라우저 저장 공간을 읽을 수 없어 자동 저장을 멈췄어요. 새로 입력한 답변은 백업해 주세요.' : '기존 답변을 읽지 못해 덮어쓰기를 막았어요. 저장 안내에서 원본을 내려받고, 새로 입력한 답변도 따로 백업해 주세요.');
+    if (loadFailed) {
+      updateSaveStatus(originalStorage === null ? '저장 공간 확인 불가 · 자동 저장 중지' : '기존 답변 읽기 실패 · 원본 보존 중');
+      toast(originalStorage === null ? '브라우저 저장 공간을 읽을 수 없어 자동 저장을 멈췄어요. 새로 입력한 답변은 백업해 주세요.' : '기존 답변을 읽지 못해 덮어쓰기를 막았어요. 저장 안내에서 원본을 내려받고, 새로 입력한 답변도 따로 백업해 주세요.');
+    } else toast('브라우저에 저장하지 못했어요. 현재 답변은 백업할 수 있어요.');
   }
 })();
