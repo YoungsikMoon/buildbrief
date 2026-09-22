@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#214eeb">
+  <meta name="description" content="전문가의 고려 사항을 이해하고 직접 선택하세요. 단계별 질문으로 설계하고 AI에게 전달할 개발 명세서를 완성하세요.">
+  <title>빌드브리프 — 생각을 개발 명세로</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script src="questions.js" defer></script>
+  <script src="report.js" defer></script>
+  <script src="guides.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">질문으로 바로가기</a>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="빌드브리프 처음으로"><span class="brand-mark">b<span>·</span></span>빌드브리프<span class="brand-en">BUILD BRIEF</span></a>
+    <div class="top-actions"><span id="save-status" role="status">이 브라우저에 자동 저장</span><button class="button secondary small" id="report-button">리포트 미리보기 <span aria-hidden="true">↗</span></button></div>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar" aria-label="질문 단계">
+      <div class="sidebar-heading"><span class="eyebrow">MY PROJECT</span><strong id="project-label">새로운 아이디어</strong></div>
+      <div class="progress-label"><span>작성 진행률</span><strong id="progress-number">0%</strong></div>
+      <div class="progress-track"><div id="progress-bar"></div></div>
+      <p class="progress-caption" id="progress-caption"></p>
+      <nav id="step-nav"></nav>
+      <div class="sidebar-bottom"><button class="text-button" id="export-answers">답변 백업</button><button class="text-button" id="import-answers">백업 불러오기</button><button class="text-button muted" id="reset-button">새 프로젝트</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+    </aside>
+    <main id="main" tabindex="-1">
+      <div id="form-view">
+        <div class="page-topline"><div class="breadcrumb" id="breadcrumb"></div><span class="step-badge" id="step-badge"></span></div>
+        <div class="page-heading"><div><h1 id="page-title"></h1><p id="page-description"></p></div><span class="chapter-number" id="chapter-number" aria-hidden="true"></span></div>
+        <div class="guide-strip"><span class="guide-symbol" aria-hidden="true">?</span><p><strong>고민하는 이유부터, 선택 이후의 영향까지.</strong> 선택지 옆 ?에서 뜻·장단점·비용·구현과 운영 부담·적합한 상황을 확인하고 두 방식을 비교하세요. 자신의 선택과 이유를 기록하면 다음 프로젝트에서도 판단의 근거로 쓸 수 있어요.</p><label class="detail-toggle"><input id="detail-toggle" type="checkbox"><span>상세 질문 펼치기</span></label></div>
+        <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><span id="step-summary"></span><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
+      </div>
+      <section id="report-view" hidden aria-labelledby="report-title"></section>
+    </main>
+    <aside class="context-panel" aria-label="작성 도움말">
+      <div class="context-card"><span class="eyebrow">YOUR BLUEPRINT</span><h2>전문가처럼<br>생각하는 설계</h2><div class="blueprint-flow"><span>왜 고민하는지 이해하기</span><i>↓</i><span>대표적인 방식 알아보기</span><i>↓</i><span>장단점과 부담 비교하기</span><i>↓</i><span>내 상황에 적합한지 판단하기</span><i>↓</i><span>선택과 이유 기록하기</span><i>↓</i><strong>다음 설계에 연결하기 ↗</strong></div></div>
+      <div class="tip-card"><span class="tip-label">이번 단계의 팁</span><p id="step-tip"></p></div>
+      <div class="privacy-note"><span aria-hidden="true">⌑</span><p>답변은 이 브라우저에만 저장돼요. API 키나 비밀번호는 입력하지 마세요.</p></div>
+    </aside>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="reset-dialog"><h2>새 프로젝트를 시작할까요?</h2><p>현재 브라우저의 답변이 지워져요. 보관하려면 먼저 ‘답변 백업’을 눌러주세요.</p><div class="dialog-actions"><button class="button secondary" id="cancel-reset">취소</button><button class="button danger" id="confirm-reset">지우고 시작</button></div></dialog>
+  <dialog id="option-help-dialog" class="option-help-dialog" aria-labelledby="help-title">
+    <div class="help-top"><span class="eyebrow">선택 도우미</span><button type="button" class="button secondary small" id="close-option-help" autofocus>닫기 ×</button></div>
+    <p id="help-context" class="help-context"></p><h2 id="help-title"></h2>
+    <div class="help-browse"><div><label for="help-option">알아볼 선택지</label><select id="help-option" class="select-input"></select></div><div><label for="help-compare">나란히 비교할 선택지</label><select id="help-compare" class="select-input"></select></div><p>설명을 읽어도 답변은 바뀌지 않아요. 닫은 뒤 원하는 항목을 선택해 주세요.</p></div>
+    <div id="help-content"></div>
+  </dialog>
+  <noscript>질문을 작성하려면 브라우저에서 JavaScript를 활성화해 주세요.</noscript>
+</body>
+</html>
