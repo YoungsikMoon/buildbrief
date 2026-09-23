@@ -93,6 +93,10 @@
     return (rowsOf(q.id).map((row,i) => `<section class="editor-card screen-card" id="row-${q.id}-${i}">${rowHeader(row.name || '새 화면',q.id,i)}<div class="field-grid">${input('화면 이름',row.name,attrs(q.id,i,'name'),{placeholder:'예: 홈, 검색 결과, 내 기록'})}${input('이 화면을 사용하는 사람',row.roles,attrs(q.id,i,'roles'),{placeholder:'예: 누구나, 로그인한 회원, 운영자'})}</div>${input('이 화면에서 무엇을 할 수 있어야 하나요?',row.purpose,attrs(q.id,i,'purpose'),{placeholder:'사용자가 이 화면에 들어오는 목적'})}<fieldset class="sub-field"><legend>이 화면에서 제공할 기능</legend>${features.length ? `<div class="choices compact">${features.map(f => `<label class="choice"><input type="checkbox" ${attrs(q.id,i,'featureIds')} value="${f.id}" ${(row.featureIds || []).includes(f.id) ? 'checked' : ''}><span>${esc(f.name || '이름 없는 기능')}</span></label>`).join('')}</div>` : '<p class="field-help">‘필요한 기능’에서 추가하면 이곳에서 연결할 수 있어요.</p>'}${(row.featureIds || []).some(id => !features.some(f => f.id === id)) ? '<p class="field-help">삭제된 기능 연결이 있어요. 기획 초안에서 확인할 수 있어요.</p>' : ''}</fieldset><details class="element-picker" id="elements-${row.id}" open><summary>화면에 넣을 요소 고르기 <span>${(row.elements || []).length}개 선택</span></summary><p class="field-help">여러 요소를 함께 쓸 수 있어요. 그림은 역할을 보여 주는 예시이며 실제 배치를 확정하지 않아요.</p><div class="element-grid">${uiElements.map(el => `<div class="element-option ${(row.elements || []).includes(el.id) ? 'selected' : ''}"><label>${wireframe(el.preview || el.id)}<span><input type="checkbox" ${attrs(q.id,i,'elements')} value="${el.id}" ${(row.elements || []).includes(el.id) ? 'checked' : ''}>${esc(el.label)}</span></label><button type="button" class="option-help" data-element-help="${el.id}" aria-label="${esc(el.label)} 설명">?</button></div>`).join('')}</div></details>${(row.elements || []).map(id => { const el = uiElements.find(e => e.id === id); return el ? input(el.prompt || el.label + '에 무엇을 넣나요?',row.elementNotes?.[id],attrs(q.id,i,'elementNotes') + ` data-element="${id}"`,{placeholder:'아직 정하지 않았다면 비워 두세요'}) : ''; }).join('')}${input('보여 줄 내용·정보',row.content,attrs(q.id,i,'content'),{type:'textarea',placeholder:'예: 제목, 사진, 날짜, 가격, 처리 상태'})}<details id="states-${row.id}" class="optional-details"><summary>빈 화면·오류·작은 화면에서의 모습 (선택)</summary><p class="field-help">처음 자료가 없거나 문제가 생겼을 때 무엇을 보여 줄지 생각해 보세요.</p>${input('자료가 아직 없을 때',row.empty,attrs(q.id,i,'empty'),{placeholder:'예: 안내 문구와 첫 자료 추가 버튼'})}${input('작업이 실패했을 때',row.error,attrs(q.id,i,'error'),{placeholder:'예: 입력 내용을 유지하고 다시 시도할 수 있게'})}${input('휴대폰의 작은 화면에서',row.mobile,attrs(q.id,i,'mobile'),{placeholder:'예: 표를 카드로 바꾸고 메뉴를 아래쪽에 배치'})}</details></section>`).join('') || empty('처음 만나는 화면부터 추가하세요. 아직 화면이 떠오르지 않으면 나중에 돌아와도 괜찮아요.')) + addButton(q.id,'화면 추가');
   }
   function scopeEditor() { return rowsOf('features').map((f,i) => `<div class="scope-row"><div><strong>${esc(f.name || '이름 없는 기능')}</strong><p>${esc(f.outcome || '제공할 결과를 아직 적지 않았어요.')}</p></div>${input('출시 범위',f.priority,attrs('features',i,'priority'),{type:'single',options:priorities})}</div>`).join('') || empty('‘필요한 기능’에서 추가하면 이곳에 모여요.'); }
+  function reasonEditor(q) {
+    const value = notes[q.id] || '';
+    return `<details class="answer-note" id="reason-${q.id}" ${value.trim() ? 'open' : ''}><summary>답변·선택 이유 남기기 <span>(선택)</span></summary><div class="input-field"><label id="reason-label-${q.id}" for="reason-input-${q.id}">왜 이렇게 답하거나 선택했나요?</label><p class="field-help" id="reason-help-${q.id}">내 상황, 중요하게 생각한 점, 비교했던 다른 방법을 적어 두세요. 나중에 답변을 바꿀 때 다시 살펴볼 수 있어요.</p><textarea id="reason-input-${q.id}" data-note="${q.id}" aria-labelledby="label-${q.id} reason-label-${q.id}" aria-describedby="reason-help-${q.id}" rows="3" maxlength="6000" placeholder="예: 처음 이용하는 사람도 쉽게 시작할 수 있는 점을 우선했어요.">${esc(value)}</textarea></div></details>`;
+  }
   function renderQuestion(q) {
     const value = answers[q.id]; let control = '';
     if (q.type === 'features') control = featureEditor();
@@ -106,7 +110,7 @@
       control = options.length ? `<div class="choices">${options.map((o,i) => { const guide = q.source ? null : window.BriefGuides.get(q,o.value); return `<div class="choice-row"><label class="choice"><input type="${q.type === 'single' ? 'radio' : 'checkbox'}" name="${q.id}" ${attrs(q.id)} value="${esc(o.value)}" ${(q.type === 'multi' ? Array.isArray(value) && value.includes(o.value) : value === o.value) ? 'checked' : ''}><span>${esc(o.label)}</span></label>${guide && o.value !== R.UNKNOWN ? `<button type="button" class="option-help" data-help="${q.id}" data-option="${i}" aria-label="${esc(o.label)} 설명">?</button>` : ''}</div>`; }).join('')}</div>` : empty('‘필요한 기능’에서 추가한 뒤 이곳에서 선택할 수 있어요.');
       if (value && (typeof value === 'string' || value.length)) control += `<button class="text-button clear-answer" type="button" data-clear="${q.id}">선택 지우기</button>`;
     } else control = q.type === 'textarea' ? `<textarea id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" aria-describedby="hint-${q.id}" maxlength="6000" rows="4" placeholder="${esc(q.placeholder || '')}">${esc(value)}</textarea>` : `<input id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" aria-describedby="hint-${q.id}" type="text" maxlength="${q.id === 'project_name' ? 200 : 6000}" value="${esc(value)}" placeholder="${esc(q.placeholder || '')}" autocomplete="off">`;
-    return `<fieldset class="question" id="field-${q.id}"><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help ? `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>` : ''}${control}</fieldset>`;
+    return `<fieldset class="question" id="field-${q.id}"><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help ? `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>` : ''}${control}${reasonEditor(q)}</fieldset>`;
   }
   function renderStep(index,navigate = false) {
     const states = new Map([...document.querySelectorAll('#question-groups details[id]')].map(el => [el.id,el.open]));
@@ -162,7 +166,14 @@
     $('#project-name-form button[type="submit"]').textContent = id ? '이름 변경' : '프로젝트 만들기';
     $('#project-name').value = p?.answers.project_name || ''; $('#project-name-error').textContent = ''; $('#project-name-dialog').showModal(); $('#project-name').focus();
   }
-  document.addEventListener('input',event => { const el = event.target; if (el.dataset.q && el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea')) edit(el); });
+  document.addEventListener('input',event => {
+    const el = event.target;
+    if (el.matches('textarea[data-note]') && questions.has(el.dataset.note)) {
+      if (el.value) notes[el.dataset.note] = el.value; else delete notes[el.dataset.note];
+      save(); return;
+    }
+    if (el.dataset.q && el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea')) edit(el);
+  });
   document.addEventListener('change',event => { const el = event.target; if (el.dataset.q && el.matches('select,input[type="checkbox"],input[type="radio"]')) edit(el); });
   function edit(el) {
     const {q:qid,row,field,element} = el.dataset;

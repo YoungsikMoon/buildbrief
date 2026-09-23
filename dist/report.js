@@ -160,7 +160,7 @@
       '이 문서는 사용자가 적은 아이디어와 희망을 정리한 초안입니다. 답변 수나 선택한 기능 수가 기획 검증·개발 준비 완료를 뜻하지 않습니다.', '');
     const field = (label, value) => lines.push(`**${md(label)}**`, quote(display(value)), '');
     for (const step of Q.steps) {
-      const groups = activeGroups(step, answers).map(group => ({ ...group, questions: group.questions.filter(q => q.type === 'scope' ? features.length : isAnswered(answers[q.id]) || isAnswered(notes[q.id])) })).filter(group => group.questions.length);
+      const groups = activeGroups(step, answers).map(group => ({ ...group, questions: group.questions.filter(q => isAnswered(notes[q.id]) || (q.type === 'scope' ? features.length : isAnswered(answers[q.id]))) })).filter(group => group.questions.length);
       if (!groups.length) continue;
       lines.push(`## ${md(step.title)}`, '');
       for (const group of groups) for (const q of group.questions) {
@@ -204,7 +204,7 @@
             }
           });
         } else field(q.label, q.source === 'features' && Array.isArray(value) ? value.map(id => id === UNKNOWN ? UNKNOWN : featureName(id)) : value);
-        if (isAnswered(notes[q.id])) field('사용자가 남긴 추가 메모', notes[q.id]);
+        if (isAnswered(notes[q.id])) field('이렇게 답한 이유·추가 메모', notes[q.id]);
       }
     }
     const unknown = activeQuestions(answers).filter(q => q.type !== 'scope' && (!isAnswered(answers[q.id]) || answers[q.id] === UNKNOWN || Array.isArray(answers[q.id]) && answers[q.id].includes(UNKNOWN)));

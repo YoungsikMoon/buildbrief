@@ -14,3 +14,4 @@
 .report-document .report-label{margin-top:18px}.report-answer{color:#495a73;padding-left:12px;border-left:2px solid #dbe5f7}
 
 .catalog-entry{position:relative;min-width:0}.catalog-item{width:100%;height:100%;padding-right:43px}.catalog-entry>.option-help{position:absolute;right:10px;top:12px}.catalog-item strong span{display:none}
+.answer-note{margin-top:14px}.answer-note summary{padding:8px 0;color:var(--blue);font-size:13px}.answer-note summary span{color:var(--muted)}.answer-note>.input-field{margin-top:12px}.answer-note .field-help{margin-top:0}

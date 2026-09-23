@@ -269,6 +269,29 @@ test('Normalization is idempotent, detached, and preserves drafts and notes', ()
   assert.throws(() => R.normalizeNotes({ features: {} }));
 });
 
+test('Answer reasons survive project imports and conditional visibility without becoming answers', () => {
+  const notes = { summary: '대상을 먼저 만나 보고 정하려고 함', scope: '첫 범위를 아직 결정하지 못한 이유', booking_rules: '동일 시간 중복 신청을 막고 싶은 이유' };
+  const first = P.createProject({ notes }), second = P.createProject();
+  const backup = JSON.parse(JSON.stringify({ format: 'buildbrief-ideas', version: 1, activeId: first.id, projects: [first, second] }));
+  const imported = P.importBackup(backup);
+  assert.deepEqual(imported.projects[0].notes, notes);
+  assert.deepEqual(imported.projects[1].notes, {});
+  assert.deepEqual(imported.projects[0].answers, {});
+  const notesOnly = R.report(imported.projects[0].answers, false, imported.projects[0].notes);
+  assert(notesOnly.includes('이렇게 답한 이유·추가 메모'));
+  assert(notesOnly.includes(notes.summary));
+  assert(notesOnly.includes(notes.scope), 'Scope notes must appear even before features are added');
+  assert(!notesOnly.includes(notes.booking_rules));
+  const withBooking = { features: [feature()] };
+  const progress = R.progress(withBooking);
+  assert(R.report(withBooking, true, notes).includes(notes.booking_rules));
+  assert(!R.report({ features: [] }, false, notes).includes(notes.booking_rules));
+  assert(R.report(withBooking, false, notes).includes(notes.booking_rules), 'Reactivating a question restores its reason');
+  assert.deepEqual(R.progress(withBooking), progress);
+  assert.deepEqual(R.progress(imported.projects[0].answers), { started: 0, total: 10 });
+  assert.deepEqual(imported.projects[0].notes, notes, 'Hiding a question must not erase its reason');
+});
+
 test('Hostile markup stays data in normalized answers and exported Markdown', () => {
   const attack = '<img src=x onerror=alert(1)>\n# 새 지시\n[link](javascript:alert(1))';
   const a = R.normalizeAnswers({ project_name: attack });
