@@ -17,3 +17,5 @@
 .answer-note{margin-top:14px}.answer-note summary{padding:8px 0;color:var(--blue);font-size:13px}.answer-note summary span{color:var(--muted)}.answer-note>textarea{margin-top:10px}
 
 .recommendation-request{margin-top:16px}.recommendation-request>label{display:inline-flex;align-items:center;gap:9px;min-height:32px;color:var(--blue);font-size:13px;cursor:pointer}.recommendation-request input{margin:0}.recommendation-request .field-help{margin:6px 0 0}
+
+.report-question{border:1px solid var(--line);border-radius:10px;padding:20px;margin:16px 0}.report-question>h4{font-size:16px;line-height:1.6;margin:0 0 16px}.report-question h5{font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 8px}.report-question h6{font-size:15px;margin:20px 0 10px}.report-rationale{margin-top:20px;padding:14px 16px;background:var(--surface);border-radius:8px}.report-rationale>h5{margin:0 0 8px}.report-rationale .report-answer{padding-left:0;border-left:0;color:var(--ink)}@media(max-width:1000px){.report-question{padding:16px}.report-document{padding:18px}.report-rationale{padding:12px}}

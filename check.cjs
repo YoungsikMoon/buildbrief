@@ -290,6 +290,30 @@ test('Normalization is idempotent, detached, and preserves drafts and notes', ()
   assert.throws(() => R.normalizeNotes({ features: {} }));
 });
 
+test('Every exported question owns its answer and reason, including repeated cards and notes-only questions', () => {
+  const answers = { problem: '문제 답변', current_methods: ['메신저'], features: [feature()], screens: [screen('screen-1', [])] };
+  const notes = { problem: '문제의 이유\n### 가짜 질문\n<script>실행 금지</script>', current_methods: '메신저를 쓰는 이유', features: '기능 목록 전체의 이유', screens: '화면 목록 전체의 이유', summary: '답변 전에 남긴 이유' };
+  for (const prompt of [false, true]) {
+    const output = R.report(answers, prompt, notes);
+    const blocks = output.split(/^### /m).slice(1).map(block => block.split(/(?=^#{1,2} )/m)[0]);
+    const block = id => blocks.find(value => value.startsWith(question(id).label + '\n'));
+    assert(block('problem').includes('#### 답변\n\n> 문제 답변'));
+    assert(block('problem').includes('#### 선택 이유·추가 메모\n\n> 문제의 이유'));
+    assert(!block('problem').includes(notes.current_methods));
+    assert(block('current_methods').includes('#### 답변\n\n> 메신저'));
+    assert(block('current_methods').includes(notes.current_methods));
+    assert(!block('current_methods').includes('문제의 이유'));
+    for (const id of ['features', 'screens']) {
+      assert(/^##### /m.test(block(id)), 'Repeated cards stay under the answer heading');
+      assert(block(id).includes('#### 선택 이유·추가 메모\n\n> ' + notes[id]), 'A whole-question reason must not belong to the last card');
+    }
+    assert(block('summary').includes('#### 답변\n\n> 미작성'));
+    assert(block('summary').includes(notes.summary));
+    assert(!/^### 가짜 질문/m.test(output));
+    assert(output.includes('&lt;script&gt;실행 금지&lt;/script&gt;'));
+  }
+});
+
 test('Answer reasons survive project imports and conditional visibility without becoming answers', () => {
   const notes = { summary: '대상을 먼저 만나 보고 정하려고 함', scope: '첫 범위를 아직 결정하지 못한 이유', booking_rules: '동일 시간 중복 신청을 막고 싶은 이유' };
   const first = P.createProject({ notes }), second = P.createProject();
@@ -299,7 +323,7 @@ test('Answer reasons survive project imports and conditional visibility without 
   assert.deepEqual(imported.projects[1].notes, {});
   assert.deepEqual(imported.projects[0].answers, {});
   const notesOnly = R.report(imported.projects[0].answers, false, imported.projects[0].notes);
-  assert(notesOnly.includes('이렇게 답한 이유·추가 메모'));
+  assert(notesOnly.includes('#### 선택 이유·추가 메모'));
   assert(notesOnly.includes(notes.summary));
   assert(notesOnly.includes(notes.scope), 'Scope notes must appear even before features are added');
   assert(!notesOnly.includes(notes.booking_rules));

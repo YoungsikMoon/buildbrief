@@ -155,13 +155,21 @@
     $('#form-view').hidden = true; $('#report-view').hidden = false; setNavigation(false);
     // Only our heading/list prefixes become HTML; all user text remains escaped.
     const readable = value => esc(value.replace(/\\([\\`*_\[\]#|])/g,'$1').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));
+    let questionOpen = false, reasonOpen = false;
+    const closeQuestion = () => { const end = (reasonOpen ? '</aside>' : '') + (questionOpen ? '</section>' : ''); reasonOpen = questionOpen = false; return end; };
     const body = R.report(answers,false,notes,recommendations).split('\n').map(line => {
-      const heading = /^(#{1,4}) (.*)$/.exec(line);
-      if (heading) { const level = Math.min(heading[1].length+1,4); return `<h${level}>${readable(heading[2])}</h${level}>`; }
+      const heading = /^(#{1,5}) (.*)$/.exec(line);
+      if (heading) {
+        const depth = heading[1].length, level = depth+1;
+        let prefix = depth <= 3 ? closeQuestion() : '';
+        if (depth === 3) { prefix += '<section class="report-question">'; questionOpen = true; }
+        if (depth === 4 && heading[2] === '선택 이유·추가 메모') { prefix += '<aside class="report-rationale">'; reasonOpen = true; }
+        return `${prefix}<h${level}>${readable(heading[2])}</h${level}>`;
+      }
       if (/^\*\*.*\*\*$/.test(line)) return `<p class="report-label"><strong>${readable(line.slice(2,-2))}</strong></p>`;
       if (line.startsWith('> ')) return `<p class="report-answer">${readable(line.slice(2))}</p>`;
       return line.trim() ? `<p class="${/^[-*] /.test(line) ? 'report-item' : ''}">${readable(line.replace(/^[-*] /,'• '))}</p>` : '';
-    }).join('');
+    }).join('') + closeQuestion();
     $('#report-view').innerHTML = `<div class="page-topline"><span>내 아이디어의 첫 문서</span><button type="button" class="text-button" id="back-to-form">← 작성으로 돌아가기</button></div><div class="page-heading"><h1 id="report-title" tabindex="-1">서비스 기획 초안</h1><p>작성한 내용과 미정 사항을 모았어요. 빈칸은 확정된 요구사항으로 간주하지 않아요.</p></div><div class="report-actions"><button type="button" class="button primary" id="copy-prompt">AI와 기획 다듬기 · 복사</button><button type="button" class="button secondary" id="download-report">기획 초안 내려받기</button></div><p class="field-help">복사한 내용을 원하는 AI 대화에 붙여 넣으세요. 자료를 검토하고 추가 질문을 거쳐 기획을 보완하도록 안내해요. 이 사이트에서 AI가 자동 실행되지는 않아요.</p><article class="report-document">${body}</article>`;
     window.scrollTo({top:0,behavior:'instant'}); $('#report-title').focus({preventScroll:true});
   }
