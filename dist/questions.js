@@ -89,6 +89,37 @@
     { id: "features", title: "필요한 기능", short: "기능", description: "기능 후보를 출발점으로 실제로 할 일을 적어요.", groups: [
       { title: "누가 무엇을 할 수 있나요?", description: "필요한 후보만 고르거나 직접 추가해요. 같은 유형으로 여러 기능을 만들어도 돼요.", questions: [
         { id: "features", allowRecommend: true, label: "이 서비스에서 할 수 있어야 하는 일은 무엇인가요?", type: "features", help: "기능 이름, 사용하는 사람, 기대하는 결과를 적어요. 첫 버전에 필요한지 모르겠다면 미정으로 남겨요. 후보를 고른 것만으로 기능이 완성된 것은 아니에요." }
+      ] },
+      { title: "선택한 기능에서 더 확인할 점", description: "고른 기능에 필요한 질문만 보여요. 세부 숫자나 정책을 모르면 미정으로 남겨요.", questions: [
+        { id: "booking_rules", label: "신청·예약의 확정, 중복, 마감, 취소는 어떻게 하나요?", type: "textarea", help: "기능 이름과 규칙을 연결해요. 정원, 동일 시간 중복, 확정하는 사람, 취소 가능 시점 중 필요한 것만 적어요.", placeholder: "예: 같은 시간에는 한 팀만 예약. 신청 즉시 확정, 이용 전날까지 취소 가능.", when: category("booking") },
+        { id: "workflow_rules", label: "처리 상태는 누가 어떤 조건에서 바꾸나요?", type: "textarea", help: "접수 → 승인 → 완료처럼 필요한 순서와 반려·취소 후 결과를 적어요. 기능 카드에 있다면 빠진 조건만 보완해요.", placeholder: "예: 담당자가 승인하거나 이유를 적어 반려. 신청자는 승인 전까지 수정 가능.", when: category("workflow") },
+        { id: "file_rules", label: "어떤 파일을 받고, 누가 확인하거나 내려받나요?", type: "textarea", help: "파일 종류와 대략적인 개수·크기, 볼 수 있는 사람을 적어요. 수치를 모르겠다면 실제 올릴 자료의 예를 적어요.", placeholder: "예: 신청마다 사진 3장 정도. 신청자와 담당자만 확인. PDF 안내문은 누구나 다운로드.", when: category("files") },
+        { id: "notification_rules", label: "어떤 일이 생기면 누구에게 어떻게 알리나요?", type: "textarea", help: "사건, 받을 사람, 경로를 연결해요. 서비스 안 알림, 이메일, 문자 등 필요한 안내만 적어요.", placeholder: "예: 예약 취소 시 신청자에게 이메일, 담당자에게 서비스 안 알림.", when: category("notifications") },
+        { id: "payment_offer", label: "무엇에 돈을 내며 결제 후 무엇을 받나요?", type: "textarea", help: "상품, 예약 이용료, 서비스 이용권 등을 구분해요. 무료 범위나 가격이 정해졌다면 함께 적어요.", placeholder: "예: 작업실 2시간 이용료를 내면 그 시간의 예약이 확정돼요.", when: category("payments") },
+        { id: "payment_timing", label: "결제는 어떤 방식으로 받나요?", type: "multi", options: ["필요할 때 한 번씩 결제", "정기적으로 반복 결제", "이용한 양에 따라 결제", "별도 계약·현장 결제", "아직 미정"], help: "함께 사용할 방식을 골라요. 예: 매달 기본요금과 이용량 요금. 상품마다 다르면 결제 설명에 구분해요.", when: category("payments") },
+        { id: "payment_cancel", label: "취소·환불하거나 결제가 안 되면 어떻게 안내하나요?", type: "textarea", help: "상품별 취소 시점과 신청·이용 상태 등 바라는 기본 흐름을 적어요. 확인하지 못한 기준은 미정으로 남겨요.", placeholder: "예: 결제 실패 시 예약은 확정하지 않고 다시 결제할 수 있게 해요. 환불 기준은 확인 필요.", when: category("payments") },
+        { id: "ai_help", label: "AI에 무엇을 주고 어떤 도움을 받나요?", type: "textarea", help: "입력 자료와 원하는 결과를 연결해요. 회사 자료나 개인정보는 보낼 수 있는 범위만 적고 실제 내용은 넣지 않아요.", placeholder: "예: 공지 초안을 넣으면 빠진 정보와 이해하기 어려운 문장을 짚어 줘요.", when: category("ai") },
+        { id: "ai_review", allowRecommend: true, label: "AI 결과는 어떻게 확인하고 사용하나요?", type: "textarea", help: "수정, 재요청, 출처 확인, 사람이 확인 후 적용 등 필요한 경험과 기대에 못 미칠 때의 동작을 적어요.", placeholder: "예: 원문과 제안을 비교하고 사용자가 선택한 문장만 공지에 반영해요.", when: category("ai") },
+        { id: "location_use", label: "지도나 위치로 어떤 일을 하나요?", type: "multi", options: ["정해진 장소를 지도에서 보기", "주소·장소 검색", "내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유", "다른 용도", "아직 미정"], optionLabels: { "다른 용도": "직접 입력" }, help: "장소 표시만 필요하면 현재 위치를 받을 필요는 없어요. 위치 공유는 누구에게 언제까지 보이는지도 생각해요.", when: category("location") },
+        { id: "location_sharing", label: "내 위치는 누구에게 언제까지 보이며 어떻게 공유를 멈추나요?", type: "textarea", help: "공유를 켜고 끄는 사람, 볼 수 있는 사람, 끝나는 시점을 적어요. 한 번 보낸 위치인지 계속 바뀌는 위치인지도 구분해요.", placeholder: "예: 동행자로 초대한 사람에게만 현재 위치 표시. 모임 종료 또는 본인이 중단하면 더 이상 표시하지 않아요.", when: { all: [category("location"), { id: "location_use", includes: "내 위치를 다른 사람에게 공유" }] } },
+        { id: "location_other", label: "지도·위치로 할 다른 일은 무엇인가요?", type: "textarea", help: "사용자가 할 일과 보여 줄 결과를 적어요. 필요한 위치가 장소의 주소인지 이용자의 현재 위치인지도 구분해요.", placeholder: "예: 입력한 두 장소 사이의 이동 거리를 비교해요.", when: { all: [category("location"), { id: "location_use", includes: "다른 용도" }] } },
+        { id: "device_needs", label: "실제로 필요한 기기 기능은 무엇인가요?", type: "multi", options: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "기기 기능이 필요하지 않음", "다른 기능", "아직 미정"], optionLabels: { "다른 기능": "직접 입력" }, help: "웹과 설치 앱 모두 필요한 경우에만 골라요. 기존 사진·파일을 고르는 것과 직접 촬영은 달라요.", when: { any: [category("device"), category("location"), category("files")] } },
+        { id: "device_other", label: "목록에 없는 기기 기능은 무엇이며 어디에 쓰나요?", type: "textarea", help: "기능 이름을 몰라도 원하는 행동으로 설명해요. 실제로 필요한지 확인할 점이 있다면 함께 남겨요.", placeholder: "예: 가까이에 있는 측정 기기에서 수치를 받아 기록해요.", when: { all: [{ any: [category("device"), category("location"), category("files")] }, { id: "device_needs", includes: "다른 기능" }] } },
+        { id: "permission_alternative", allowRecommend: true, label: "기기 기능 사용을 허용하지 않으면 어떻게 하나요?", type: "textarea", help: "해당 기능만 제한할지, 직접 입력이나 파일 선택 같은 대안을 제공할지 적어요. 전체 서비스를 막아야 하는지도 생각해요.", placeholder: "예: 위치를 허용하지 않아도 동네 이름을 직접 입력해 찾을 수 있어요.", when: { any: [
+          { all: [{ any: [category("device"), category("location"), category("files")] }, { id: "device_needs", in: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "다른 기능"] }] },
+          { all: [category("location"), { id: "location_use", in: ["내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유"] }] }
+        ] } },
+        { id: "collaboration_rules", label: "누구와 어떤 자료를 함께 사용하나요?", type: "textarea", help: "초대, 보기·수정 범위, 동시 수정, 공유 취소·구성원 탈퇴 후 처리를 필요한 만큼 적어요.", placeholder: "예: 초대한 팀원은 일정 수정 가능. 같은 일정을 고치면 충돌을 알리고 확인하게 해요.", when: category("collaboration") }
+      ] },
+      { title: "이전에 작성한 정보", description: "기존 자료·규칙 답변을 보존했어요. 필요한 내용을 기능별로 옮겨 정리할 수 있어요.", questions: [
+        { id: "data_items", legacyOnly: true, label: "사용을 마친 뒤에도 기억해야 할 정보가 있나요?", type: "rows", rowLabel: "자료", help: "예: 예약 내용, 작성한 글, 즐겨찾기. 자료가 없다면 비워 두거나 그 사실을 적어요. 실제 개인정보는 넣지 마세요.", fields: [
+          { id: "name", label: "자료 이름", placeholder: "예: 예약 기록" },
+          { id: "purpose", label: "남길 내용과 이유", placeholder: "예: 신청자·날짜·처리 상태 확인" },
+          { id: "access", label: "누가 볼 수 있나요?", placeholder: "예: 본인과 해당 작업실 담당자" },
+          { id: "change", label: "누가 언제 바꾸나요?", placeholder: "예: 신청자는 이용 전날까지 시간 변경" },
+          { id: "deletion", label: "삭제·탈퇴 후에는 어떻게 하나요?", placeholder: "예: 초안은 삭제 가능, 완료 기록 보관 기간은 미정" }
+        ] },
+        { id: "general_rules", legacyOnly: true, label: "여러 기능에 함께 적용할 규칙이 있나요?", type: "textarea", help: "기능 카드에 적은 내용은 반복하지 않아요. 이용 시간, 작성 제한, 잘못된 정보의 수정·신고 등 공통 규칙만 적어요.", placeholder: "예: 담당자도 다른 작업실의 신청 내용을 볼 수 없어요." }
       ] }
     ] },
     { id: "flow", title: "대표 이용 과정", short: "이용 과정", description: "가장 중요한 목적 하나를 달성하는 순서부터 연결해요.", groups: [
@@ -116,7 +147,7 @@
         { id: "signup_audience", label: "누가 가입하거나 이용 승인을 받을 수 있나요?", type: "textarea", help: "누구나 가입, 초대받은 사람만, 담당자 승인처럼 필요한 조건을 적어요. 여러 조건을 조합할 수 있어요.", placeholder: "예: 누구나 가입 가능. 담당자 역할은 운영자가 확인 후 부여.", when: loginRequired },
         { id: "signup_fields", label: "회원에게 꼭 받아야 할 정보가 있나요?", type: "multi", options: ["추가 정보 없음", "표시 이름·닉네임", "이름", "이메일", "전화번호", "소속", "프로필 정보", "다른 정보", "아직 미정"], optionLabels: { "다른 정보": "직접 입력" }, help: "가입과 이용에 꼭 필요한 정보의 종류만 골라요. 실제 개인정보는 적지 않아요. 로그인 수단에서 받을 수 있는지는 나중에 확인해요.", when: loginRequired },
         { id: "signup_other", label: "추가로 받을 회원 정보와 필요한 이유는 무엇인가요?", type: "textarea", help: "정보의 종류와 쓰임만 적어요. 실제 개인정보는 넣지 마세요.", placeholder: "예: 수강할 반 — 담당 선생님과 수업 자료를 연결하기 위해 필요", when: { all: [loginRequired, { id: "signup_fields", includes: "다른 정보" }] } },
-        { id: "account_actions", allowRecommend: true, label: "이용자가 자기 계정에서 무엇을 할 수 있어야 하나요?", type: "multi", options: ["프로필 수정", "연락처 변경", "다른 로그인 방법 연결", "회원 탈퇴", "담당자에게 변경 요청", "다른 계정 기능", "아직 미정"], optionLabels: { "다른 계정 기능": "직접 입력" }, help: "필요한 행동을 골라요. 계정 변경이나 탈퇴 후 자료 처리는 자료 규칙에 연결해요.", when: loginRequired },
+        { id: "account_actions", allowRecommend: true, label: "이용자가 자기 계정에서 무엇을 할 수 있어야 하나요?", type: "multi", options: ["프로필 수정", "연락처 변경", "다른 로그인 방법 연결", "회원 탈퇴", "담당자에게 변경 요청", "다른 계정 기능", "아직 미정"], optionLabels: { "다른 계정 기능": "직접 입력" }, help: "필요한 행동을 골라요. 탈퇴 후 작성한 글이나 이용 내역의 처리가 정해졌다면 해당 기능에 함께 적어요.", when: loginRequired },
         { id: "account_actions_other", label: "추가로 필요한 계정 기능은 무엇인가요?", type: "text", help: "", placeholder: "예: 알림 수신 설정을 한곳에서 변경", when: { all: [loginRequired, { id: "account_actions", includes: "다른 계정 기능" }] } },
         { id: "password_recovery", label: "아이디나 비밀번호를 잊으면 어떻게 다시 들어오나요?", type: "textarea", help: "사용자가 겪는 복구 방법을 적어요. 확인 방법을 모르면 미정으로 남겨요.", placeholder: "예: 등록한 이메일로 비밀번호 재설정 안내를 받아요.", when: { all: [loginRequired, { id: "login_methods", in: ["이메일·비밀번호", "아이디·비밀번호"] }] } }
       ] },
@@ -126,39 +157,6 @@
           { id: "actions", label: "할 수 있는 행동", placeholder: "예: 내 예약 신청·취소 / 신청 승인" },
           { id: "data", label: "볼 수 있는 자료", placeholder: "예: 본인 예약 / 담당 작업실 예약" }
         ] }
-      ] }
-    ] },
-    { id: "data", title: "자료와 서비스 규칙", short: "자료·규칙", description: "기억할 정보와 이용자가 알아야 할 기본 규칙을 정리해요.", groups: [
-      { title: "어떤 정보를 남기고 다루나요?", description: "기능에서 필요한 자료만 생각해요. 자료마다 공개·수정·삭제 방법이 달라도 돼요.", questions: [
-        { id: "data_items", label: "사용을 마친 뒤에도 기억해야 할 정보가 있나요?", type: "rows", rowLabel: "자료", help: "예: 예약 내용, 작성한 글, 즐겨찾기. 자료가 없다면 비워 두거나 그 사실을 적어요. 실제 개인정보는 넣지 마세요.", fields: [
-          { id: "name", label: "자료 이름", placeholder: "예: 예약 기록" },
-          { id: "purpose", label: "남길 내용과 이유", placeholder: "예: 신청자·날짜·처리 상태 확인" },
-          { id: "access", label: "누가 볼 수 있나요?", placeholder: "예: 본인과 해당 작업실 담당자" },
-          { id: "change", label: "누가 언제 바꾸나요?", placeholder: "예: 신청자는 이용 전날까지 시간 변경" },
-          { id: "deletion", label: "삭제·탈퇴 후에는 어떻게 하나요?", placeholder: "예: 초안은 삭제 가능, 완료 기록 보관 기간은 미정" }
-        ] },
-        { id: "general_rules", label: "여러 기능에 함께 적용할 규칙이 있나요?", type: "textarea", help: "기능 카드에 적은 내용은 반복하지 않아요. 이용 시간, 작성 제한, 잘못된 정보의 수정·신고 등 공통 규칙만 적어요.", placeholder: "예: 담당자도 다른 작업실의 신청 내용을 볼 수 없어요." }
-      ] },
-      { title: "선택한 기능에서 더 확인할 점", description: "고른 기능에 필요한 질문만 보여요. 세부 숫자나 정책을 모르면 미정으로 남겨요.", questions: [
-        { id: "booking_rules", label: "신청·예약의 확정, 중복, 마감, 취소는 어떻게 하나요?", type: "textarea", help: "기능 이름과 규칙을 연결해요. 정원, 동일 시간 중복, 확정하는 사람, 취소 가능 시점 중 필요한 것만 적어요.", placeholder: "예: 같은 시간에는 한 팀만 예약. 신청 즉시 확정, 이용 전날까지 취소 가능.", when: category("booking") },
-        { id: "workflow_rules", label: "처리 상태는 누가 어떤 조건에서 바꾸나요?", type: "textarea", help: "접수 → 승인 → 완료처럼 필요한 순서와 반려·취소 후 결과를 적어요. 기능 카드에 있다면 빠진 조건만 보완해요.", placeholder: "예: 담당자가 승인하거나 이유를 적어 반려. 신청자는 승인 전까지 수정 가능.", when: category("workflow") },
-        { id: "file_rules", label: "어떤 파일을 받고, 누가 확인하거나 내려받나요?", type: "textarea", help: "파일 종류와 대략적인 개수·크기, 볼 수 있는 사람을 적어요. 수치를 모르겠다면 실제 올릴 자료의 예를 적어요.", placeholder: "예: 신청마다 사진 3장 정도. 신청자와 담당자만 확인. PDF 안내문은 누구나 다운로드.", when: category("files") },
-        { id: "notification_rules", label: "어떤 일이 생기면 누구에게 어떻게 알리나요?", type: "textarea", help: "사건, 받을 사람, 경로를 연결해요. 서비스 안 알림, 이메일, 문자 등 필요한 안내만 적어요.", placeholder: "예: 예약 취소 시 신청자에게 이메일, 담당자에게 서비스 안 알림.", when: category("notifications") },
-        { id: "payment_offer", label: "무엇에 돈을 내며 결제 후 무엇을 받나요?", type: "textarea", help: "상품, 예약 이용료, 서비스 이용권 등을 구분해요. 무료 범위나 가격이 정해졌다면 함께 적어요.", placeholder: "예: 작업실 2시간 이용료를 내면 그 시간의 예약이 확정돼요.", when: category("payments") },
-        { id: "payment_timing", label: "결제는 어떤 방식으로 받나요?", type: "multi", options: ["필요할 때 한 번씩 결제", "정기적으로 반복 결제", "이용한 양에 따라 결제", "별도 계약·현장 결제", "아직 미정"], help: "함께 사용할 방식을 골라요. 예: 매달 기본요금과 이용량 요금. 상품마다 다르면 결제 설명에 구분해요.", when: category("payments") },
-        { id: "payment_cancel", label: "취소·환불하거나 결제가 안 되면 어떻게 안내하나요?", type: "textarea", help: "상품별 취소 시점과 신청·이용 상태 등 바라는 기본 흐름을 적어요. 확인하지 못한 기준은 미정으로 남겨요.", placeholder: "예: 결제 실패 시 예약은 확정하지 않고 다시 결제할 수 있게 해요. 환불 기준은 확인 필요.", when: category("payments") },
-        { id: "ai_help", label: "AI에 무엇을 주고 어떤 도움을 받나요?", type: "textarea", help: "입력 자료와 원하는 결과를 연결해요. 회사 자료나 개인정보는 보낼 수 있는 범위만 적고 실제 내용은 넣지 않아요.", placeholder: "예: 공지 초안을 넣으면 빠진 정보와 이해하기 어려운 문장을 짚어 줘요.", when: category("ai") },
-        { id: "ai_review", allowRecommend: true, label: "AI 결과는 어떻게 확인하고 사용하나요?", type: "textarea", help: "수정, 재요청, 출처 확인, 사람이 확인 후 적용 등 필요한 경험과 기대에 못 미칠 때의 동작을 적어요.", placeholder: "예: 원문과 제안을 비교하고 사용자가 선택한 문장만 공지에 반영해요.", when: category("ai") },
-        { id: "location_use", label: "지도나 위치로 어떤 일을 하나요?", type: "multi", options: ["정해진 장소를 지도에서 보기", "주소·장소 검색", "내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유", "다른 용도", "아직 미정"], optionLabels: { "다른 용도": "직접 입력" }, help: "장소 표시만 필요하면 현재 위치를 받을 필요는 없어요. 위치 공유는 누구에게 언제까지 보이는지도 생각해요.", when: category("location") },
-        { id: "location_sharing", label: "내 위치는 누구에게 언제까지 보이며 어떻게 공유를 멈추나요?", type: "textarea", help: "공유를 켜고 끄는 사람, 볼 수 있는 사람, 끝나는 시점을 적어요. 한 번 보낸 위치인지 계속 바뀌는 위치인지도 구분해요.", placeholder: "예: 동행자로 초대한 사람에게만 현재 위치 표시. 모임 종료 또는 본인이 중단하면 더 이상 표시하지 않아요.", when: { all: [category("location"), { id: "location_use", includes: "내 위치를 다른 사람에게 공유" }] } },
-        { id: "location_other", label: "지도·위치로 할 다른 일은 무엇인가요?", type: "textarea", help: "사용자가 할 일과 보여 줄 결과를 적어요. 필요한 위치가 장소의 주소인지 이용자의 현재 위치인지도 구분해요.", placeholder: "예: 입력한 두 장소 사이의 이동 거리를 비교해요.", when: { all: [category("location"), { id: "location_use", includes: "다른 용도" }] } },
-        { id: "device_needs", label: "실제로 필요한 기기 기능은 무엇인가요?", type: "multi", options: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "기기 기능이 필요하지 않음", "다른 기능", "아직 미정"], optionLabels: { "다른 기능": "직접 입력" }, help: "웹과 설치 앱 모두 필요한 경우에만 골라요. 기존 사진·파일을 고르는 것과 직접 촬영은 달라요.", when: { any: [category("device"), category("location"), category("files")] } },
-        { id: "device_other", label: "목록에 없는 기기 기능은 무엇이며 어디에 쓰나요?", type: "textarea", help: "기능 이름을 몰라도 원하는 행동으로 설명해요. 실제로 필요한지 확인할 점이 있다면 함께 남겨요.", placeholder: "예: 가까이에 있는 측정 기기에서 수치를 받아 기록해요.", when: { all: [{ any: [category("device"), category("location"), category("files")] }, { id: "device_needs", includes: "다른 기능" }] } },
-        { id: "permission_alternative", allowRecommend: true, label: "기기 기능 사용을 허용하지 않으면 어떻게 하나요?", type: "textarea", help: "해당 기능만 제한할지, 직접 입력이나 파일 선택 같은 대안을 제공할지 적어요. 전체 서비스를 막아야 하는지도 생각해요.", placeholder: "예: 위치를 허용하지 않아도 동네 이름을 직접 입력해 찾을 수 있어요.", when: { any: [
-          { all: [{ any: [category("device"), category("location"), category("files")] }, { id: "device_needs", in: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "다른 기능"] }] },
-          { all: [category("location"), { id: "location_use", in: ["내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유"] }] }
-        ] } },
-        { id: "collaboration_rules", label: "누구와 어떤 자료를 함께 사용하나요?", type: "textarea", help: "초대, 보기·수정 범위, 동시 수정, 공유 취소·구성원 탈퇴 후 처리를 필요한 만큼 적어요.", placeholder: "예: 초대한 팀원은 일정 수정 가능. 같은 일정을 고치면 충돌을 알리고 확인하게 해요.", when: category("collaboration") }
       ] }
     ] },
     { id: "references", title: "참고 서비스와 디자인 방향", short: "참고·분위기", description: "참고할 주소와 실제로 바라는 화면 분위기를 남겨요.", groups: [

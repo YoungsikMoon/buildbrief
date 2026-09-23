@@ -36,8 +36,8 @@ test('The page references the exact current assets', () => {
   }
 });
 
-test('Ten coherent stages use unique questions, feature types, and UI elements', () => {
-  assert.equal(Q.steps.length, 10);
+test('Nine coherent stages use unique questions, feature types, and UI elements', () => {
+  assert.equal(Q.steps.length, 9);
   for (const items of [Q.steps, R.allQuestions, Q.featureTypes, Q.uiElements]) assert.equal(new Set(items.map(item => item.id)).size, items.length);
   assert(!/MSA|Docker|Kafka|PostgreSQL|TypeScript|Spring Boot/.test(JSON.stringify(Q.steps)));
   const walk = condition => {
@@ -238,7 +238,7 @@ test('Question progress sums active stage counts and handles blank cards, priori
   const counted = R.progress(answers);
   assert.equal(counted.answered, 5, 'Name, summary, features, booking rules, and shared scope are recorded');
   assert.equal(counted.steps[0].answered, 2);
-  assert.equal(counted.steps[featureIndex].answered, 1);
+  assert.equal(counted.steps[featureIndex].answered, 2);
   assert.equal(counted.steps[reviewIndex].answered, 1);
   assert.equal(counted.answered, counted.steps.reduce((sum, step) => sum + step.answered, 0));
   assert.equal(counted.total, counted.steps.reduce((sum, step) => sum + step.total, 0));
@@ -472,5 +472,19 @@ test('alternative comparison survives normalization and both exports', () => {
     for (const text of ['비교 서비스', '복잡한 설정', '아직 예상', '확인되지 않은 가정', '설정 부담을 비교하기 위함', '기존 답변 유지']) assert.ok(output.includes(text), text);
     assert.ok(output.indexOf('비교해 볼 서비스나 방법') < output.indexOf('내 서비스는 어떤 점'));
   }
+});
+test('feature questions relocate without losing old answers or notes', () => {
+ const step = Q.steps.find(s => s.id === 'features');
+ assert(!Q.steps.some(s => s.id === 'data'));
+ assert.deepEqual(R.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['features']);
+ const answers = { features: [{ ...feature(), savedInfo: '예약 날짜와 확정 상태' }], booking_rules: '하루 전까지 취소', data_items: [{id:'record-1', name:'예약 기록', purpose:'신청 확인', access:'본인', change:'담당자', deletion:'기간 미정'}], general_rules: '예전 메모' };
+ const project = P.createProject({answers, notes:{data_items:'기존 이유'}});
+ const restored = P.importBackup({format:'buildbrief-ideas', version:1, activeId:project.id, projects:[project]}).projects[0];
+ assert.deepEqual(restored.answers, R.normalizeAnswers(answers));
+ assert.equal(restored.notes.data_items, '기존 이유');
+ for(const prompt of [false,true]) { const report = R.report(restored.answers,prompt,restored.notes); for(const value of ['예약 날짜와 확정 상태','하루 전까지 취소','예약 기록','예전 메모','기존 이유']) assert.ok(report.includes(value),value); }
+ assert(R.activeGroups(step, {}, {general_rules:'메모만 보존'}).some(g=>g.questions.some(q=>q.id==='general_rules')));
+ assert(R.report({},false,{general_rules:'메모만 보존'}).includes('메모만 보존'));
+ assert(!R.activeGroups(step,{features:[feature('f2','browse')]}).some(g=>g.questions.some(q=>q.id==='booking_rules')));
 });
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);

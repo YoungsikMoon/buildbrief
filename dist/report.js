@@ -33,7 +33,7 @@
     if (condition.in) return (Array.isArray(value) ? value : [value]).some(item => condition.in.includes(item));
     return false;
   }
-  const activeGroups = (step, answers = {}) => step.groups.filter(group => matches(group.when, answers)).map(group => ({ ...group, questions: group.questions.filter(q => matches(q.when, answers)) })).filter(group => group.questions.length);
+  const activeGroups = (step, answers = {}, notes = {}) => step.groups.filter(group => matches(group.when, answers)).map(group => ({ ...group, questions: group.questions.filter(q => matches(q.when, answers) && (!q.legacyOnly || isAnswered(answers[q.id]) || isAnswered(notes[q.id]))) })).filter(group => group.questions.length);
   const activeQuestions = (answers = {}) => Q.steps.flatMap(step => activeGroups(step, answers).flatMap(group => group.questions));
   function progress(answers = {}) {
     const features = Array.isArray(answers.features) ? answers.features : [];
@@ -42,7 +42,7 @@
       const active = activeGroups(step, answers).flatMap(group => group.questions);
       const answered = active.filter(q => {
         if (q.type === 'scope') return features.length > 0 && features.every(hasPriority);
-        if (q.type === 'features') return answers[q.id] === UNKNOWN || features.some(row => ['name', 'actor', 'outcome', 'notes'].some(key => isAnswered(row?.[key])) || hasPriority(row));
+        if (q.type === 'features') return answers[q.id] === UNKNOWN || features.some(row => ['name', 'actor', 'outcome', 'notes', 'savedInfo'].some(key => isAnswered(row?.[key])) || hasPriority(row));
         return isAnswered(answers[q.id]);
       }).length;
       return { answered, total: active.length };
@@ -106,7 +106,7 @@
       if (!(Q.featureTypes || []).some(item => item.id === category)) fail(`${label}의 기능 유형`);
       const result = stringFields(row, ['name', 'actor', 'outcome', 'priority', 'notes'], label);
       if (result.priority && !priorities.includes(result.priority)) fail(`${label}의 우선순위`);
-      return { category, ...result };
+      return { category, ...result, ...(Object.hasOwn(row, 'savedInfo') ? { savedInfo: text(row.savedInfo, label + ' 남길 정보') } : {}) };
     });
     if (q.type === 'screens') return list(value, q.label, (row, label) => {
       const elements = ids(row.elements === undefined ? [] : row.elements, label, (Q.uiElements || []).map(item => item.id));
@@ -183,7 +183,7 @@
       '이 문서는 사용자가 적은 아이디어와 희망을 정리한 초안입니다. 답변 수나 선택한 기능 수가 기획 검증·개발 준비 완료를 뜻하지 않습니다.', '');
     const field = (label, value) => lines.push(`**${md(label)}**`, quote(display(value)), '');
     for (const step of Q.steps) {
-      const groups = activeGroups(step, answers).map(group => ({ ...group, questions: group.questions.filter(q => isAnswered(notes[q.id]) || (q.type === 'scope' ? features.length : isAnswered(answers[q.id]))) })).filter(group => group.questions.length);
+      const groups = activeGroups(step, answers, notes).map(group => ({ ...group, questions: group.questions.filter(q => isAnswered(notes[q.id]) || (q.type === 'scope' ? features.length : isAnswered(answers[q.id]))) })).filter(group => group.questions.length);
       if (!groups.length) continue;
       lines.push(`## ${md(step.title)}`, '');
       for (const group of groups) for (const q of group.questions) {
@@ -201,6 +201,7 @@
               lines.push(`##### ${md(row.name || '이름 미정')} [${featureLabels.get(row.id)}]`, '');
               field('기능 유형', (Q.featureTypes || []).find(item => item.id === row.category)?.label || row.category);
               field('사용하는 사람', row.actor); field('할 수 있는 일과 결과', row.outcome); field('첫 버전 우선순위', row.priority);
+              if (isAnswered(row.savedInfo)) field('나중에 다시 확인할 정보', row.savedInfo);
               if (isAnswered(row.notes)) field('세부 규칙·메모', row.notes);
             } else if (q.type === 'screens') {
               lines.push(`##### ${md(row.name || '화면 이름 미정')} [${screenLabels.get(row.id)}]`, '');
