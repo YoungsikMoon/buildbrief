@@ -52,7 +52,8 @@
     { id: "problem", title: "문제와 기존 방법", short: "해결할 문제", description: "지금의 불편과 나아졌으면 하는 점을 정리해요.", groups: [
       { title: "지금 어떤 점이 불편한가요?", description: "실제 겪은 일과 아직 확인하지 않은 생각을 구분해 적으면 좋아요.", questions: [
         { id: "problem", label: "어떤 상황에서 누가 불편을 겪나요?", type: "textarea", help: "한 가지 구체적인 장면부터 적어요. 추측이라면 ‘예상’이라고 남겨도 돼요.", placeholder: "예: 주민이 빈 시간을 물으려고 전화하지만 담당자가 없으면 확인할 수 없어요." },
-        { id: "current_methods", label: "지금은 어떤 방법으로 해결하나요?", type: "multi", options: ["메신저", "전화", "종이·수기", "엑셀·문서", "기존 서비스", "특별한 방법 없음", "다른 방법"], help: "함께 쓰는 방법을 모두 골라요. 다른 방법의 이름은 다음 답변에 적어도 돼요." },
+        { id: "current_methods", label: "지금은 어떤 방법으로 해결하나요?", type: "multi", options: ["메신저", "전화", "종이·수기", "엑셀·문서", "기존 서비스", "특별한 방법 없음", "다른 방법"], optionLabels: { "다른 방법": "직접 입력" }, help: "함께 쓰는 방법을 모두 골라요." },
+        { id: "current_method_other", label: "지금 쓰는 다른 방법은 무엇인가요?", type: "text", help: "", placeholder: "예: 회사 내부 게시판", when: { id: "current_methods", includes: "다른 방법" } },
         { id: "current_pain", label: "지금 방법에서 무엇이 달라지면 좋을까요?", type: "textarea", help: "현재 방법의 불편과 바라는 변화를 연결해요. 앞의 문제를 다시 길게 쓰지 않아도 돼요.", placeholder: "예: 전화 없이 빈 시간을 알 수 있고 담당자는 중복 신청을 따로 확인하지 않아도 되면 좋겠어요." }
       ] }
     ] },
@@ -66,31 +67,33 @@
         { id: "usage_context", label: "언제, 어디서 사용하는 모습을 떠올리나요?", type: "textarea", help: "이동 중, 업무 중, 느린 인터넷, 글씨를 크게 봐야 하는 상황처럼 필요한 조건만 적어요.", placeholder: "예: 주민은 이동 중 휴대폰, 담당자는 사무실 PC로 이용해요." }
       ] },
       { title: "어떻게 열어 보나요?", description: "원하는 사용 방법을 고르는 단계예요. 개발 기술은 정하지 않아요.", questions: [
-        { id: "devices", label: "주로 어떤 기기에서 사용하나요?", type: "multi", options: ["휴대폰", "PC", "태블릿", "아직 미정"], help: "여러 기기를 함께 골라도 돼요. 모든 기기에 같은 화면 배치를 적용할 필요는 없어요." },
-        { id: "service_form", label: "서비스를 어떻게 열어 사용하면 좋을까요?", type: "multi", options: ["주소·링크로 여는 웹", "휴대폰에 설치하는 앱", "PC에 설치하는 프로그램", "아직 미정"], help: "여러 방식을 희망할 수 있고 필요성을 확인한 뒤 범위를 줄여도 돼요.", optionHelp: {
+        { id: "devices", label: "주로 어떤 기기에서 사용하나요?", type: "multi", options: ["휴대폰", "PC", "태블릿", "다른 기기", "아직 미정"], optionLabels: { "다른 기기": "직접 입력" }, help: "여러 기기를 함께 골라도 돼요. 모든 기기에 같은 화면 배치를 적용할 필요는 없어요." },
+        { id: "device_context_other", label: "어떤 다른 기기에서 사용하나요?", type: "text", help: "", placeholder: "예: 매장 키오스크, 거실 TV", when: { id: "devices", includes: "다른 기기" } },
+        { id: "service_form", allowRecommend: true, label: "서비스를 어떻게 열어 사용하면 좋을까요?", type: "multi", options: ["주소·링크로 여는 웹", "휴대폰에 설치하는 앱", "PC에 설치하는 프로그램", "다른 이용 방식", "아직 미정"], optionLabels: { "다른 이용 방식": "직접 입력" }, help: "여러 방식을 희망할 수 있고 필요성을 확인한 뒤 범위를 줄여도 돼요.", optionHelp: {
           "주소·링크로 여는 웹": { meaning: "브라우저에서 주소나 링크를 열어 사용해요.", fit: "설치 없이 접근하거나 링크로 안내하고 싶을 때", avoid: "인터넷 없이 쓸 수 있는지나 기기 기능 사용 여부가 자동으로 정해지지는 않아요." },
           "휴대폰에 설치하는 앱": { meaning: "휴대폰에 설치한 앱을 열어 사용해요.", fit: "휴대폰에서 자주 사용하는 경험을 원할 때", avoid: "앱이 필요한 이유와 설치 부담을 함께 생각해요." },
           "PC에 설치하는 프로그램": { meaning: "컴퓨터에 설치한 프로그램을 실행해요.", fit: "PC에서 긴 작업을 하거나 기기 안 자료를 주로 다룰 때", avoid: "다른 컴퓨터에서 이어 쓰거나 자료를 공유할 수 있는지는 따로 정해요." }
-        } }
+        } },
+        { id: "service_form_other", label: "원하는 다른 이용 방식은 무엇인가요?", type: "text", help: "", placeholder: "예: 메신저에서 대화로 이용", when: { id: "service_form", includes: "다른 이용 방식" } }
       ] }
     ] },
     { id: "features", title: "필요한 기능", short: "기능", description: "기능 후보를 출발점으로 실제로 할 일을 적어요.", groups: [
       { title: "누가 무엇을 할 수 있나요?", description: "필요한 후보만 고르거나 직접 추가해요. 같은 유형으로 여러 기능을 만들어도 돼요.", questions: [
-        { id: "features", label: "이 서비스에서 할 수 있어야 하는 일은 무엇인가요?", type: "features", help: "기능 이름, 사용하는 사람, 기대하는 결과를 적어요. 첫 버전에 필요한지 모르겠다면 미정으로 남겨요. 후보를 고른 것만으로 기능이 완성된 것은 아니에요." }
+        { id: "features", allowRecommend: true, label: "이 서비스에서 할 수 있어야 하는 일은 무엇인가요?", type: "features", help: "기능 이름, 사용하는 사람, 기대하는 결과를 적어요. 첫 버전에 필요한지 모르겠다면 미정으로 남겨요. 후보를 고른 것만으로 기능이 완성된 것은 아니에요." }
       ] }
     ] },
     { id: "flow", title: "대표 이용 과정", short: "이용 과정", description: "가장 중요한 목적 하나를 달성하는 순서부터 연결해요.", groups: [
       { title: "시작부터 목적 달성까지", description: "모든 기능의 과정을 만들 필요는 없어요. 앞의 기능을 연결하거나 내 말로 적어요.", questions: [
-        { id: "main_flow", label: "사용자는 어떤 순서로 목적을 달성하나요?", type: "flow", help: "누가 어떤 상황에서 시작하는지 포함해요. 예: 빈 시간 보기 → 시간 선택 → 신청 내용 확인 → 예약 결과 확인." },
+        { id: "main_flow", allowRecommend: true, label: "사용자는 어떤 순서로 목적을 달성하나요?", type: "flow", help: "누가 어떤 상황에서 시작하는지 포함해요. 예: 빈 시간 보기 → 시간 선택 → 신청 내용 확인 → 예약 결과 확인." },
         { id: "journey_finish", label: "마지막에 무엇이 보이거나 달라져야 하나요?", type: "textarea", help: "이용자가 원하는 일을 끝냈다고 알 수 있는 결과를 적어요. 기능 카드와 같다면 핵심만 짚어도 돼요.", placeholder: "예: 예약 번호와 확정 시간을 보고 내 예약 목록에서도 확인할 수 있어요." },
-        { id: "failure_experience", label: "중간에 막히면 어떻게 도와주면 좋을까요?", type: "textarea", help: "걱정되는 상황 한두 개만 적어요. 원인 안내, 입력 내용 유지, 다시 시도, 담당자 문의 등을 생각해요.", placeholder: "예: 다른 사람이 먼저 예약했다면 입력 내용은 유지하고 다른 시간을 고르게 해요." }
+        { id: "failure_experience", allowRecommend: true, label: "중간에 막히면 어떻게 도와주면 좋을까요?", type: "textarea", help: "걱정되는 상황 한두 개만 적어요. 원인 안내, 입력 내용 유지, 다시 시도, 담당자 문의 등을 생각해요.", placeholder: "예: 다른 사람이 먼저 예약했다면 입력 내용은 유지하고 다른 시간을 고르게 해요." }
       ] }
     ] },
     { id: "accounts", title: "로그인과 사용자 구분", short: "로그인·역할", description: "로그인이 필요한 범위와 사람마다 할 수 있는 일을 정해요.", groups: [
       { title: "로그인이 필요한가요?", description: "로그인은 사용자를 알아보는 방법이에요. 할 수 있는 일은 역할과 함께 정해요.", questions: [
-        { id: "login_need", label: "어디에 로그인이 필요한가요?", type: "single", options: ["로그인 없이 사용", "일부 기능에서만 로그인", "주요 기능은 로그인 후 사용", "아직 미정"], help: "단순히 정보를 보는 일에도 로그인이 필요한지 생각해요. 모르면 지금 정하지 않아도 돼요." },
+        { id: "login_need", allowRecommend: true, label: "어디에 로그인이 필요한가요?", type: "single", options: ["로그인 없이 사용", "일부 기능에서만 로그인", "주요 기능은 로그인 후 사용", "아직 미정"], help: "단순히 정보를 보는 일에도 로그인이 필요한지 생각해요. 모르면 지금 정하지 않아도 돼요." },
         { id: "login_features", label: "어떤 기능을 사용할 때 로그인하나요?", type: "multi", source: "features", help: "앞에서 만든 기능 중 로그인이 필요한 대상을 골라요. 목록에 없으면 기능 단계에서 추가할 수 있어요.", when: { id: "login_need", value: "일부 기능에서만 로그인" } },
-        { id: "login_methods", label: "어떤 방법으로 로그인하면 좋을까요?", type: "multi", options: ["이메일·비밀번호", "아이디·비밀번호", "이메일 인증 링크·번호", "휴대폰 인증번호", "카카오", "네이버", "Google", "Apple", "다른 방법", "아직 미정"], help: "여러 방법을 함께 제공할 수 있어요. 소셜 로그인과 서비스 안의 회원 정보·역할은 따로 정해요. 실제 계정이나 비밀번호를 적지 마세요.", when: loginRequired, optionHelp: {
+        { id: "login_methods", allowRecommend: true, label: "어떤 방법으로 로그인하면 좋을까요?", type: "multi", options: ["이메일·비밀번호", "아이디·비밀번호", "이메일 인증 링크·번호", "휴대폰 인증번호", "카카오", "네이버", "Google", "Apple", "다른 방법", "아직 미정"], optionLabels: { "다른 방법": "직접 입력" }, help: "여러 방법을 함께 제공할 수 있어요. 소셜 로그인과 서비스 안의 회원 정보·역할은 따로 정해요. 실제 계정이나 비밀번호를 적지 마세요.", when: loginRequired, optionHelp: {
           "이메일·비밀번호": { meaning: "이메일 주소와 서비스용 비밀번호로 로그인해요.", fit: "이메일을 사용자를 알아보는 값으로 쓰고 싶을 때", avoid: "비밀번호를 잊었을 때 다시 접근할 방법도 필요해요." },
           "아이디·비밀번호": { meaning: "이 서비스의 아이디와 비밀번호로 로그인해요.", fit: "이메일 대신 정한 아이디로 구분하고 싶을 때", avoid: "아이디나 비밀번호 분실 시 확인 방법도 생각해요." },
           "이메일 인증 링크·번호": { meaning: "이메일로 받은 링크나 번호를 이용해 로그인해요.", fit: "서비스용 비밀번호를 따로 기억하지 않게 하고 싶을 때", avoid: "메일 수신이 늦거나 불가능할 때의 안내가 필요해요." },
@@ -102,9 +105,10 @@
         } },
         { id: "login_other", label: "목록에 없는 로그인 방법은 무엇인가요?", type: "text", help: "사용자가 어떻게 본인임을 확인하고 들어오는지 적어요. 실제 계정이나 비밀값은 넣지 마세요.", placeholder: "예: 회사에서 이미 사용하는 계정으로 로그인", when: { all: [loginRequired, { id: "login_methods", includes: "다른 방법" }] } },
         { id: "signup_audience", label: "누가 가입하거나 이용 승인을 받을 수 있나요?", type: "textarea", help: "누구나 가입, 초대받은 사람만, 담당자 승인처럼 필요한 조건을 적어요. 여러 조건을 조합할 수 있어요.", placeholder: "예: 누구나 가입 가능. 담당자 역할은 운영자가 확인 후 부여.", when: loginRequired },
-        { id: "signup_fields", label: "회원에게 꼭 받아야 할 정보가 있나요?", type: "multi", options: ["추가 정보 없음", "표시 이름·닉네임", "이름", "이메일", "전화번호", "소속", "프로필 정보", "다른 정보", "아직 미정"], help: "가입과 이용에 꼭 필요한 정보의 종류만 골라요. 실제 개인정보는 적지 않아요. 로그인 수단에서 받을 수 있는지는 나중에 확인해요.", when: loginRequired },
+        { id: "signup_fields", label: "회원에게 꼭 받아야 할 정보가 있나요?", type: "multi", options: ["추가 정보 없음", "표시 이름·닉네임", "이름", "이메일", "전화번호", "소속", "프로필 정보", "다른 정보", "아직 미정"], optionLabels: { "다른 정보": "직접 입력" }, help: "가입과 이용에 꼭 필요한 정보의 종류만 골라요. 실제 개인정보는 적지 않아요. 로그인 수단에서 받을 수 있는지는 나중에 확인해요.", when: loginRequired },
         { id: "signup_other", label: "추가로 받을 회원 정보와 필요한 이유는 무엇인가요?", type: "textarea", help: "정보의 종류와 쓰임만 적어요. 실제 개인정보는 넣지 마세요.", placeholder: "예: 수강할 반 — 담당 선생님과 수업 자료를 연결하기 위해 필요", when: { all: [loginRequired, { id: "signup_fields", includes: "다른 정보" }] } },
-        { id: "account_actions", label: "이용자가 자기 계정에서 무엇을 할 수 있어야 하나요?", type: "multi", options: ["프로필 수정", "연락처 변경", "다른 로그인 방법 연결", "회원 탈퇴", "담당자에게 변경 요청", "아직 미정"], help: "필요한 행동을 골라요. 계정 변경이나 탈퇴 후 자료 처리는 자료 규칙에 연결해요.", when: loginRequired },
+        { id: "account_actions", allowRecommend: true, label: "이용자가 자기 계정에서 무엇을 할 수 있어야 하나요?", type: "multi", options: ["프로필 수정", "연락처 변경", "다른 로그인 방법 연결", "회원 탈퇴", "담당자에게 변경 요청", "다른 계정 기능", "아직 미정"], optionLabels: { "다른 계정 기능": "직접 입력" }, help: "필요한 행동을 골라요. 계정 변경이나 탈퇴 후 자료 처리는 자료 규칙에 연결해요.", when: loginRequired },
+        { id: "account_actions_other", label: "추가로 필요한 계정 기능은 무엇인가요?", type: "text", help: "", placeholder: "예: 알림 수신 설정을 한곳에서 변경", when: { all: [loginRequired, { id: "account_actions", includes: "다른 계정 기능" }] } },
         { id: "password_recovery", label: "아이디나 비밀번호를 잊으면 어떻게 다시 들어오나요?", type: "textarea", help: "사용자가 겪는 복구 방법을 적어요. 확인 방법을 모르면 미정으로 남겨요.", placeholder: "예: 등록한 이메일로 비밀번호 재설정 안내를 받아요.", when: { all: [loginRequired, { id: "login_methods", in: ["이메일·비밀번호", "아이디·비밀번호"] }] } }
       ] },
       { title: "사람마다 할 수 있는 일이 다른가요?", description: "사용자 종류가 다를 때만 나누어요. 비회원이나 운영 담당자도 포함할 수 있어요.", questions: [
@@ -135,13 +139,13 @@
         { id: "payment_timing", label: "결제는 어떤 방식으로 받나요?", type: "multi", options: ["필요할 때 한 번씩 결제", "정기적으로 반복 결제", "이용한 양에 따라 결제", "별도 계약·현장 결제", "아직 미정"], help: "함께 사용할 방식을 골라요. 예: 매달 기본요금과 이용량 요금. 상품마다 다르면 결제 설명에 구분해요.", when: category("payments") },
         { id: "payment_cancel", label: "취소·환불하거나 결제가 안 되면 어떻게 안내하나요?", type: "textarea", help: "상품별 취소 시점과 신청·이용 상태 등 바라는 기본 흐름을 적어요. 확인하지 못한 기준은 미정으로 남겨요.", placeholder: "예: 결제 실패 시 예약은 확정하지 않고 다시 결제할 수 있게 해요. 환불 기준은 확인 필요.", when: category("payments") },
         { id: "ai_help", label: "AI에 무엇을 주고 어떤 도움을 받나요?", type: "textarea", help: "입력 자료와 원하는 결과를 연결해요. 회사 자료나 개인정보는 보낼 수 있는 범위만 적고 실제 내용은 넣지 않아요.", placeholder: "예: 공지 초안을 넣으면 빠진 정보와 이해하기 어려운 문장을 짚어 줘요.", when: category("ai") },
-        { id: "ai_review", label: "AI 결과는 어떻게 확인하고 사용하나요?", type: "textarea", help: "수정, 재요청, 출처 확인, 사람이 확인 후 적용 등 필요한 경험과 기대에 못 미칠 때의 동작을 적어요.", placeholder: "예: 원문과 제안을 비교하고 사용자가 선택한 문장만 공지에 반영해요.", when: category("ai") },
-        { id: "location_use", label: "지도나 위치로 어떤 일을 하나요?", type: "multi", options: ["정해진 장소를 지도에서 보기", "주소·장소 검색", "내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유", "다른 용도", "아직 미정"], help: "장소 표시만 필요하면 현재 위치를 받을 필요는 없어요. 위치 공유는 누구에게 언제까지 보이는지도 생각해요.", when: category("location") },
+        { id: "ai_review", allowRecommend: true, label: "AI 결과는 어떻게 확인하고 사용하나요?", type: "textarea", help: "수정, 재요청, 출처 확인, 사람이 확인 후 적용 등 필요한 경험과 기대에 못 미칠 때의 동작을 적어요.", placeholder: "예: 원문과 제안을 비교하고 사용자가 선택한 문장만 공지에 반영해요.", when: category("ai") },
+        { id: "location_use", label: "지도나 위치로 어떤 일을 하나요?", type: "multi", options: ["정해진 장소를 지도에서 보기", "주소·장소 검색", "내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유", "다른 용도", "아직 미정"], optionLabels: { "다른 용도": "직접 입력" }, help: "장소 표시만 필요하면 현재 위치를 받을 필요는 없어요. 위치 공유는 누구에게 언제까지 보이는지도 생각해요.", when: category("location") },
         { id: "location_sharing", label: "내 위치는 누구에게 언제까지 보이며 어떻게 공유를 멈추나요?", type: "textarea", help: "공유를 켜고 끄는 사람, 볼 수 있는 사람, 끝나는 시점을 적어요. 한 번 보낸 위치인지 계속 바뀌는 위치인지도 구분해요.", placeholder: "예: 동행자로 초대한 사람에게만 현재 위치 표시. 모임 종료 또는 본인이 중단하면 더 이상 표시하지 않아요.", when: { all: [category("location"), { id: "location_use", includes: "내 위치를 다른 사람에게 공유" }] } },
         { id: "location_other", label: "지도·위치로 할 다른 일은 무엇인가요?", type: "textarea", help: "사용자가 할 일과 보여 줄 결과를 적어요. 필요한 위치가 장소의 주소인지 이용자의 현재 위치인지도 구분해요.", placeholder: "예: 입력한 두 장소 사이의 이동 거리를 비교해요.", when: { all: [category("location"), { id: "location_use", includes: "다른 용도" }] } },
-        { id: "device_needs", label: "실제로 필요한 기기 기능은 무엇인가요?", type: "multi", options: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "기기 기능이 필요하지 않음", "다른 기능", "아직 미정"], help: "웹과 설치 앱 모두 필요한 경우에만 골라요. 기존 사진·파일을 고르는 것과 직접 촬영은 달라요.", when: { any: [category("device"), category("location"), category("files")] } },
+        { id: "device_needs", label: "실제로 필요한 기기 기능은 무엇인가요?", type: "multi", options: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "기기 기능이 필요하지 않음", "다른 기능", "아직 미정"], optionLabels: { "다른 기능": "직접 입력" }, help: "웹과 설치 앱 모두 필요한 경우에만 골라요. 기존 사진·파일을 고르는 것과 직접 촬영은 달라요.", when: { any: [category("device"), category("location"), category("files")] } },
         { id: "device_other", label: "목록에 없는 기기 기능은 무엇이며 어디에 쓰나요?", type: "textarea", help: "기능 이름을 몰라도 원하는 행동으로 설명해요. 실제로 필요한지 확인할 점이 있다면 함께 남겨요.", placeholder: "예: 가까이에 있는 측정 기기에서 수치를 받아 기록해요.", when: { all: [{ any: [category("device"), category("location"), category("files")] }, { id: "device_needs", includes: "다른 기능" }] } },
-        { id: "permission_alternative", label: "기기 기능 사용을 허용하지 않으면 어떻게 하나요?", type: "textarea", help: "해당 기능만 제한할지, 직접 입력이나 파일 선택 같은 대안을 제공할지 적어요. 전체 서비스를 막아야 하는지도 생각해요.", placeholder: "예: 위치를 허용하지 않아도 동네 이름을 직접 입력해 찾을 수 있어요.", when: { any: [
+        { id: "permission_alternative", allowRecommend: true, label: "기기 기능 사용을 허용하지 않으면 어떻게 하나요?", type: "textarea", help: "해당 기능만 제한할지, 직접 입력이나 파일 선택 같은 대안을 제공할지 적어요. 전체 서비스를 막아야 하는지도 생각해요.", placeholder: "예: 위치를 허용하지 않아도 동네 이름을 직접 입력해 찾을 수 있어요.", when: { any: [
           { all: [{ any: [category("device"), category("location"), category("files")] }, { id: "device_needs", in: ["카메라로 촬영", "마이크로 음성 입력", "현재 위치 사용", "다른 기능"] }] },
           { all: [category("location"), { id: "location_use", in: ["내 현재 위치 주변 찾기", "내 위치를 다른 사람에게 공유"] }] }
         ] } },
@@ -151,22 +155,23 @@
     { id: "references", title: "참고 서비스와 디자인 방향", short: "참고·분위기", description: "참고할 주소와 실제로 바라는 화면 분위기를 남겨요.", groups: [
       { title: "참고할 부분이 있나요?", description: "자료가 없어도 괜찮아요. URL을 적는 것만으로 내용을 열람하거나 분석한 것은 아니에요.", questions: [
         { id: "references", label: "참고하고 싶은 서비스나 디자인의 주소가 있나요?", type: "references", help: "한 행에 URL 하나를 넣어요. 참고할 부분은 선택 메모이며 여러 주소를 줄별로 붙여 넣을 수 있어요." },
-        { id: "visual_style", label: "어떤 분위기를 바라나요?", type: "multi", options: ["간결하고 실용적인", "차분하고 전문적인", "밝고 친근한", "사진·이미지가 중심인", "개성이 뚜렷한", "아직 미정"], help: "가까운 방향을 함께 골라도 돼요. 정답이 있는 분류가 아니며 실제 참고 화면이 더 도움이 될 수 있어요." },
+        { id: "visual_style", allowRecommend: true, label: "어떤 분위기를 바라나요?", type: "multi", options: ["간결하고 실용적인", "차분하고 전문적인", "밝고 친근한", "사진·이미지가 중심인", "개성이 뚜렷한", "다른 분위기", "아직 미정"], optionLabels: { "다른 분위기": "직접 입력" }, help: "가까운 방향을 함께 골라도 돼요. 정답이 있는 분류가 아니며 실제 참고 화면이 더 도움이 될 수 있어요." },
+        { id: "visual_style_other", label: "원하는 다른 분위기를 적어 주세요.", type: "text", help: "", placeholder: "예: 오래된 공책처럼 편안한 느낌", when: { id: "visual_style", includes: "다른 분위기" } },
         { id: "brand_notes", label: "정해진 색상·로고나 지키고 싶은 표현이 있나요?", type: "textarea", help: "이미 있는 자료나 확실한 희망만 적어요. 피하고 싶은 표현도 남길 수 있고 없으면 비워 두어요.", placeholder: "예: 동네 로고의 초록색 사용. 작은 글씨와 과한 움직임은 피하고 싶어요." }
       ] }
     ] },
     { id: "screens", title: "화면 구성", short: "화면", description: "화면에서 할 일을 정한 뒤 필요한 요소를 함께 골라요.", groups: [
       { title: "어떤 화면이 필요한가요?", description: "앞의 기능과 화면을 연결해요. 구성요소를 모르겠다면 화면 이름과 목적만 적어도 돼요.", questions: [
-        { id: "screens", label: "화면마다 무엇을 보여 주고 어떤 일을 하나요?", type: "screens", help: "표·메뉴·버튼 등을 함께 사용할 수 있어요. 고른 요소의 역할, 빈 내용·실패 상황, 휴대폰에서 달라질 점을 필요한 화면에만 보완해요." }
+        { id: "screens", allowRecommend: true, label: "화면마다 무엇을 보여 주고 어떤 일을 하나요?", type: "screens", help: "표·메뉴·버튼 등을 함께 사용할 수 있어요. 고른 요소의 역할, 빈 내용·실패 상황, 휴대폰에서 달라질 점을 필요한 화면에만 보완해요." }
       ] }
     ] },
     { id: "review", title: "첫 버전 정리", short: "첫 버전·검토", description: "이미 적은 기능을 검토하고 확인할 일을 남겨요.", groups: [
       { title: "처음에는 어디까지 만들까요?", description: "처음 사용할 사람이 핵심 일을 끝낼 수 있는 범위로 생각해요.", questions: [
-        { id: "scope", label: "기능별 첫 버전 우선순위를 확인해 주세요.", type: "scope", help: "기능 단계의 같은 목록을 검토해요. 여기서 바꾸면 원래 기능에도 반영돼요. 미정인 기능을 억지로 확정하지 않아도 돼요." },
+        { id: "scope", allowRecommend: true, label: "기능별 첫 버전 우선순위를 확인해 주세요.", type: "scope", help: "기능 단계의 같은 목록을 검토해요. 여기서 바꾸면 원래 기능에도 반영돼요. 미정인 기능을 억지로 확정하지 않아도 돼요." },
         { id: "excluded_work", label: "추가로 이번에는 하지 않을 일이 있나요?", type: "textarea", help: "이미 ‘나중에’로 정한 기능은 다시 쓰지 않아요. 오해하기 쉬운 제외 범위나 나중에 검토할 조건만 적어요.", placeholder: "예: 첫 버전은 한 작업실만 대상. 여러 지점 운영은 실제 사용을 확인한 뒤 검토." }
       ] },
       { title: "무엇을 확인하면 다음으로 갈 수 있나요?", description: "이 자료는 검토할 서비스 기획 초안이에요. 빈칸이 없다고 기획 검증이나 개발 준비가 끝난 것은 아니에요.", questions: [
-        { id: "success_check", label: "이 아이디어가 쓸모 있는지 어떻게 확인할까요?", type: "textarea", help: "처음 사용할 사람과 확인할 행동·반응을 적어요. 복잡한 수치가 없어도 돼요.", placeholder: "예: 주민 3명과 담당자에게 화면 초안을 보여 주고 도움 없이 예약 과정을 이해하는지 확인." },
+        { id: "success_check", allowRecommend: true, label: "이 아이디어가 쓸모 있는지 어떻게 확인할까요?", type: "textarea", help: "처음 사용할 사람과 확인할 행동·반응을 적어요. 복잡한 수치가 없어도 돼요.", placeholder: "예: 주민 3명과 담당자에게 화면 초안을 보여 주고 도움 없이 예약 과정을 이해하는지 확인." },
         { id: "open_questions", label: "아직 모르거나 다른 사람과 확인할 점은 무엇인가요?", type: "textarea", help: "궁금한 점, 확인할 사람·자료, 다음에 결정할 일을 남겨요. 다른 단계의 미정 답도 초안에 함께 표시돼요.", placeholder: "예: 담당자에게 실제 취소 기준 확인. 주민이 회원가입 없는 예약을 원하는지 물어보기." }
       ] }
     ] }

@@ -292,6 +292,59 @@ test('Answer reasons survive project imports and conditional visibility without 
   assert.deepEqual(imported.projects[0].notes, notes, 'Hiding a question must not erase its reason');
 });
 
+test('Recommendation requests round-trip separately while old projects default to no requests', () => {
+  const answers = { login_need: '일부 기능에서만 로그인', login_methods: ['이메일·비밀번호', '카카오'] };
+  const notes = { login_methods: '기존 고객의 선호를 함께 확인하고 싶음' };
+  const first = P.createProject({ answers, notes, recommendations: ['login_methods', 'screens'] });
+  const second = P.createProject();
+  const old = clone(first); delete old.recommendations;
+  const oldInput = { version: 1, activeId: old.id, projects: [old] };
+  assert.deepEqual(P.normalizeWorkspace(oldInput).projects[0].recommendations, []);
+  assert.deepEqual(P.importBackup({ format: 'buildbrief-idea', version: 1, ...old }).projects[0].recommendations, []);
+  assert(!Object.hasOwn(old, 'recommendations'));
+  for (const backup of [{ format: 'buildbrief-idea', version: 1, ...first }, { format: 'buildbrief-ideas', version: 1, activeId: first.id, projects: [first, second] }]) {
+    const imported = P.importBackup(JSON.parse(JSON.stringify(backup)));
+    assert.deepEqual(imported.projects[0].recommendations, ['login_methods', 'screens']);
+    assert.deepEqual(imported.projects[0].answers, answers);
+    assert.deepEqual(imported.projects[0].notes, notes);
+    if (imported.projects[1]) assert.deepEqual(imported.projects[1].recommendations, []);
+    imported.projects[0].recommendations.push('scope');
+    assert.deepEqual(first.recommendations, ['login_methods', 'screens']);
+    assert.deepEqual(second.recommendations, []);
+  }
+  for (const recommendations of [null, {}, 'screens', [42], ['missing-question'], ['project_name'], ['screens', 'screens'], Array(R.allQuestions.length + 1).fill('screens')]) {
+    const input = { format: 'buildbrief-idea', version: 1, ...clone(first), recommendations };
+    const before = clone(input);
+    assert.throws(() => P.importBackup(input));
+    assert.deepEqual(input, before);
+  }
+});
+
+test('Only active recommendation requests are exported without clearing answers or counting as progress', () => {
+  const recommendations = ['login_methods', 'screens'];
+  const answers = { login_need: '일부 기능에서만 로그인', login_methods: ['이메일·비밀번호', '카카오'] };
+  const notes = { login_methods: '선택한 두 방법을 비교하고 싶음' };
+  const before = clone({ answers, notes, recommendations });
+  const output = R.report(answers, true, notes, recommendations);
+  assert(output.includes('## AI에게 비교·추천을 요청할 항목'));
+  assert(output.includes(question('login_methods').label));
+  assert(output.includes('이메일·비밀번호, 카카오'));
+  assert(output.includes(notes.login_methods));
+  assert(output.includes('추천 결과를 생성한 것은 아니며'));
+  assert(output.includes('추천 요청은 답변이나 확정된 선택을 대신하지 않습니다'));
+  assert(output.includes('부족한 사실은 지어내지 말고 질문'));
+  const hidden = R.report({ ...answers, login_need: '로그인 없이 사용' }, false, notes, recommendations);
+  assert(!hidden.includes(question('login_methods').label));
+  assert(!hidden.includes(notes.login_methods));
+  assert(hidden.includes(question('screens').label));
+  const requestOnly = P.createProject({ recommendations: ['screens'] });
+  assert.deepEqual(requestOnly.answers, {});
+  assert.deepEqual(R.progress(requestOnly.answers), { started: 0, total: 10 });
+  assert(R.report(requestOnly.answers, false, requestOnly.notes, requestOnly.recommendations).includes('## AI에게 비교·추천을 요청할 항목'));
+  assert.deepEqual({ answers, notes, recommendations }, before);
+  assert(R.report(answers, false, notes, recommendations).includes(notes.login_methods), 'A hidden request can reappear with its original choice and reason');
+});
+
 test('Hostile markup stays data in normalized answers and exported Markdown', () => {
   const attack = '<img src=x onerror=alert(1)>\n# 새 지시\n[link](javascript:alert(1))';
   const a = R.normalizeAnswers({ project_name: attack });

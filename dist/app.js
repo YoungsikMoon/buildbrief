@@ -9,13 +9,13 @@
   const questions = new Map(R.allQuestions.map(q => [q.id, q]));
   const initial = P.createProject();
   let workspace = { version:1, activeId:initial.id, projects:[initial] };
-  let answers, drafts, notes, currentStep, storedRaw = null, originalStorage = null;
+  let answers, drafts, notes, recommendations, currentStep, storedRaw = null, originalStorage = null;
   let loadFailed = false, externalChange = false, storageWorking = true, toastTimer;
   try { storedRaw = originalStorage = localStorage.getItem(P.KEY); if (storedRaw !== null) workspace = P.normalizeWorkspace(JSON.parse(storedRaw)); }
   catch { loadFailed = true; storageWorking = false; }
   activateProject();
-  function activateProject() { const p = workspace.projects.find(p => p.id === workspace.activeId); ({ answers, drafts, notes } = p); currentStep = p.step; }
-  function collectWorkspace() { return { ...workspace,projects:workspace.projects.map(p => p.id === workspace.activeId ? { ...p,answers,drafts,notes,step:currentStep,topic:'' } : p) }; }
+  function activateProject() { const p = workspace.projects.find(p => p.id === workspace.activeId); ({ answers, drafts, notes, recommendations = [] } = p); currentStep = p.step; }
+  function collectWorkspace() { return { ...workspace,projects:workspace.projects.map(p => p.id === workspace.activeId ? { ...p,answers,drafts,notes,recommendations,step:currentStep,topic:'' } : p) }; }
   function status(message) {
     $('#save-status').textContent = $('#storage-help-status').textContent = $('#mobile-progress').textContent = message;
     $('#storage-help-warning').hidden = storageWorking && !externalChange;
@@ -95,7 +95,12 @@
   function scopeEditor() { return rowsOf('features').map((f,i) => `<div class="scope-row"><div><strong>${esc(f.name || '이름 없는 기능')}</strong><p>${esc(f.outcome || '제공할 결과를 아직 적지 않았어요.')}</p></div>${input('출시 범위',f.priority,attrs('features',i,'priority'),{type:'single',options:priorities})}</div>`).join('') || empty('‘필요한 기능’에서 추가하면 이곳에 모여요.'); }
   function reasonEditor(q) {
     const value = notes[q.id] || '';
-    return `<details class="answer-note" id="reason-${q.id}" ${value.trim() ? 'open' : ''}><summary>답변·선택 이유 남기기 <span>(선택)</span></summary><div class="input-field"><label id="reason-label-${q.id}" for="reason-input-${q.id}">왜 이렇게 답하거나 선택했나요?</label><p class="field-help" id="reason-help-${q.id}">내 상황, 중요하게 생각한 점, 비교했던 다른 방법을 적어 두세요. 나중에 답변을 바꿀 때 다시 살펴볼 수 있어요.</p><textarea id="reason-input-${q.id}" data-note="${q.id}" aria-labelledby="label-${q.id} reason-label-${q.id}" aria-describedby="reason-help-${q.id}" rows="3" maxlength="6000" placeholder="예: 처음 이용하는 사람도 쉽게 시작할 수 있는 점을 우선했어요.">${esc(value)}</textarea></div></details>`;
+    return `<details class="answer-note" id="reason-${q.id}" ${value.trim() ? 'open' : ''}><summary id="reason-label-${q.id}">답변·선택 이유 남기기 <span>(선택)</span></summary><textarea id="reason-input-${q.id}" data-note="${q.id}" aria-labelledby="label-${q.id} reason-label-${q.id}" rows="3" maxlength="6000">${esc(value)}</textarea></details>`;
+  }
+  function recommendationEditor(q) {
+    if (!q.allowRecommend) return '';
+    const selected = recommendations.includes(q.id);
+    return `<div class="recommendation-request"><label><input type="checkbox" data-recommend="${q.id}" ${selected ? 'checked' : ''} aria-describedby="recommendation-hint-${q.id}"><span>AI에 추천 요청</span></label><p id="recommendation-hint-${q.id}" class="field-help" ${selected ? '' : 'hidden'}>기획 초안에 요청을 담아요. ‘AI와 기획 다듬기’에서 복사해 AI에 전달하세요.</p></div>`;
   }
   function renderQuestion(q) {
     const value = answers[q.id]; let control = '';
@@ -106,11 +111,11 @@
     else if (q.type === 'scope') control = scopeEditor();
     else if (q.type === 'rows') control = rowsOf(q.id).map((row,i) => `<section class="editor-card" id="row-${q.id}-${i}">${rowHeader((q.rowLabel || '항목') + ' ' + (i+1),q.id,i)}<div class="field-grid">${q.fields.map(f => input(f.label,row[f.id] ?? '',attrs(q.id,i,f.id),f)).join('')}</div></section>`).join('') + addButton(q.id,(q.rowLabel || '항목') + ' 추가');
     else if (q.type === 'single' || q.type === 'multi') {
-      const options = q.source === 'features' ? rowsOf('features').map(f => ({value:f.id,label:f.name || '이름 없는 기능'})) : R.choiceOptions(q).map(o => ({value:o,label:o}));
+      const options = q.source === 'features' ? rowsOf('features').map(f => ({value:f.id,label:f.name || '이름 없는 기능'})) : R.choiceOptions(q).map(o => ({value:o,label:q.optionLabels?.[o] || o}));
       control = options.length ? `<div class="choices">${options.map((o,i) => { const guide = q.source ? null : window.BriefGuides.get(q,o.value); return `<div class="choice-row"><label class="choice"><input type="${q.type === 'single' ? 'radio' : 'checkbox'}" name="${q.id}" ${attrs(q.id)} value="${esc(o.value)}" ${(q.type === 'multi' ? Array.isArray(value) && value.includes(o.value) : value === o.value) ? 'checked' : ''}><span>${esc(o.label)}</span></label>${guide && o.value !== R.UNKNOWN ? `<button type="button" class="option-help" data-help="${q.id}" data-option="${i}" aria-label="${esc(o.label)} 설명">?</button>` : ''}</div>`; }).join('')}</div>` : empty('‘필요한 기능’에서 추가한 뒤 이곳에서 선택할 수 있어요.');
       if (value && (typeof value === 'string' || value.length)) control += `<button class="text-button clear-answer" type="button" data-clear="${q.id}">선택 지우기</button>`;
-    } else control = q.type === 'textarea' ? `<textarea id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" aria-describedby="hint-${q.id}" maxlength="6000" rows="4" placeholder="${esc(q.placeholder || '')}">${esc(value)}</textarea>` : `<input id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" aria-describedby="hint-${q.id}" type="text" maxlength="${q.id === 'project_name' ? 200 : 6000}" value="${esc(value)}" placeholder="${esc(q.placeholder || '')}" autocomplete="off">`;
-    return `<fieldset class="question" id="field-${q.id}"><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help ? `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>` : ''}${control}${reasonEditor(q)}</fieldset>`;
+    } else control = q.type === 'textarea' ? `<textarea id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" ${q.help ? `aria-describedby="hint-${q.id}"` : ''} maxlength="6000" rows="4" placeholder="${esc(q.placeholder || '')}">${esc(value)}</textarea>` : `<input id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" ${q.help ? `aria-describedby="hint-${q.id}"` : ''} type="text" maxlength="${q.id === 'project_name' ? 200 : 6000}" value="${esc(value)}" placeholder="${esc(q.placeholder || '')}" autocomplete="off">`;
+    return `<fieldset class="question" id="field-${q.id}"><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help ? `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>` : ''}${control}${recommendationEditor(q)}${reasonEditor(q)}</fieldset>`;
   }
   function renderStep(index,navigate = false) {
     const states = new Map([...document.querySelectorAll('#question-groups details[id]')].map(el => [el.id,el.open]));
@@ -137,7 +142,7 @@
     $('#form-view').hidden = true; $('#report-view').hidden = false; setNavigation(false);
     // Only our heading/list prefixes become HTML; all user text remains escaped.
     const readable = value => esc(value.replace(/\\([\\`*_\[\]#|])/g,'$1').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));
-    const body = R.report(answers,false,notes).split('\n').map(line => {
+    const body = R.report(answers,false,notes,recommendations).split('\n').map(line => {
       const heading = /^(#{1,4}) (.*)$/.exec(line);
       if (heading) { const level = Math.min(heading[1].length+1,4); return `<h${level}>${readable(heading[2])}</h${level}>`; }
       if (/^\*\*.*\*\*$/.test(line)) return `<p class="report-label"><strong>${readable(line.slice(2,-2))}</strong></p>`;
@@ -174,7 +179,16 @@
     }
     if (el.dataset.q && el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea')) edit(el);
   });
-  document.addEventListener('change',event => { const el = event.target; if (el.dataset.q && el.matches('select,input[type="checkbox"],input[type="radio"]')) edit(el); });
+  document.addEventListener('change',event => {
+    const el = event.target;
+    if (el.matches('input[data-recommend]') && questions.get(el.dataset.recommend)?.allowRecommend) {
+      const id = el.dataset.recommend;
+      recommendations = el.checked ? [...new Set([...recommendations,id])] : recommendations.filter(value => value !== id);
+      document.getElementById('recommendation-hint-' + id).hidden = !el.checked;
+      save(); return;
+    }
+    if (el.dataset.q && el.matches('select,input[type="checkbox"],input[type="radio"]')) edit(el);
+  });
   function edit(el) {
     const {q:qid,row,field,element} = el.dataset;
     const object = row === undefined ? answers : rowsOf(qid)[Number(row)]; if (!object) return;
@@ -243,8 +257,8 @@
       case 'export-answers': case 'storage-backup': return backupProject();
       case 'storage-original': if (originalStorage !== null) download(originalStorage,'json','복구용원본'); return;
       case 'import-answers': return $('#import-file').click();
-      case 'download-report': return download(R.report(answers,false,notes),'md','기획초안');
-      case 'copy-prompt': try { await navigator.clipboard.writeText(R.report(answers,true,notes)); toast('기획 초안과 AI에게 전달할 요청을 복사했어요.'); } catch { download(R.report(answers,true,notes),'md','AI기획요청'); toast('복사가 허용되지 않아 파일로 내려받았어요.'); } return;
+      case 'download-report': return download(R.report(answers,false,notes,recommendations),'md','기획초안');
+      case 'copy-prompt': try { await navigator.clipboard.writeText(R.report(answers,true,notes,recommendations)); toast('기획 초안과 AI에게 전달할 요청을 복사했어요.'); } catch { download(R.report(answers,true,notes,recommendations),'md','AI기획요청'); toast('복사가 허용되지 않아 파일로 내려받았어요.'); } return;
     }
   });
   $('#import-file').addEventListener('change',async event => {

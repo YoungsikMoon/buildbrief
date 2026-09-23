@@ -27,8 +27,8 @@
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
-  function createProject({ answers = {}, drafts = {}, notes = {}, step = 0, topic = '' } = {}) {
-    const data = projectData({ answers, drafts, notes });
+  function createProject({ answers = {}, drafts = {}, notes = {}, recommendations = [], step = 0, topic = '' } = {}) {
+    const data = projectData({ answers, drafts, notes, recommendations });
     const now = new Date().toISOString();
     return { id: newId(), createdAt: now, updatedAt: now, step: clampStep(step), topic: topicAt(step, topic), ...data };
   }

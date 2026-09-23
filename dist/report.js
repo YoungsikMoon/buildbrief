@@ -131,17 +131,23 @@
     }
     return result;
   }
+  function normalizeRecommendations(input = []) {
+    if (!Array.isArray(input) || input.length > allQuestions.filter(q => q.allowRecommend).length || new Set(input).size !== input.length || input.some(id => typeof id !== 'string' || questions.get(id)?.allowRecommend !== true)) fail('AI 비교·추천 요청');
+    return [...input];
+  }
   function normalizeProject(input) {
     if (!plain(input)) fail('프로젝트');
-    return { answers: normalizeAnswers(input.answers === undefined ? {} : input.answers), drafts: normalizeAnswers(input.drafts === undefined ? {} : input.drafts), notes: normalizeNotes(input.notes === undefined ? {} : input.notes) };
+    return { answers: normalizeAnswers(input.answers === undefined ? {} : input.answers), drafts: normalizeAnswers(input.drafts === undefined ? {} : input.drafts), notes: normalizeNotes(input.notes === undefined ? {} : input.notes), recommendations: normalizeRecommendations(input.recommendations) };
   }
 
   // User entries remain quoted data when the exported Markdown is rendered elsewhere.
   const md = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/[\\`*_\[\]#|]/g, '\\$&');
   const quote = value => md(value || UNKNOWN).split(/\r?\n/).map(line => `> ${line}`).join('\n');
-  function report(answers = {}, prompt = false, notes = {}) {
+  function report(answers = {}, prompt = false, notes = {}, recommendations = []) {
     const features = Array.isArray(answers.features) ? answers.features : [];
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
+    const requestedIds = normalizeRecommendations(recommendations);
+    const requests = activeQuestions(answers).filter(q => requestedIds.includes(q.id));
     const featureLabels = new Map(features.map((item, index) => [item.id, `F${String(index + 1).padStart(2, '0')}`]));
     const screenLabels = new Map(screens.map((item, index) => [item.id, `S${String(index + 1).padStart(2, '0')}`]));
     const featureName = id => {
@@ -155,7 +161,8 @@
       '- 사용자·문제·핵심 기능·대표 이용 과정·화면·로그인과 권한·자료·첫 출시 범위를 연결하세요. 서로 맞지 않는 입력과 빠진 조건부터 질문하세요.',
       '- 화면 요소는 화면별 목적·역할·기기에 맞춰 조합하세요. 이 문서의 기능 번호로 연결하고 삭제된 기능 연결은 확인하세요.',
       '- 참고 URL은 아직 열람하지 않은 자료입니다. 실제로 확인한 경우에만 확인한 범위와 근거를 밝혀 주세요.',
-      '- 먼저 사용자가 검토할 기획 문서와 남은 질문을 제공하세요. 별도의 구현 요청 전에는 코딩·배포를 시작하거나 기술 스택을 확정하지 마세요.', '', '---', '');
+      '- 먼저 사용자가 검토할 기획 문서와 남은 질문을 제공하세요. 별도의 구현 요청 전에는 코딩·배포를 시작하거나 기술 스택을 확정하지 마세요.',
+      ...(requests.length ? ['- 명시한 비교·추천 요청에는 기존 답변과 이유를 유지한 채 이 서비스에 맞는 선택지·장단점·추천 근거를 비교해 주세요. 부족한 사실은 지어내지 말고 질문하고, 제안과 확정된 선택을 구분하세요.'] : []), '', '---', '');
     lines.push(`# ${md(display(answers.project_name) || '이름을 정하지 않은 아이디어')} — 서비스 기획 초안`, '',
       '이 문서는 사용자가 적은 아이디어와 희망을 정리한 초안입니다. 답변 수나 선택한 기능 수가 기획 검증·개발 준비 완료를 뜻하지 않습니다.', '');
     const field = (label, value) => lines.push(`**${md(label)}**`, quote(display(value)), '');
@@ -207,6 +214,10 @@
         if (isAnswered(notes[q.id])) field('이렇게 답한 이유·추가 메모', notes[q.id]);
       }
     }
+    if (requests.length) lines.push('## AI에게 비교·추천을 요청할 항목', '',
+      '아래는 사용자가 외부 AI에게 비교를 요청하려는 항목입니다. 이 서비스에서 추천 결과를 생성한 것은 아니며, 기존 답변과 메모는 그대로 유지합니다.', '',
+      ...requests.map(q => `- ${md(q.label)}`), '',
+      '기획 초안을 AI에게 전달해 적합한 선택지와 이유를 비교하세요. 추천 요청은 답변이나 확정된 선택을 대신하지 않습니다.', '');
     const unknown = activeQuestions(answers).filter(q => q.type !== 'scope' && (!isAnswered(answers[q.id]) || answers[q.id] === UNKNOWN || Array.isArray(answers[q.id]) && answers[q.id].includes(UNKNOWN)));
     const unfinished = [];
     for (const feature of features) if (!feature.name || !feature.actor || !feature.outcome || !feature.priority || feature.priority === UNKNOWN) unfinished.push(`기능 [${featureLabels.get(feature.id)}] ${feature.name || '이름 미정'}: 이름·사용자·결과·우선순위 중 미정인 내용을 확인`);
@@ -222,7 +233,7 @@
     lines.push('', '입력하지 않은 기능·정책·기술은 확정하지 않았습니다. 조건에서 제외된 이전 답변은 현재 초안에 넣지 않으며 프로젝트 백업에는 보관합니다.', '');
     return lines.join('\n');
   }
-  const api = { UNKNOWN, EXCLUSIVE, MAX_ROWS, MAX_TEXT, allQuestions, choiceOptions, isAnswered, display, matches, activeGroups, activeQuestions, normalizeAnswers, normalizeNotes, normalizeProject, progress, safeUrl, report };
+  const api = { UNKNOWN, EXCLUSIVE, MAX_ROWS, MAX_TEXT, allQuestions, choiceOptions, isAnswered, display, matches, activeGroups, activeQuestions, normalizeAnswers, normalizeNotes, normalizeRecommendations, normalizeProject, progress, safeUrl, report };
   root.BriefReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
