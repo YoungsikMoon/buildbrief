@@ -146,7 +146,7 @@
   function setNavigation(open) { $('#sidebar').dataset.open = String(open); $('#toggle-navigation').setAttribute('aria-expanded',String(open)); }
   function changed(rerender = false) { save(); if (rerender) renderStep(currentStep); else updateProgress(); }
   function showHelp(title,guide) {
-    $('#help-context').textContent = '선택을 돕는 설명'; $('#help-title').textContent = title;
+    $('#help-title').textContent = title;
     $('#help-content').innerHTML = '<dl>' + [['meaning','무엇인가요?'],['fit','언제 잘 맞나요?'],['avoid','어떤 점을 주의하나요?']].filter(([key]) => guide?.[key]).map(([key,label]) => `<div class="help-fact"><dt>${label}</dt><dd>${esc(guide[key])}</dd></div>`).join('') + '</dl>';
     $('#option-help-dialog').showModal();
   }
