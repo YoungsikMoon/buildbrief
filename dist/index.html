@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#214eeb">
-  <meta name="description" content="아이디어를 구체적인 기획과 설계로. 전문가의 고려 사항을 배우고 내 상황에 맞는 선택을 정리해 AI와 요구사항·설계 문서를 완성하세요.">
-  <title>빌드브리프 — 아이디어를 기획과 설계로</title>
+  <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
+  <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=79511a04ed08">
-  <script src="questions.js?v=bb80862ec84d" defer></script>
-  <script src="report.js?v=125cbe358024" defer></script>
-  <script src="projects.js?v=bb848a2f288a" defer></script>
-  <script src="guides.js?v=2cade2f1d11c" defer></script>
-  <script src="app.js?v=e27b11f0e109" defer></script>
+  <link rel="stylesheet" href="styles.css?v=5819399f7220">
+  <script src="questions.js?v=48d29db76c23" defer></script>
+  <script src="report.js?v=b65bb12fd1af" defer></script>
+  <script src="projects.js?v=f28be31f93a4" defer></script>
+  <script src="guides.js?v=b1a526715dd4" defer></script>
+  <script src="app.js?v=544ac0521770" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -21,7 +21,7 @@
       <a class="brand" href="#" aria-label="빌드브리프 처음으로"><span class="brand-mark">b<span>·</span></span>빌드브리프</a>
       <!-- app-version --><span class="app-version" id="app-version">개발 버전</span><!-- /app-version -->
     </div>
-    <div class="top-actions"><button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog" title="저장 유지 조건과 백업 방법"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-help-icon" aria-hidden="true">?</span></button><button class="button secondary small" id="report-button">리포트 미리보기 <span aria-hidden="true">↗</span></button></div>
+    <div class="top-actions"><button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog" title="저장 유지 조건과 백업 방법"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-help-icon" aria-hidden="true">?</span></button><button class="button secondary small" id="report-button">기획 초안 보기 <span aria-hidden="true">↗</span></button></div>
   </header>
   <div class="mobile-navigation"><button type="button" class="button secondary small" id="toggle-navigation" aria-expanded="false" aria-controls="sidebar">프로젝트·목차</button><span id="mobile-progress"></span></div>
   <div class="workspace">
@@ -29,36 +29,24 @@
       <div class="sidebar-heading project-switcher">
         <div class="project-switcher-heading"><label for="project-select">내 프로젝트</label><button type="button" class="text-button" id="manage-projects" aria-haspopup="dialog" aria-controls="projects-dialog">관리</button></div>
         <div class="project-switcher-controls"><select class="select-input" id="project-select" aria-label="프로젝트 선택"><option value="">새로운 아이디어</option></select><button type="button" class="button secondary small" id="add-project" aria-haspopup="dialog" aria-controls="project-name-dialog">+ 새 프로젝트</button></div>
-        <strong class="visually-hidden" id="project-label">새로운 아이디어</strong>
       </div>
-      <div class="progress-label"><span id="progress-label">요구사항 정리</span><strong id="progress-number">0%</strong></div>
-      <div class="progress-track"><div id="progress-bar" role="progressbar" aria-labelledby="progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="progress-caption"></div></div>
-      <p class="progress-caption" id="progress-caption"></p>
-      <details class="progress-details">
-        <summary>진행 현황 자세히</summary>
-        <dl id="progress-breakdown"></dl>
-        <p><strong>무엇을 완료로 세나요?</strong>답변을 입력·선택하고, 미정·필수 빈칸·이전 선택 확인 등 보완할 항목이 없는 질문이에요. 작성표와 기능 카드는 칸이나 행 수와 관계없이 질문 하나로 세어요. 답변의 정확성이나 개발 준비도를 평가하는 점수는 아니에요.</p>
-        <p>‘AI 추천 요청’은 AI와 함께 정할 답변이에요. 추천을 자동 실행하거나 완료로 세지는 않아요.</p>
-        <p><strong>왜 진행률이 바뀌나요?</strong>선택에 따라 필요한 질문이 늘거나 줄어요. 질문이 추가되면 진행률이 낮아질 수 있지만, 작성한 답변은 유지돼요.</p>
-        <p id="progress-scope"></p>
-        <p>참고 자료·추가 의견처럼 선택해서 적는 참고 정보는 계산에서 제외해요. 100%가 아니어도 리포트를 만들 수 있어요.</p>
-      </details>
+      <p class="progress-caption" id="progress-caption">아는 내용부터 자유롭게 정리하세요.</p>
       <nav id="step-nav"></nav>
       <div class="sidebar-bottom"><button type="button" class="text-button" id="export-answers">이 프로젝트 백업</button><button type="button" class="text-button" id="import-answers">백업에서 추가</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
     </aside>
     <main id="main" tabindex="-1">
       <div id="form-view">
-        <div class="page-topline"><div class="breadcrumb" id="breadcrumb"></div><span class="step-badge" id="step-badge"></span></div>
+        <div class="page-topline"><span>아이디어를 기획으로</span><span id="step-badge"></span></div>
         <div class="page-heading"><h1 id="page-title"></h1><p id="page-description"></p></div>
-        <div class="topic-navigation"><label for="topic-select">주제 선택</label><select id="topic-select" class="select-input"></select><span id="topic-position"></span></div>
-        <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><span id="step-summary"></span><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
+        <p class="start-note" id="start-note">완벽한 답이 없어도 괜찮아요. 아는 내용부터 적고, 모르는 것은 나중에 채우세요. 입력한 내용은 기획 초안에 그대로 모입니다.</p>
+        <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
       </div>
       <section id="report-view" hidden aria-labelledby="report-title"></section>
     </main>
   </div>
   <footer class="site-footer">
     <div class="site-footer-inner">
-      <div class="site-footer-about"><strong>빌드브리프</strong><p>내 아이디어를 이해할 수 있는 요구사항과 설계로.</p></div>
+      <div class="site-footer-about"><strong>빌드브리프</strong><p>아이디어를 함께 이해할 수 있는 기획으로.</p></div>
       <nav class="footer-links" aria-label="서비스 관련 링크">
         <a href="https://github.com/YoungsikMoon/buildbrief/releases" target="_blank" rel="noopener noreferrer" aria-label="변경 내역 (새 탭)">변경 내역 <span aria-hidden="true">↗</span></a>
         <a href="https://github.com/YoungsikMoon/buildbrief" target="_blank" rel="noopener noreferrer" aria-label="GitHub 저장소 (새 탭)">GitHub 저장소 <span aria-hidden="true">↗</span></a>
@@ -83,6 +71,7 @@
       <div class="help-fact"><dt>기존 답변을 읽지 못했다는 안내가 보이면요?</dt><dd>기존 저장 내용을 덮어쓰지 않도록 자동 저장을 멈춰요. 아래 ‘복구용 저장 원본’을 내려받고, 새로 입력한 내용은 ‘이 프로젝트 백업’으로 따로 보관해 주세요. 복구용 원본은 읽기 오류가 있는 기록이므로 일반 백업처럼 바로 불러오지 못할 수 있어요. 복구가 끝날 때까지 내려받은 원본 파일을 보관해 주세요.</dd></div>
       <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>‘이 프로젝트 백업’으로 현재 프로젝트를, ‘관리’의 ‘전체 프로젝트 백업’으로 모든 프로젝트를 JSON 파일에 보관하세요. 새 주소나 다른 기기에서 ‘백업에서 추가’를 누르면 기존 프로젝트를 유지하면서 백업의 프로젝트를 추가해요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
     </dl>
+    <p class="storage-privacy">이번 개편은 새 질문지로 시작해요. 이전 기술 설계 질문지의 저장 기록은 지우지 않았지만 새 질문으로 자동 변환하지 않아요.</p>
     <p class="storage-privacy">브라우저 답변과 JSON 백업은 이 서비스가 별도로 암호화하지 않아요. API 키·비밀번호는 입력하지 말고, 백업 파일은 내용을 읽어도 되는 사람에게만 공유해 주세요.</p>
     <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">이 프로젝트 백업 (.json)</button><button type="button" class="button secondary" id="storage-original" hidden>복구용 저장 원본 (.json)</button></div>
   </dialog>
@@ -97,7 +86,7 @@
     <form id="project-name-form">
       <h2 id="project-name-title">새 프로젝트 만들기</h2>
       <p id="project-name-description">기존 프로젝트는 그대로 두고, 새 프로젝트를 추가해요. 이름은 나중에 바꿀 수 있어요.</p>
-      <label for="project-name">프로젝트 이름</label><input class="text-input" id="project-name" name="project-name" type="text" maxlength="6000" required autocomplete="off" autofocus>
+      <label for="project-name">프로젝트 이름</label><input class="text-input" id="project-name" name="project-name" type="text" maxlength="200" required autocomplete="off" autofocus>
       <p id="project-name-error" class="field-error" role="status"></p>
       <div class="dialog-actions"><button type="button" class="button secondary" id="cancel-project-name">취소</button><button type="submit" class="button primary">프로젝트 만들기</button></div>
     </form>
@@ -112,7 +101,6 @@
   <dialog id="option-help-dialog" class="option-help-dialog" aria-labelledby="help-title">
     <div class="help-top"><span class="eyebrow">도움말</span><button type="button" class="button secondary small" id="close-option-help" autofocus>닫기 ×</button></div>
     <p id="help-context" class="help-context"></p><h2 id="help-title"></h2>
-    <div class="help-browse" id="help-browse"><div><label for="help-option">알아볼 선택지</label><select id="help-option" class="select-input"></select></div><div><label for="help-compare">나란히 비교할 선택지</label><select id="help-compare" class="select-input"></select></div><p>설명을 읽어도 답변은 바뀌지 않아요. 닫은 뒤 원하는 항목을 선택해 주세요.</p></div>
     <div id="help-content"></div>
   </dialog>
   <noscript>질문을 작성하려면 브라우저에서 JavaScript를 활성화해 주세요.</noscript>

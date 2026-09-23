@@ -2,8 +2,7 @@
   'use strict';
   const R = root.BriefReport || require('./report.js');
   const { steps } = root.BriefQuestions || require('./questions.js');
-  const KEY = 'buildbrief.projects.v1';
-  const LEGACY_KEY = 'buildbrief.project.v1';
+  const KEY = 'buildbrief.ideas.v1';
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
@@ -53,14 +52,21 @@
     return { version: 1, activeId: input.activeId, projects };
   }
 
-  function fromLegacy(input) {
-    if (!isObject(input) || input.version !== 1 || !Object.hasOwn(input, 'answers')) throw new Error('지원하지 않는 이전 프로젝트 저장 형식이에요.');
-    const project = createProject({ answers: input.answers, drafts: input.drafts === undefined ? {} : input.drafts, notes: input.notes === undefined ? {} : input.notes, step: input.step, topic: input.topic });
-    return { version: 1, activeId: project.id, projects: [project] };
+  function importBackup(input) {
+    let checked;
+    if (isObject(input) && input.format === 'buildbrief-idea' && input.version === 1) {
+      checked = normalizeWorkspace({ version: 1, activeId: input.id, projects: [input] });
+    } else if (isObject(input) && input.format === 'buildbrief-ideas') {
+      checked = normalizeWorkspace(input);
+    } else {
+      throw new Error('새 아이디어 기획 버전의 백업 파일을 선택해 주세요. 이전 기술 설계 질문지의 백업은 자동 변환하지 않아요.');
+    }
+    const ids = new Map(checked.projects.map(project => [project.id, newId()]));
+    return { ...checked, activeId: ids.get(checked.activeId), projects: checked.projects.map(project => ({ ...project, id: ids.get(project.id) })) };
   }
 
   const projectTitle = project => R.display(project?.answers?.project_name) || '새로운 아이디어';
-  const api = { KEY, LEGACY_KEY, createProject, normalizeWorkspace, fromLegacy, projectTitle };
+  const api = { KEY, newId, createProject, normalizeWorkspace, importBackup, projectTitle };
   root.BriefProjects = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
