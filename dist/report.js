@@ -35,7 +35,22 @@
   }
   const activeGroups = (step, answers = {}) => step.groups.filter(group => matches(group.when, answers)).map(group => ({ ...group, questions: group.questions.filter(q => matches(q.when, answers)) })).filter(group => group.questions.length);
   const activeQuestions = (answers = {}) => Q.steps.flatMap(step => activeGroups(step, answers).flatMap(group => group.questions));
-  const progress = (answers = {}) => ({ started: Q.steps.filter(step => activeGroups(step, answers).some(group => group.questions.some(q => q.type !== 'scope' && isAnswered(answers[q.id])))).length, total: Q.steps.length });
+  function progress(answers = {}) {
+    const features = Array.isArray(answers.features) ? answers.features : [];
+    const hasPriority = row => isAnswered(row?.priority) && row.priority !== UNKNOWN;
+    const stepProgress = Q.steps.map(step => {
+      const active = activeGroups(step, answers).flatMap(group => group.questions);
+      const answered = active.filter(q => {
+        if (q.type === 'scope') return features.length > 0 && features.every(hasPriority);
+        if (q.type === 'features') return answers[q.id] === UNKNOWN || features.some(row => ['name', 'actor', 'outcome', 'notes'].some(key => isAnswered(row?.[key])) || hasPriority(row));
+        return isAnswered(answers[q.id]);
+      }).length;
+      return { answered, total: active.length };
+    });
+    const answered = stepProgress.reduce((sum, step) => sum + step.answered, 0);
+    const total = stepProgress.reduce((sum, step) => sum + step.total, 0);
+    return { answered, total, percent: total ? Math.round(answered / total * 100) : 0, steps: stepProgress };
+  }
 
   function selected(value, field, label) {
     const options = choiceOptions(field);

@@ -219,14 +219,35 @@ test('Unfinished and unsafe URL text survives autosave without becoming a link',
   }
 });
 
-test('Progress counts touched stages, not answered questions or completion', () => {
-  assert.deepEqual(R.progress({}), { started: 0, total: 10 });
-  const first = Q.steps[0].groups.flatMap(g => g.questions).filter(q => ['text', 'textarea'].includes(q.type));
-  const a = Object.fromEntries(first.map(q => [q.id, R.UNKNOWN]));
-  assert.equal(R.progress(a).started, 1);
-  assert.equal(R.isAnswered('  '), false);
-  assert.equal(R.isAnswered([]), false);
-  assert.equal(R.isAnswered({ id: 'empty', category: 'booking' }), false);
+test('Question progress sums active stage counts and handles blank cards, priorities, unknowns, and hidden answers', () => {
+  const empty = R.progress({});
+  assert.equal(empty.answered, 0);
+  assert.equal(empty.total, R.activeQuestions({}).length);
+  assert.equal(empty.percent, 0);
+  assert.equal(empty.steps.length, Q.steps.length);
+  const featureIndex = Q.steps.findIndex(step => step.id === 'features');
+  const reviewIndex = Q.steps.findIndex(step => step.id === 'review');
+  const blank = { features: [{ id: 'empty', category: 'custom', name: '', actor: '', outcome: '', notes: '', priority: R.UNKNOWN }], references: [{ id: 'ref-1', url: ' ', note: '' }], audience: [{ id: 'person-1', person: '', goal: '', context: '' }] };
+  assert.equal(R.progress(blank).answered, 0, 'An added card and its automatic unknown priority are not an answer');
+  assert.equal(R.progress({ features: R.UNKNOWN }).steps[featureIndex].answered, 1, 'An explicit unknown response is recorded');
+  assert.equal(R.progress({ login_need: R.UNKNOWN }).answered, 1);
+  assert.equal(R.progress({ features: [feature('feature-1', 'custom', R.UNKNOWN)] }).steps[reviewIndex].answered, 0);
+  assert.equal(R.progress({ features: [feature('feature-1', 'custom', '나중에')] }).steps[reviewIndex].answered, 1);
+  assert.equal(R.progress({ features: [feature(), feature('feature-2', 'custom', '')] }).steps[reviewIndex].answered, 0, 'Every feature needs a reviewed priority');
+  const answers = { project_name: '예시', summary: R.UNKNOWN, features: [feature()], booking_rules: '정원 안에서 신청', references: [] };
+  const counted = R.progress(answers);
+  assert.equal(counted.answered, 5, 'Name, summary, features, booking rules, and shared scope are recorded');
+  assert.equal(counted.steps[0].answered, 2);
+  assert.equal(counted.steps[featureIndex].answered, 1);
+  assert.equal(counted.steps[reviewIndex].answered, 1);
+  assert.equal(counted.answered, counted.steps.reduce((sum, step) => sum + step.answered, 0));
+  assert.equal(counted.total, counted.steps.reduce((sum, step) => sum + step.total, 0));
+  assert.equal(counted.percent, Math.round(counted.answered / counted.total * 100));
+  const hidden = R.progress({ ...answers, features: [] });
+  assert.equal(hidden.answered, 2);
+  assert.equal(hidden.total, empty.total, 'Hidden booking rules leave the denominator as well as the numerator');
+  const notesAndRequests = P.createProject({ notes: { summary: '추천받고 싶은 이유' }, recommendations: ['features', 'scope'] });
+  assert.deepEqual(R.progress(notesAndRequests.answers), empty);
 });
 
 test('Malformed known answer types fail without changing the source', () => {
@@ -288,7 +309,7 @@ test('Answer reasons survive project imports and conditional visibility without 
   assert(!R.report({ features: [] }, false, notes).includes(notes.booking_rules));
   assert(R.report(withBooking, false, notes).includes(notes.booking_rules), 'Reactivating a question restores its reason');
   assert.deepEqual(R.progress(withBooking), progress);
-  assert.deepEqual(R.progress(imported.projects[0].answers), { started: 0, total: 10 });
+  assert.deepEqual(R.progress(imported.projects[0].answers), R.progress({}));
   assert.deepEqual(imported.projects[0].notes, notes, 'Hiding a question must not erase its reason');
 });
 
@@ -339,7 +360,7 @@ test('Only active recommendation requests are exported without clearing answers 
   assert(hidden.includes(question('screens').label));
   const requestOnly = P.createProject({ recommendations: ['screens'] });
   assert.deepEqual(requestOnly.answers, {});
-  assert.deepEqual(R.progress(requestOnly.answers), { started: 0, total: 10 });
+  assert.deepEqual(R.progress(requestOnly.answers), R.progress({}));
   assert(R.report(requestOnly.answers, false, requestOnly.notes, requestOnly.recommendations).includes('## AI에게 비교·추천을 요청할 항목'));
   assert.deepEqual({ answers, notes, recommendations }, before);
   assert(R.report(answers, false, notes, recommendations).includes(notes.login_methods), 'A hidden request can reappear with its original choice and reason');

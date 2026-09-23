@@ -17,7 +17,7 @@
   function activateProject() { const p = workspace.projects.find(p => p.id === workspace.activeId); ({ answers, drafts, notes, recommendations = [] } = p); currentStep = p.step; }
   function collectWorkspace() { return { ...workspace,projects:workspace.projects.map(p => p.id === workspace.activeId ? { ...p,answers,drafts,notes,recommendations,step:currentStep,topic:'' } : p) }; }
   function status(message) {
-    $('#save-status').textContent = $('#storage-help-status').textContent = $('#mobile-progress').textContent = message;
+    $('#save-status').textContent = $('#storage-help-status').textContent = message;
     $('#storage-help-warning').hidden = storageWorking && !externalChange;
     $('#storage-original').hidden = !loadFailed || originalStorage === null;
     $('#save-help-button').dataset.attention = String(!storageWorking || externalChange);
@@ -44,7 +44,19 @@
   }
   function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => { $('#toast').hidden = true; },5000); }
   function picker() { $('#project-select').innerHTML = collectWorkspace().projects.map(p => `<option value="${p.id}">${esc(P.projectTitle(p))}</option>`).join(''); $('#project-select').value = workspace.activeId; }
-  function updateProgress() { const p = R.progress(answers); $('#progress-caption').textContent = `${p.total}개 주제 중 ${p.started}개 작성 시작 · 언제든 이어서 수정할 수 있어요.`; picker(); }
+  function updateProgress() {
+    const p = R.progress(answers);
+    $('#progress-percent').textContent = `${p.percent}%`;
+    $('#answer-progress').value = p.percent;
+    $('#progress-caption').textContent = `질문 ${p.total}개 중 ${p.answered}개 작성`;
+    $('#mobile-progress').textContent = `작성 ${p.percent}% · ${p.answered}/${p.total}`;
+    document.querySelectorAll('#step-nav .step-link').forEach((button,i) => {
+      const count = p.steps[i];
+      button.querySelector('.step-count').textContent = `${count.answered}/${count.total}`;
+      button.setAttribute('aria-label',`${steps[i].short || steps[i].title}, 질문 ${count.total}개 중 ${count.answered}개 작성`);
+    });
+    picker();
+  }
   const attrs = (qid,row,field) => `data-q="${esc(qid)}"${row === undefined ? '' : ` data-row="${row}"`}${field ? ` data-field="${esc(field)}"` : ''}`;
   function input(label,value,attributes,{type='text',placeholder='',options=[],help=''} = {}) {
     const id = 'input-' + P.newId(); let control;
@@ -122,9 +134,9 @@
     currentStep = Math.max(0,Math.min(steps.length-1,index)); const step = steps[currentStep];
     $('#form-view').hidden = false; $('#report-view').hidden = true;
     $('#page-title').textContent = step.title; $('#page-description').textContent = step.description;
-    $('#step-badge').textContent = `${currentStep+1} / ${steps.length}`; $('#mobile-progress').textContent = $('#save-status').textContent;
+    $('#step-badge').textContent = `${currentStep+1} / ${steps.length}`;
     $('#start-note').hidden = currentStep !== 0;
-    $('#step-nav').innerHTML = steps.map((s,i) => `<button type="button" class="step-link ${i === currentStep ? 'active' : ''}" data-step="${i}" ${i === currentStep ? 'aria-current="step"' : ''}><span>${String(i+1).padStart(2,'0')}</span>${esc(s.short || s.title)}</button>`).join('');
+    $('#step-nav').innerHTML = steps.map((s,i) => `<button type="button" class="step-link ${i === currentStep ? 'active' : ''}" data-step="${i}" ${i === currentStep ? 'aria-current="step"' : ''}><span class="step-number" aria-hidden="true">${String(i+1).padStart(2,'0')}</span><span class="step-title">${esc(s.short || s.title)}</span><span class="step-count" aria-hidden="true"></span></button>`).join('');
     $('#question-groups').innerHTML = R.activeGroups(step,answers).map(g => `<section class="question-group"><div class="group-heading"><h2>${esc(g.title)}</h2>${g.description ? `<p>${esc(g.description)}</p>` : ''}</div><div class="group-body">${g.questions.map(renderQuestion).join('')}</div></section>`).join('');
     for (const [id,open] of states) { const el = document.getElementById(id); if (el) el.open = open; }
     $('#previous-button').disabled = currentStep === 0; $('#next-button').textContent = currentStep === steps.length-1 ? '기획 초안 보기 →' : '다음 단계 →';
