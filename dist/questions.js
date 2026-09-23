@@ -54,7 +54,16 @@
         { id: "problem", label: "어떤 상황에서 누가 불편을 겪나요?", type: "textarea", help: "한 가지 구체적인 장면부터 적어요. 추측이라면 ‘예상’이라고 남겨도 돼요.", placeholder: "예: 주민이 빈 시간을 물으려고 전화하지만 담당자가 없으면 확인할 수 없어요." },
         { id: "current_methods", label: "지금은 어떤 방법으로 해결하나요?", type: "multi", options: ["메신저", "전화", "종이·수기", "엑셀·문서", "기존 서비스", "특별한 방법 없음", "다른 방법"], optionLabels: { "다른 방법": "직접 입력" }, help: "함께 쓰는 방법을 모두 골라요." },
         { id: "current_method_other", label: "지금 쓰는 다른 방법은 무엇인가요?", type: "text", help: "", placeholder: "예: 회사 내부 게시판", when: { id: "current_methods", includes: "다른 방법" } },
-        { id: "current_pain", label: "지금 방법에서 무엇이 달라지면 좋을까요?", type: "textarea", help: "현재 방법의 불편과 바라는 변화를 연결해요. 앞의 문제를 다시 길게 쓰지 않아도 돼요.", placeholder: "예: 전화 없이 빈 시간을 알 수 있고 담당자는 중복 신청을 따로 확인하지 않아도 되면 좋겠어요." }
+        { id: "alternatives", label: "비교해 볼 서비스나 방법이 있나요?", type: "rows", rowLabel: "서비스·방법", help: "경쟁 서비스뿐 아니라 엑셀·전화·수작업도 비교할 수 있어요. 한 개부터 추가하고, 아직 조사하지 않았다면 비워 두세요. URL의 내용을 자동으로 조사하지는 않아요.", fields: [
+          { id: "name", label: "이름" },
+          { id: "url", label: "URL · 선택", type: "url", maxLength: 2000 },
+          { id: "strength", label: "잘 해결하는 점", type: "textarea" },
+          { id: "weakness", label: "아쉬운 점", type: "textarea" },
+          { id: "context", label: "누가 어떤 상황에서 불편한가요?", type: "textarea" },
+          { id: "evidence", label: "무엇을 보고 판단했나요?", type: "single", options: ["직접 사용", "사용자 의견", "후기·자료", "아직 예상"] },
+          { id: "source", label: "판단 근거 · 선택", type: "textarea", help: "직접 겪은 일, 들은 의견이나 참고한 자료를 적어요. 확인한 사실과 예상은 구분해 주세요." }
+        ] },
+        { id: "current_pain", label: "내 서비스는 어떤 점을 다르게 해결하나요?", type: "textarea", help: "앞에서 살펴본 방법과 비교해, 누구의 어떤 불편을 어떻게 줄일지 적어요. 모든 면에서 더 좋을 필요는 없어요.", placeholder: "예: 전화 없이 빈 시간을 알 수 있고 담당자는 중복 신청을 따로 확인하지 않아도 되면 좋겠어요." }
       ] }
     ] },
     { id: "users", title: "사용할 사람과 환경", short: "사용자·환경", description: "실제로 사용할 사람과 사용 장면을 생각해요.", groups: [
@@ -154,7 +163,7 @@
     ] },
     { id: "references", title: "참고 서비스와 디자인 방향", short: "참고·분위기", description: "참고할 주소와 실제로 바라는 화면 분위기를 남겨요.", groups: [
       { title: "참고할 부분이 있나요?", description: "자료가 없어도 괜찮아요. URL을 적는 것만으로 내용을 열람하거나 분석한 것은 아니에요.", questions: [
-        { id: "references", label: "참고하고 싶은 서비스나 디자인의 주소가 있나요?", type: "references", help: "한 행에 URL 하나를 넣어요. 참고할 부분은 선택 메모이며 여러 주소를 줄별로 붙여 넣을 수 있어요." },
+        { id: "references", label: "화면·디자인을 참고하고 싶은 주소가 있나요?", type: "references", help: "화면 배치·색상·사용 흐름 등 참고할 부분을 남겨요. 경쟁 서비스의 장단점은 ‘해결할 문제’에서 비교해요. URL은 한 줄에 하나씩 붙여 넣을 수 있어요." },
         { id: "visual_style", allowRecommend: true, label: "어떤 분위기를 바라나요?", type: "multi", options: ["간결하고 실용적인", "차분하고 전문적인", "밝고 친근한", "사진·이미지가 중심인", "개성이 뚜렷한", "다른 분위기", "아직 미정"], optionLabels: { "다른 분위기": "직접 입력" }, help: "가까운 방향을 함께 골라도 돼요. 정답이 있는 분류가 아니며 실제 참고 화면이 더 도움이 될 수 있어요." },
         { id: "visual_style_other", label: "원하는 다른 분위기를 적어 주세요.", type: "text", help: "", placeholder: "예: 오래된 공책처럼 편안한 느낌", when: { id: "visual_style", includes: "다른 분위기" } },
         { id: "brand_notes", label: "정해진 색상·로고나 지키고 싶은 표현이 있나요?", type: "textarea", help: "이미 있는 자료나 확실한 희망만 적어요. 피하고 싶은 표현도 남길 수 있고 없으면 비워 두어요.", placeholder: "예: 동네 로고의 초록색 사용. 작은 글씨와 과한 움직임은 피하고 싶어요." }

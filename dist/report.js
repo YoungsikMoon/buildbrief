@@ -223,6 +223,7 @@
             } else {
               lines.push(`**항목 ${index + 1}**`, '');
               for (const f of q.fields) field(f.label, row[f.id]);
+              if (q.id === 'alternatives') lines.push('비교 내용은 사용자가 작성한 정보이며 URL을 자동으로 열람·검증한 결과가 아닙니다. ‘아직 예상’은 확인되지 않은 가정이며 판단 근거가 비어 있으면 확인 여부가 미정입니다.', '');
             }
           });
         } else lines.push(quote(isAnswered(value) ? display(q.source === 'features' && Array.isArray(value) ? value.map(id => id === UNKNOWN ? UNKNOWN : featureName(id)) : value) : '미작성'), '');

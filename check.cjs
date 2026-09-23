@@ -462,4 +462,15 @@ test('Single and whole-workspace backup imports validate before cloning project 
   assert.deepEqual(conflict, before);
 });
 
+test('alternative comparison survives normalization and both exports', () => {
+  const raw = { current_pain: '기존 답변 유지', alternatives: [{ id: 'alternative-1', name: '비교 서비스', url: 'https://example.com', strength: '빠른 조회', weakness: '복잡한 설정', context: '혼자 운영하는 매장', evidence: '아직 예상', source: '추후 인터뷰로 확인' }] };
+  const normalized = R.normalizeAnswers(JSON.parse(JSON.stringify(raw)));
+  assert.deepEqual(normalized.alternatives, raw.alternatives);
+  assert.equal(normalized.current_pain, raw.current_pain);
+  for (const prompt of [false, true]) {
+    const output = R.report(normalized, prompt, { alternatives: '설정 부담을 비교하기 위함' });
+    for (const text of ['비교 서비스', '복잡한 설정', '아직 예상', '확인되지 않은 가정', '설정 부담을 비교하기 위함', '기존 답변 유지']) assert.ok(output.includes(text), text);
+    assert.ok(output.indexOf('비교해 볼 서비스나 방법') < output.indexOf('내 서비스는 어떤 점'));
+  }
+});
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);
