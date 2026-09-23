@@ -7,12 +7,12 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=74362786dfa0">
+  <link rel="stylesheet" href="styles.css?v=a5e7e52f19d0">
   <script src="questions.js?v=c19fd8ef961d" defer></script>
   <script src="report.js?v=2d4d7c2b4e8b" defer></script>
   <script src="projects.js?v=75a50fab8a5e" defer></script>
   <script src="guides.js?v=b1a526715dd4" defer></script>
-  <script src="app.js?v=ea4eaefffb99" defer></script>
+  <script src="app.js?v=eee46e387b87" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -21,8 +21,24 @@
       <a class="brand" href="#" aria-label="빌드브리프 처음으로"><span class="brand-mark">b<span>·</span></span>빌드브리프</a>
       <!-- app-version --><span class="app-version" id="app-version">개발 버전</span><!-- /app-version -->
     </div>
-    <div class="top-actions"><button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog" title="저장 유지 조건과 백업 방법"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-help-icon" aria-hidden="true">?</span></button><button class="button secondary small" id="report-button">기획 초안 보기 <span aria-hidden="true">↗</span></button></div>
+    <button type="button" class="save-help-button" id="save-help-button" aria-label="이 브라우저에 자동 저장 · 저장 안내 열기" aria-haspopup="dialog" aria-controls="storage-help-dialog">
+      <span class="save-state-indicator" id="save-indicator" aria-hidden="true">…</span>
+      <span class="save-state-copy"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-state-hint">저장 위치·백업 안내</span></span>
+    </button>
+    <div class="top-actions" role="group" aria-label="현재 프로젝트 작업">
+      <button type="button" class="button secondary" id="export-answers" aria-label="현재 프로젝트 백업 내려받기" title="현재 프로젝트를 JSON 파일로 보관">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span>백업 내려받기</span>
+      </button>
+      <button type="button" class="button secondary" id="import-answers" aria-label="백업 파일 불러오기" aria-describedby="import-description" title="백업 파일을 새 프로젝트로 추가">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M4 16v4h16v-4"/></svg><span>백업 불러오기</span>
+      </button>
+      <button type="button" class="button primary" id="report-button" aria-label="기획 초안 보기">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg><span>기획 초안 보기</span>
+      </button>
+    </div>
   </header>
+  <p class="visually-hidden" id="import-description">JSON 백업을 새 프로젝트로 추가합니다. 현재 프로젝트는 유지됩니다.</p>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
   <div class="mobile-navigation"><button type="button" class="button secondary small" id="toggle-navigation" aria-expanded="false" aria-controls="sidebar">프로젝트·목차</button><span id="mobile-progress"></span></div>
   <div class="workspace">
     <aside class="sidebar" id="sidebar" aria-label="프로젝트와 목차">
@@ -37,7 +53,6 @@
         <details class="progress-help"><summary>진행률 기준</summary><p>현재 표시되는 질문 중 답변을 적거나 선택한 비율이에요. 선택에 따라 질문 수가 달라지며, 기획의 완성도를 뜻하지는 않아요. 기능 우선순위 검토는 모든 기능의 출시 범위를 정하면 반영해요.</p></details>
       </div>
       <nav id="step-nav" aria-label="대항목별 작성한 질문 / 전체 질문"></nav>
-      <div class="sidebar-bottom"><button type="button" class="text-button" id="export-answers">이 프로젝트 백업</button><button type="button" class="text-button" id="import-answers">백업에서 추가</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
     </aside>
     <main id="main" tabindex="-1">
       <div id="form-view">
@@ -73,12 +88,12 @@
       <div class="help-fact"><dt>어디에서 이어 쓸 수 있나요?</dt><dd>같은 기기·브라우저·프로필에서 같은 사이트 주소로 접속해 주세요. 이 브라우저의 저장 공간(localStorage)에 프로젝트를 보관하며, 서버나 계정·다른 기기에 자동으로 동기화하지 않아요. 주소가 바뀌면 백업 파일로 옮겨야 해요.</dd></div>
       <div class="help-fact"><dt>어떤 경우에 사라질 수 있나요?</dt><dd>사이트 데이터 삭제, 종료 시 데이터 자동 삭제 설정, 시크릿 모드 종료, 브라우저 초기화·프로필 삭제로 프로젝트가 사라질 수 있어요. 브라우저의 저장 공간 정리나 기기 고장도 대비해야 해요. ‘관리’에서 프로젝트를 삭제하기 전에도 필요한 답변을 먼저 백업해 주세요.</dd></div>
       <div class="help-fact"><dt>저장 오류나 다른 탭 변경 안내가 보이면요?</dt><dd>최근 입력이 저장되지 않았을 수 있으니 새로고침하거나 탭을 닫기 전에 이 탭의 답변부터 백업해 주세요. 다른 탭에서 답변을 바꾸면 서로 덮어쓰지 않도록 이 탭의 자동 저장을 멈춰요. 백업 후 새로고침하면 브라우저에 마지막으로 저장된 답변을 불러와요. 백업이 성공했는지도 확인해 주세요.</dd></div>
-      <div class="help-fact"><dt>기존 답변을 읽지 못했다는 안내가 보이면요?</dt><dd>기존 저장 내용을 덮어쓰지 않도록 자동 저장을 멈춰요. 아래 ‘복구용 저장 원본’을 내려받고, 새로 입력한 내용은 ‘이 프로젝트 백업’으로 따로 보관해 주세요. 복구용 원본은 읽기 오류가 있는 기록이므로 일반 백업처럼 바로 불러오지 못할 수 있어요. 복구가 끝날 때까지 내려받은 원본 파일을 보관해 주세요.</dd></div>
-      <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>‘이 프로젝트 백업’으로 현재 프로젝트를, ‘관리’의 ‘전체 프로젝트 백업’으로 모든 프로젝트를 JSON 파일에 보관하세요. 새 주소나 다른 기기에서 ‘백업에서 추가’를 누르면 기존 프로젝트를 유지하면서 백업의 프로젝트를 추가해요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
+      <div class="help-fact"><dt>기존 답변을 읽지 못했다는 안내가 보이면요?</dt><dd>기존 저장 내용을 덮어쓰지 않도록 자동 저장을 멈춰요. 아래 ‘복구용 저장 원본’을 내려받고, 새로 입력한 내용은 ‘백업 내려받기’로 따로 보관해 주세요. 복구용 원본은 읽기 오류가 있는 기록이므로 일반 백업처럼 바로 불러오지 못할 수 있어요. 복구가 끝날 때까지 내려받은 원본 파일을 보관해 주세요.</dd></div>
+      <div class="help-fact"><dt>오래 보관하거나 다른 기기로 옮기려면요?</dt><dd>‘백업 내려받기’로 현재 프로젝트를, ‘관리’의 ‘전체 프로젝트 백업’으로 모든 프로젝트를 JSON 파일에 보관하세요. 새 주소나 다른 기기에서 ‘백업 불러오기’를 누르면 기존 프로젝트를 유지하면서 백업의 프로젝트를 추가해요. 백업 파일은 내려받은 시점의 답변이므로 중요한 내용을 바꾼 뒤 다시 백업해 주세요.</dd></div>
     </dl>
     <p class="storage-privacy">이번 개편은 새 질문지로 시작해요. 이전 기술 설계 질문지의 저장 기록은 지우지 않았지만 새 질문으로 자동 변환하지 않아요.</p>
     <p class="storage-privacy">브라우저 답변과 JSON 백업은 이 서비스가 별도로 암호화하지 않아요. API 키·비밀번호는 입력하지 말고, 백업 파일은 내용을 읽어도 되는 사람에게만 공유해 주세요.</p>
-    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">이 프로젝트 백업 (.json)</button><button type="button" class="button secondary" id="storage-original" hidden>복구용 저장 원본 (.json)</button></div>
+    <div class="dialog-actions"><button type="button" class="button primary" id="storage-backup">현재 프로젝트 백업 (.json)</button><button type="button" class="button secondary" id="storage-original" hidden>복구용 저장 원본 (.json)</button></div>
   </dialog>
   <dialog id="projects-dialog" class="projects-dialog" aria-labelledby="projects-title">
     <div class="help-top"><h2 id="projects-title">내 프로젝트</h2><button type="button" class="button secondary small" id="close-projects" autofocus>닫기 ×</button></div>

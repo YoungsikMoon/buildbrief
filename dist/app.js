@@ -21,6 +21,7 @@
     $('#storage-help-warning').hidden = storageWorking && !externalChange;
     $('#storage-original').hidden = !loadFailed || originalStorage === null;
     $('#save-help-button').dataset.attention = String(!storageWorking || externalChange);
+    $('#save-indicator').textContent = !storageWorking || externalChange ? '!' : '✓';
     $('#save-help-button').setAttribute('aria-label',message + ' · 저장 안내 열기');
   }
   function save(next = collectWorkspace(),recover = false) {
@@ -172,6 +173,7 @@
   function backupProject(id = workspace.activeId) {
     const p = collectWorkspace().projects.find(p => p.id === id); if (!p) return;
     download(JSON.stringify({format:'buildbrief-idea',version:1,exportedAt:new Date().toISOString(),...p},null,2),'json','백업',P.projectTitle(p));
+    toast('백업 파일 다운로드를 시작했어요. 파일을 보관하면 다른 브라우저에서도 불러올 수 있어요.');
   }
   function renderProjects() {
     $('#project-list').innerHTML = collectWorkspace().projects.map(p => `<section class="project-item"><div><strong>${esc(P.projectTitle(p))}</strong><p>${p.id === workspace.activeId ? '현재 작성 중 · ' : ''}${esc(new Date(p.updatedAt).toLocaleString('ko-KR'))}</p></div><div class="inline-actions"><button type="button" class="button secondary small" data-project-open="${p.id}">열기</button><button type="button" class="text-button" data-project-rename="${p.id}">이름 변경</button><button type="button" class="text-button" data-project-backup="${p.id}">백업</button><button type="button" class="text-button danger-text" data-project-delete="${p.id}">삭제</button></div></section>`).join('');
@@ -279,13 +281,14 @@
       if (file.size > 16*1024*1024) throw new Error('16MB 이하의 백업 파일을 선택해 주세요.');
       const incoming = P.importBackup(JSON.parse(await file.text()));
       if (loadFailed && !window.confirm('읽지 못한 저장 원본을 백업으로 복구할까요? 먼저 저장 안내에서 원본과 새로 입력한 내용을 각각 백업해 주세요.')) return;
-      if (commitProjects({...incoming,projects:[...(loadFailed ? [] : collectWorkspace().projects),...incoming.projects]},loadFailed)) toast(`프로젝트 ${incoming.projects.length}개를 추가했어요.`);
+      if (commitProjects({...incoming,projects:[...(loadFailed ? [] : collectWorkspace().projects),...incoming.projects]},loadFailed)) toast(`백업에서 프로젝트 ${incoming.projects.length}개를 추가했어요.`);
     } catch (error) { toast(error instanceof SyntaxError ? '올바른 JSON 백업 파일이 아니에요.' : error.message); }
     finally { event.target.value = ''; }
   });
   $('.brand').addEventListener('click',event => { event.preventDefault(); renderStep(0,true); });
   document.addEventListener('keydown',event => { if (event.key === 'Escape' && $('#sidebar').dataset.open === 'true') { setNavigation(false); $('#toggle-navigation').focus(); } });
   window.addEventListener('storage',event => { if (event.key === P.KEY || event.key === null) { externalChange = true; status('다른 탭 변경 · 백업 후 새로고침'); toast('자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.'); } });
+  new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-height',`${Math.ceil($('.topbar').getBoundingClientRect().height)}px`)).observe($('.topbar'));
   if (!loadFailed && storedRaw === null) save();
   else if (!loadFailed) status('이 브라우저에 저장됨');
   renderStep(currentStep);
