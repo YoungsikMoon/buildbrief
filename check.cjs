@@ -59,16 +59,16 @@ test('Conditions evaluate actual feature categories and nested choices', () => {
 });
 
 test('Every selected feature category activates its own real followups', () => {
-  const expected = { booking: ['booking_rules'], payments: ['payment_offer', 'payment_timing', 'payment_cancel'], ai: ['ai_help', 'ai_review'], location: ['location_use', 'device_needs'], device: ['device_needs'], files: ['file_rules', 'device_needs'], collaboration: ['collaboration_rules'], workflow: ['workflow_rules'], notifications: ['notification_rules'] };
+  const expected = { booking: ['booking_confirmation','booking_history','booking_cancellation','booking_capacity'], payments: ['payment_offer','payment_timing','payment_refund','payment_failure'], ai: ['ai_help','ai_result_use','ai_retry'], location: ['location_use','device_needs'], device: ['device_needs'], files: ['file_kind','file_limit','device_needs'], collaboration: ['collaboration_join','collaboration_edit'], workflow: ['workflow_approval','workflow_tracking'], notifications: ['notification_event','notification_channel'] };
   const followups = [...new Set(Object.values(expected).flat())];
   for (const [category, visible] of Object.entries(expected)) {
     const active = activeIds({ features: [feature('feature-1', category)] });
     for (const id of followups) assert.equal(active.includes(id), visible.includes(id), `${category}: ${id}`);
   }
   assert(!activeIds({ features: [feature('read', 'browse')] }).some(id => followups.includes(id)));
-  assert(!activeIds({ features: [feature('map', 'location')], location_use: ['정해진 장소를 지도에서 보기'] }).includes('permission_alternative'));
-  assert(activeIds({ features: [feature('map', 'location')], location_use: ['내 현재 위치 주변 찾기'] }).includes('permission_alternative'));
-  assert(!activeIds({ features: [], device_needs: ['카메라로 촬영'], location_use: ['내 위치를 다른 사람에게 공유'] }).includes('permission_alternative'), 'Inactive device choices must not activate a stale followup');
+  assert(!activeIds({ features: [feature('map', 'location')], location_use: ['정해진 장소를 지도에서 보기'] }).includes('permission_response'));
+  assert(activeIds({ features: [feature('map', 'location')], location_use: ['내 현재 위치 주변 찾기'] }).includes('permission_response'));
+  assert(!activeIds({ features: [], device_needs: ['카메라로 촬영'], location_use: ['내 위치를 다른 사람에게 공유'] }).includes('permission_response'), 'Inactive device choices must not activate a stale followup');
   assert(activeIds({ features: [feature('map', 'location')], location_use: ['다른 용도'] }).includes('location_other'));
   assert(activeIds({ features: [feature('device', 'device')], device_needs: ['다른 기능'] }).includes('device_other'));
   assert(!activeIds({ features: [], device_needs: ['다른 기능'], location_use: ['다른 용도'] }).some(id => ['location_other', 'device_other'].includes(id)));
@@ -486,5 +486,28 @@ test('feature questions relocate without losing old answers or notes', () => {
  assert(R.activeGroups(step, {}, {general_rules:'메모만 보존'}).some(g=>g.questions.some(q=>q.id==='general_rules')));
  assert(R.report({},false,{general_rules:'메모만 보존'}).includes('메모만 보존'));
  assert(!R.activeGroups(step,{features:[feature('f2','browse')]}).some(g=>g.questions.some(q=>q.id==='booking_rules')));
+});
+test('situation choices reveal only their own custom answer and keep hidden text in backup', () => {
+ const newChoices = R.allQuestions.filter(q => q.options?.includes('직접 입력'));
+ assert(newChoices.length >= 15);
+ for (const q of newChoices) {
+   const custom = question(q.id + '_other'); assert(custom, q.id);
+   const base = { features: Q.featureTypes.map((type,i) => feature('choice-'+i,type.id)), location_use:['내 위치를 다른 사람에게 공유'], device_needs:['카메라로 촬영'] };
+   assert(!activeIds(base).includes(custom.id),q.id);
+   const raw = {...base, [q.id]:'직접 입력', [custom.id]:'상황별로 다른 방식', booking_deadline:'이용 하루 전'};
+   assert(activeIds(raw).includes(custom.id),q.id);
+   const normalized = R.normalizeAnswers(raw);
+   for (const prompt of [false,true]) { const output = R.report(normalized,prompt,{[q.id]:'이 선택의 이유'}); assert(output.includes('상황별로 다른 방식')); assert(output.includes('이 선택의 이유')); }
+   const hidden = R.normalizeAnswers({...normalized,[q.id]:'아직 미정'});
+   assert.equal(hidden[custom.id],'상황별로 다른 방식');
+   assert(!R.report(hidden).includes('상황별로 다른 방식'));
+   assert(!activeIds({...raw,features:[]}).includes(custom.id));
+ }
+ const base = {features:[feature()]};
+ assert(!activeIds(base).includes('booking_deadline'));
+ assert(activeIds({...base,booking_cancellation:'정해진 시점까지만 가능해요'}).includes('booking_deadline'));
+ assert(!activeIds(base).includes('booking_rules'));
+ assert(activeIds({...base,booking_rules:'기존 자유 입력'}).includes('booking_rules'));
+ assert(!fs.readFileSync('dist/app.js','utf8').includes('<summary>나중에 다시 확인할 정보 (선택)</summary>'));
 });
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);
