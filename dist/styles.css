@@ -1081,8 +1081,19 @@ dialog p {
 }
 @media (max-width: 1000px) {
   :root {
-    --type-title: 1.75rem;
-    --type-section: 1.5rem;
+    /* Reduce the previous mobile type scale by 150 / 200; keep rem-based user scaling. */
+    --type-small: 0.75rem;
+    --type-control: 0.84375rem;
+    --type-body: 0.890625rem;
+    --type-question: 1.03125rem;
+    --type-section: 1.125rem;
+    --type-title: 1.3125rem;
+  }
+  input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  textarea,
+  select,
+  .project-switcher-controls select {
+    font-size: max(1rem, var(--type-body));
   }
   html {
     scroll-padding-top: calc(var(--topbar-height) + var(--mobile-nav-height) + 16px);
@@ -1096,7 +1107,7 @@ dialog p {
     gap: 8px;
   }
   .brand {
-    font-size: 1.25rem;
+    font-size: 0.9375rem;
     gap: 7px;
   }
   .brand-group {
@@ -1520,6 +1531,11 @@ main:has(#guide-view:not([hidden])) {
 }
 #guide-title > span {
   color: var(--blue);
+}
+@media (max-width: 1000px) {
+  #guide-title {
+    font-size: 2.25rem;
+  }
 }
 .guide-lead {
   max-width: 420px;
@@ -2188,7 +2204,7 @@ body:has(#guide-view:not([hidden])) .mobile-report {
     margin-bottom: 18px;
   }
   #guide-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
     letter-spacing: -1.2px;
     margin-bottom: 20px;
   }
