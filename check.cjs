@@ -38,8 +38,33 @@ test('Static deployment protections remain intact', () => {
   assert.equal(deployment.pages_build_output_dir, './dist');
   assert(!deployment.main);
   const headers = fs.readFileSync('dist/_headers', 'utf8');
-  for (const rule of ["script-src 'self'", "script-src-attr 'none'", "style-src 'self'", "style-src-attr 'none'", "connect-src 'none'", "object-src 'none'", "frame-src 'none'", "frame-ancestors 'none'", "worker-src 'none'", 'X-Content-Type-Options: nosniff']) assert(headers.includes(rule));
-  assert(!/(?:unsafe-inline|unsafe-eval|https?:\/\/)/.test(headers));
+  const policyLines = headers.split(/\r?\n/).filter(line => line.trim().startsWith('Content-Security-Policy:'));
+  assert.equal(policyLines.length, 1);
+  const directives = policyLines[0].split(':').slice(1).join(':').trim().split(/;\s*/).map(rule => { const [name, ...sources] = rule.split(/\s+/); return [name, sources.join(' ')]; });
+  assert.equal(new Set(directives.map(([name]) => name)).size, directives.length, 'Duplicate directives can silently ignore a later restriction');
+  assert.deepEqual(Object.fromEntries(directives), {
+    'default-src': "'none'", 'script-src': "'self'", 'script-src-attr': "'none'",
+    'style-src': "'self'", 'style-src-attr': "'none'", 'font-src': "'self'", 'img-src': "'self' data:",
+    'connect-src': "'none'", 'object-src': "'none'", 'base-uri': "'none'", 'form-action': "'none'",
+    'frame-src': "'none'", 'frame-ancestors': "'none'", 'worker-src': "'none'"
+  }, 'Changing allowed resources requires a security review; substring checks miss added unsafe sources');
+  for (const rule of ['X-Content-Type-Options: nosniff', 'X-Frame-Options: DENY', 'Referrer-Policy: no-referrer', 'Strict-Transport-Security: max-age=31536000', 'Permissions-Policy: camera=(), microphone=(), geolocation=()']) assert(headers.split(/\r?\n/).some(line => line.trim() === rule));
+});
+
+test('The public bundle contains only reviewed static files and local scripts', () => {
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','app.js','guides.js','index.html','projects.js','questions.js','report.js','styles.css']);
+  for (const file of fs.readdirSync('dist')) assert(fs.lstatSync(`dist/${file}`).isFile(), 'Published files must not be directories or symlinks');
+  assert(!fs.existsSync('functions'), 'A server request handler needs a separate security review');
+  const html = fs.readFileSync('dist/index.html', 'utf8');
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+  assert.equal(scripts.length, 5);
+  for (const [, attributes, body] of scripts) {
+    assert.match(attributes, /^ src="(?:app|guides|projects|questions|report)\.js\?v=[a-f0-9]{12}" defer$/);
+    assert.equal(body.trim(), '', 'No inline script');
+  }
+  for (const [tag] of html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/g)) assert(tag.includes('rel="noopener noreferrer"'));
+  const runtime = fs.readdirSync('dist').filter(file => file.endsWith('.js')).map(file => fs.readFileSync(`dist/${file}`, 'utf8')).join('\n');
+  assert(!/\b(?:eval|Function|fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\s*\(|\bimport\s*\(|\bdocument\.write(?:ln)?\s*\(|\bset(?:Timeout|Interval)\s*\(\s*['"`]/.test(runtime), 'New network or string-execution code needs review; this is a limited regression guard, not a security scanner');
 });
 
 test('The page references the exact current assets', () => {
@@ -212,7 +237,7 @@ test('First-release scope comes from the original feature cards', () => {
   assert(output.includes('예약하기 unsure'));
 });
 
-test('One reference row per URL keeps notes and admits only safe links', () => {
+test('One reference row per URL keeps notes and normalizes HTTP links', () => {
   const q = typeQuestion('references');
   const a = R.normalizeAnswers({ [q.id]: [{ id: 'ref-1', url: 'https://example.com/a?x=1', note: '검색 화면 참고' }, { id: 'ref-2', url: 'http://example.org', note: '' }] });
   const output = R.report(a);
@@ -220,7 +245,30 @@ test('One reference row per URL keeps notes and admits only safe links', () => {
   assert(output.includes('<http://example.org/>'));
   assert(output.includes('검색 화면 참고'));
   assert(output.includes('열람·분석한 것은 아닙니다'));
-  for (const url of ['javascript:alert(1)', 'data:text/html,<script>', 'https://', '//example.com', 'https://example.com https://another.example']) assert.equal(R.safeUrl(url), '');
+  for (const url of ['javascript:alert(1)', 'data:text/html,<script>', 'https://', '//example.com', 'https://example.com https://another.example']) assert.equal(R.normalizeHttpUrl(url), '');
+});
+
+test('HTTP reference normalization rejects credentials and ambiguous input without claiming SSRF protection', () => {
+  for (const value of [null, {}, 42, 'https:///example.com', 'https://user:secret@example.com', 'https://trusted.example@other.example', 'https://user%40name@example.com', 'https://example.com\\@other.example', 'https://example.com\u0000', '\nhttps://example.com', 'https://exam\tple.com', 'https://example.com/\u007f', 'https://example.com/' + 'a'.repeat(2000)]) assert.equal(R.normalizeHttpUrl(value), '', String(value));
+  for (const [value, expected] of [[' HTTPS://EXAMPLE.COM/a?x=1&y=2#part ', 'https://example.com/a?x=1&y=2#part'], ['https://example.com/자료', 'https://example.com/%EC%9E%90%EB%A3%8C'], ['http://localhost:4173', 'http://localhost:4173/'], ['http://127.0.0.1', 'http://127.0.0.1/'], ['http://[::1]', 'http://[::1]/'], ['http://169.254.169.254', 'http://169.254.169.254/']]) assert.equal(R.normalizeHttpUrl(value), expected);
+});
+
+test('Invalid reference URLs are omitted from both document exports but original drafts survive', () => {
+  for (const url of ['https://user:secret@example.com', 'https://example.com\\@other.example', 'javascript:alert(1)', 'https://']) {
+    const answers = R.normalizeAnswers({ references: [{id:'ref-1',url,note:'디자인 참고 메모'}], alternatives:[{id:'alt-1',url,name:'비교 서비스'}] });
+    const project = P.createProject({answers});
+    const restored = P.importBackup({format:'buildbrief-idea',version:1,...project}).projects[0];
+    assert.equal(restored.answers.references[0].url, url);
+    assert.equal(restored.answers.alternatives[0].url, url);
+    for (const prompt of [false,true]) {
+      const output = R.report(restored.answers,prompt);
+      assert(output.includes('URL 확인 필요'));
+      if (url !== 'https://') assert(!output.includes(url));
+      assert(!output.includes('user:secret'));
+      assert(output.includes('디자인 참고 메모'));
+      assert(output.includes('비교 서비스'));
+    }
+  }
 });
 
 test('Unfinished and unsafe URL text survives autosave without becoming a link', () => {

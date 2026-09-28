@@ -86,13 +86,16 @@
     if (new Set(result).size !== result.length || allowed && result.some(item => !allowed.includes(item))) fail(label);
     return result;
   }
-  function safeUrl(value) {
-    if (typeof value !== 'string') return '';
+  const HTTP_URL_HELP = 'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
+  // For reference text only: this does not check DNS, redirects or private networks.
+  // Never use this function as authorization for a server-side request.
+  function normalizeHttpUrl(value) {
+    if (typeof value !== 'string' || /[\u0000-\u001f\u007f\\]/.test(value)) return '';
     const raw = value.trim();
-    if (!/^https?:\/\//i.test(raw) || /\s/.test(raw)) return '';
+    if (raw.length > 2000 || !/^https?:\/\/[^/]/i.test(raw) || /\s/.test(raw)) return '';
     try {
       const url = new URL(raw);
-      return ['http:', 'https:'].includes(url.protocol) && url.hostname ? url.href : '';
+      return ['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? url.href : '';
     } catch { return ''; }
   }
 
@@ -182,6 +185,11 @@
     lines.push(`# ${md(display(answers.project_name) || '이름을 정하지 않은 아이디어')} — 서비스 기획 초안`, '',
       '이 문서는 사용자가 적은 아이디어와 희망을 정리한 초안입니다. 답변 수나 선택한 기능 수가 기획 검증·개발 준비 완료를 뜻하지 않습니다.', '');
     const field = (label, value) => lines.push(`**${md(label)}**`, quote(display(value)), '');
+    const urlField = (label, value) => {
+      const url = normalizeHttpUrl(value);
+      lines.push(`**${md(label)}**`, url ? `<${url}>` : quote(isAnswered(value) ? `URL 확인 필요 — 주소를 초안에서 제외했어요. ${HTTP_URL_HELP}` : 'URL 미정'), '');
+      if (url) lines.push('이 URL의 내용을 이 서비스가 열람·분석한 것은 아닙니다.', '');
+    };
     for (const step of Q.steps) {
       const groups = activeGroups(step, answers, notes).map(group => ({ ...group, questions: group.questions.filter(q => isAnswered(notes[q.id]) || (q.type === 'scope' ? features.length : isAnswered(answers[q.id]))) })).filter(group => group.questions.length);
       if (!groups.length) continue;
@@ -215,15 +223,14 @@
               if (isAnswered(row.error)) field('실패했을 때', row.error);
               if (isAnswered(row.mobile)) field('휴대폰에서의 사용', row.mobile);
             } else if (q.type === 'references') {
-              const url = safeUrl(row.url);
-              lines.push(`**참고 ${index + 1}**`, url ? `<${url}>` : quote(row.url || 'URL 미정'), '', url ? '이 URL의 내용을 이 서비스가 열람·분석한 것은 아닙니다.' : 'URL 확인 필요 — http:// 또는 https://로 시작하는 주소 하나를 적어 주세요.', '');
+              urlField(`참고 ${index + 1}`, row.url);
               if (row.note) field('참고할 부분', row.note);
             } else if (q.type === 'flow' || q.type === 'main_flow') {
               lines.push(`**${index + 1}번째 행동**`, quote(row.featureId ? featureName(row.featureId) : '직접 적은 행동'), '');
               if (row.note || !row.featureId) field('이용 과정 설명', row.note);
             } else {
               lines.push(`**항목 ${index + 1}**`, '');
-              for (const f of q.fields) field(f.label, row[f.id]);
+              for (const f of q.fields) (f.type === 'url' ? urlField : field)(f.label, row[f.id]);
               if (q.id === 'alternatives') lines.push('비교 내용은 사용자가 작성한 정보이며 URL을 자동으로 열람·검증한 결과가 아닙니다. ‘아직 예상’은 확인되지 않은 가정이며 판단 근거가 비어 있으면 확인 여부가 미정입니다.', '');
             }
           });
@@ -250,7 +257,7 @@
     lines.push('', '입력하지 않은 기능·정책·기술은 확정하지 않았습니다. 조건에서 제외된 이전 답변은 현재 초안에 넣지 않으며 프로젝트 백업에는 보관합니다.', '');
     return lines.join('\n');
   }
-  const api = { UNKNOWN, EXCLUSIVE, MAX_ROWS, MAX_TEXT, allQuestions, choiceOptions, isAnswered, display, matches, activeGroups, activeQuestions, normalizeAnswers, normalizeNotes, normalizeRecommendations, normalizeProject, progress, safeUrl, report };
+  const api = { UNKNOWN, EXCLUSIVE, MAX_ROWS, MAX_TEXT, HTTP_URL_HELP, allQuestions, choiceOptions, isAnswered, display, matches, activeGroups, activeQuestions, normalizeAnswers, normalizeNotes, normalizeRecommendations, normalizeProject, progress, normalizeHttpUrl, report };
   root.BriefReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
