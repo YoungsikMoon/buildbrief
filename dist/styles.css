@@ -815,7 +815,7 @@ main {
 }
 .element-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   gap: 10px;
 }
 .element-option {
@@ -834,6 +834,8 @@ main {
   display: block;
   cursor: pointer;
   padding: 10px;
+  flex: 1;
+  min-width: 0;
 }
 .element-option label > span {
   display: flex;
@@ -850,26 +852,61 @@ main {
   margin-top: 2px;
 }
 .element-option .option-help {
-  position: absolute;
-  right: 8px;
-  top: 8px;
+  flex: 0 0 2rem;
+  margin-right: 10px;
   width: 2rem;
   height: 2rem;
   font-size: var(--type-control);
 }
-.wireframe {
-  width: 100%;
-  height: 80px;
-  display: block;
-  fill: var(--surface);
-  stroke: var(--control-border);
-  stroke-width: 1.3;
-  background: var(--surface);
-  border-radius: 4px;
+.element-choice {
+  display: flex;
+  align-items: center;
 }
-.wireframe .accent {
-  fill: var(--soft);
-  stroke: var(--blue);
+.element-preview {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  cursor: zoom-in;
+}
+.element-preview img,
+.element-example img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.element-preview:focus-visible {
+  outline-offset: -3px;
+}
+.element-example {
+  margin: 0 0 24px;
+}
+.element-example img {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.element-example figcaption {
+  font-size: var(--type-body);
+  color: var(--muted);
+  line-height: 1.75;
+  margin-top: 12px;
+}
+.element-example a {
+  display: block;
+  width: fit-content;
+  padding: 8px 0;
+}
+.option-help-dialog:has(.element-example) {
+  width: min(1100px, calc(100% - 32px));
+}
+.option-help-dialog:has(.element-example) .help-top {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 0;
+  background: #fff;
 }
 .optional-details {
   border-top: 1px solid var(--line);
@@ -1107,9 +1144,6 @@ dialog p {
   .catalog {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   }
-  .element-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-  }
   .topbar {
     padding: 14px 22px;
   }
@@ -1260,9 +1294,6 @@ dialog p {
   }
   .editor-card {
     padding: 16px;
-  }
-  .element-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   }
   .question-group {
     border-radius: 10px;

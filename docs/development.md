@@ -38,6 +38,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [dist/storage.js](../dist/storage.js) | 브라우저 저장 읽기·쓰기, 실패·복구 상태, 다른 탭 변경 감지 |
 | [dist/projects.js](../dist/projects.js) | 프로젝트 저장·백업 형식과 가져오기 검증 |
 | [dist/styles.css](../dist/styles.css) | PC·모바일 레이아웃 |
+| [dist/element-examples/](../dist/element-examples/) | 화면 요소 30개의 생성 이미지 예시 (WebP) |
 | [dist/_headers](../dist/_headers) | Cloudflare Pages의 보안·캐시 응답 헤더 |
 | [SECURITY.md](../SECURITY.md) | 보안 문서 목차, 작업별 읽는 순서와 문서 갱신 규칙 |
 | [docs/security/](../docs/security/) | 주제별 ASVS 적용 범위·점검표·운영 기준·검증 이력 |
@@ -54,6 +55,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 - `report.js`는 문서 텍스트, `views.js`는 HTML을 반환합니다. 이 두 모듈은 저장소나 실제 DOM을 변경하지 않습니다. 사용자 입력의 이스케이프와 질문·답변·이유의 경계를 유지하세요.
 - `projects.js`는 저장·백업 형식을 검증하고, `storage.js`는 읽기·쓰기 실패와 다른 탭의 변경을 처리합니다. UI 안내와 프로젝트 전환은 `app.js`에서 연결합니다. 저장 키와 백업 버전은 기존 값을 유지합니다.
 - 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
+- 화면 요소 이미지는 `questions.js`의 요소 ID와 같은 이름의 WebP만 공개합니다. `check.cjs`가 정확한 목록·파일 유형·용량 상한을 확인합니다. 새 이미지는 [UI 기준](ui-guidelines.md#화면-요소-예시)에 따라 수동 검수하고, 생성 프롬프트와 원본·개발용 파일은 공개 폴더에 넣지 않습니다. 이미지 생성 도구는 빌드 의존성이 아닙니다.
 
 ## 코드 정렬
 

@@ -178,9 +178,10 @@
     if (rerender) renderStep(currentStep);
     else updateProgress();
   }
-  function showHelp(title, guide) {
+  function showHelp(title, guide, elementId = '') {
     $('#help-title').textContent = title;
     $('#help-content').innerHTML =
+      V.elementExample(elementId, true) +
       '<dl>' +
       [
         ['meaning', '무엇인가요?'],
@@ -195,6 +196,7 @@
         .join('') +
       '</dl>';
     $('#option-help-dialog').showModal();
+    $('#option-help-dialog').scrollTop = 0;
   }
   function renderReport() {
     if (!$('#form-view').hidden) formScrollY = window.scrollY;
@@ -409,7 +411,7 @@
       const guide = d.elementChoice
         ? el?.detail?.options.find((o) => o.id === d.elementChoice)
         : el;
-      if (guide) showHelp(guide.label, guide);
+      if (guide) showHelp(guide.label, guide, d.elementChoice ? '' : el.id);
       return;
     }
     if (d.addElement !== undefined || d.removeElement !== undefined) {

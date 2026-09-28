@@ -243,81 +243,28 @@ ${esc(value)}</textarea
         )) + addButton(q.id, '다음 행동 추가')
     );
   }
-  function wireframe(kind) {
-    const box = (x, y, w, h, accent = false) =>
-      /* HTML */ `<rect
-        x="${x}"
-        y="${y}"
-        width="${w}"
-        height="${h}"
-        rx="2"
-        ${accent ? 'class="accent"' : ''}
-      />`;
-    const lines = '<path d="M35 22h54M35 33h43M35 44h50M35 55h36"/>';
-    const shapes = {
-      appbar: box(8, 8, 104, 12, true) + lines,
-      sidebar: box(8, 8, 21, 64, true) + lines,
-      bottomnav: box(8, 59, 104, 13, true) + lines,
-      tabs: box(8, 8, 31, 10, true) + box(42, 8, 31, 10) + box(76, 8, 31, 10) + lines,
-      list: [10, 30, 50]
-        .map(
-          (y) => box(8, y, 16, 14, true) + /* HTML */ `<path d="M32 ${y + 4}h72M32 ${y + 11}h48" />`
-        )
-        .join(''),
-      cards: [8, 45, 82].map((x) => box(x, 12, 30, 52) + box(x + 4, 16, 22, 22, true)).join(''),
-      table:
-        box(8, 10, 104, 58) +
-        '<path d="M8 24h104M8 38h104M8 52h104M42 10v58M78 10v58"/>' +
-        box(8, 10, 104, 13, true),
-      calendar:
-        box(10, 8, 100, 64) +
-        box(10, 8, 100, 13, true) +
-        '<path d="M10 38h100M10 54h100M35 21v51M60 21v51M85 21v51"/>',
-      map: '<path d="M8 62L37 12l40 58 33-54M8 25l100 33M44 8v64"/><circle class="accent" cx="68" cy="33" r="9"/>',
-      chart: box(18, 43, 15, 25) + box(49, 26, 15, 42, true) + box(80, 10, 15, 58),
-      form: box(14, 14, 92, 15) + box(14, 37, 92, 15) + box(74, 59, 32, 12, true),
-      upload: box(15, 8, 90, 64) + '<path d="M60 53V25m-12 12 12-12 12 12"/>',
-      fab: lines + '<circle class="accent" cx="97" cy="57" r="13"/><path d="M90 57h14M97 50v14"/>',
-      search:
-        box(10, 10, 100, 20, true) +
-        '<circle cx="22" cy="19" r="4"/><path d="M25 22l4 4M14 44h75M14 57h52"/>',
-      filters: [8, 43, 78].map((x) => box(x, 9, 30, 13, true)).join('') + lines,
-      rightpanel: box(83, 8, 29, 64, true) + '<path d="M10 20h59M10 32h43M10 44h59M10 56h40"/>',
-      dialog: box(8, 8, 104, 64) + box(28, 22, 64, 38, true) + '<path d="M37 32h43M37 42h28"/>',
-      footer: lines + box(8, 60, 104, 12, true) + '<path d="M16 66h24m10 0h22m10 0h22"/>',
-      drawer:
-        box(8, 8, 56, 64, true) +
-        '<path d="M17 21h29M17 34h29M17 47h29M80 12h21m-21 7h21m-21 7h21"/>',
-      breadcrumbs:
-        '<path d="M10 15h20m6-4 4 4-4 4m9-4h25m6-4 4 4-4 4"/>' + box(86, 9, 25, 12, true) + lines,
-      image:
-        box(12, 10, 96, 60, true) +
-        '<circle cx="36" cy="27" r="6"/><path d="m18 61 22-21 17 15 20-26 25 32"/>',
-      video:
-        box(12, 10, 96, 60) + '<path class="accent" d="m51 24 23 14-23 14Z"/><path d="M22 62h76"/>',
-      gallery:
-        box(28, 8, 64, 45, true) +
-        [25, 50, 75].map((x) => box(x, 60, 20, 12)).join('') +
-        '<path d="m17 23-8 8 8 8m86-16 8 8-8 8"/>',
-      accordion:
-        box(10, 8, 100, 14, true) +
-        lines +
-        box(10, 59, 100, 13) +
-        '<path d="m96 13 4 4 4-4m-8 50 4 4 4-4"/>',
-      button: box(20, 26, 80, 28, true) + '<path d="M38 40h44"/>',
-      link: '<path d="M15 27h90M15 47h50"/><path class="accent" d="M15 52h50m25-10 10-10m-8 0h8v8"/>',
-      banner:
-        box(8, 8, 104, 20, true) +
-        '<path d="M29 18h58M16 43h87M16 58h62"/><circle cx="18" cy="18" r="4"/>',
-      toast: lines + box(23, 53, 74, 19, true) + '<path d="m31 62 4 4 7-8M49 63h37"/>',
-      progress: box(10, 34, 100, 14) + box(10, 34, 60, 14, true) + '<path d="M32 22h54M35 59h48"/>',
-      bottomsheet:
-        box(8, 8, 104, 64) + box(8, 35, 104, 37, true) + '<path d="M50 41h20M24 52h72M24 62h51"/>'
-    };
-    return /* HTML */ `<svg class="wireframe" viewBox="0 0 120 80" aria-hidden="true">
-      ${shapes[kind] || shapes.cards}
-    </svg>`;
+  function elementExample(id, expanded = false) {
+    const el = uiElements.find((item) => item.id === id);
+    if (!el) return '';
+    const src = `element-examples/${el.id}.webp`;
+    const picture = /* HTML */ `<img
+      src="${src}"
+      width="1200"
+      height="800"
+      alt="${expanded ? esc(el.example) : ''}"
+      loading="${expanded ? 'eager' : 'lazy'}"
+      decoding="async"
+    />`;
+    return expanded
+      ? /* HTML */ `<figure class="element-example"
+          >${picture}<figcaption>
+            주황색 테두리 안이 ${esc(el.label)} 예시예요. 이해를 돕기 위해 만든 가상 화면이에요.
+            <a href="${src}" target="_blank" rel="noopener noreferrer">이미지 새 탭에서 보기 ↗</a>
+          </figcaption></figure
+        >`
+      : picture;
   }
+
   function elementDetail(el, row, i) {
     if (!el.detail) return '';
     const selected = row.elementOptions?.[el.id] || [];
@@ -403,8 +350,8 @@ ${esc(value)}</textarea
                   >화면에 넣을 요소 고르기
                   <span>${(row.elements || []).length}개 선택</span></summary
                 ><p class="field-help"
-                  >필요한 역할을 펼쳐 살펴보세요. 여러 요소를 함께 쓸 수 있고 모두 고를 필요는
-                  없어요. 그림은 역할을 보여 주는 예시예요.</p
+                  >역할별로 필요한 요소만 골라 보세요. 주황색 테두리가 해당 요소이며, 이미지를
+                  누르면 크게 볼 수 있어요.</p
                 >${uiElementGroups
                   .map(
                     (group) =>
@@ -430,21 +377,30 @@ ${esc(value)}</textarea
                                   class="element-option ${(row.elements || []).includes(el.id)
                                     ? 'selected'
                                     : ''}"
-                                  ><label
-                                    >${wireframe(el.id)}<span
-                                      ><input
-                                        type="checkbox"
-                                        ${attrs(q.id, i, 'elements')}
-                                        value="${el.id}"
-                                        ${(row.elements || []).includes(el.id) ? 'checked' : ''}
-                                      />${esc(el.label)}</span
-                                    ></label
                                   ><button
                                     type="button"
-                                    class="option-help"
+                                    class="element-preview"
                                     data-element-help="${el.id}"
-                                    aria-label="${esc(el.label)} 설명"
-                                    >?</button
+                                    aria-label="${esc(el.label)} 예시 크게 보기"
+                                    >${elementExample(el.id)}</button
+                                  >
+                                  <div class="element-choice"
+                                    ><label
+                                      ><span
+                                        ><input
+                                          type="checkbox"
+                                          ${attrs(q.id, i, 'elements')}
+                                          value="${el.id}"
+                                          ${(row.elements || []).includes(el.id) ? 'checked' : ''}
+                                        />${esc(el.label)}</span
+                                      ></label
+                                    ><button
+                                      type="button"
+                                      class="option-help"
+                                      data-element-help="${el.id}"
+                                      aria-label="${esc(el.label)} 설명"
+                                      >?</button
+                                    ></div
                                   ></div
                                 >`
                             )
@@ -755,7 +711,7 @@ ${esc(value)}</textarea
         보완하도록 안내해요. 이 사이트에서 AI가 자동 실행되지는 않아요.</p
       ><article class="report-document">${body}</article>`;
   }
-  const api = { escapeHtml: esc, question: renderQuestion, report: renderReport };
+  const api = { escapeHtml: esc, question: renderQuestion, report: renderReport, elementExample };
   root.BriefViews = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

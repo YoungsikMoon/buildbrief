@@ -199,6 +199,7 @@
   const uiElements = [
     {
       id: 'appbar',
+      example: '화면 맨 위의 가로 영역에 로고, 둘러보기, 내 예약과 프로필을 모은 상단 바 예시.',
       group: 'navigation',
       label: '상단 바',
       meaning: '화면 위쪽에 제목, 메뉴, 계정 등의 공통 정보를 놓아요.',
@@ -208,6 +209,7 @@
     },
     {
       id: 'sidebar',
+      example: '본문 왼쪽에 대시보드, 내 수업, 예약 관리, 설정을 세로로 배치한 메뉴 예시.',
       group: 'navigation',
       label: '왼쪽 메뉴',
       meaning: '왼쪽에 메뉴를 세로로 두고 다른 영역으로 이동해요.',
@@ -217,6 +219,7 @@
     },
     {
       id: 'bottomnav',
+      example: '화면 아래에서 홈, 둘러보기, 내 예약, 내 정보로 이동하는 하단 메뉴 예시.',
       group: 'navigation',
       label: '하단 메뉴',
       meaning: '화면 아래쪽에서 자주 쓰는 주요 영역으로 이동해요.',
@@ -226,6 +229,7 @@
     },
     {
       id: 'tabs',
+      example: '수업 소개, 일정, 후기 중 하나를 골라 같은 수업의 다른 내용을 보는 탭 예시.',
       group: 'navigation',
       label: '탭',
       meaning: '관련된 내용을 한 영역 안에서 나눠 보여 줘요.',
@@ -235,6 +239,7 @@
     },
     {
       id: 'list',
+      example: '사진, 수업 이름, 날짜와 상태를 한 줄씩 나열한 예약 목록 예시.',
       group: 'content',
       detail: collectionDetail,
       label: '목록',
@@ -245,6 +250,7 @@
     },
     {
       id: 'cards',
+      example: '수업별 사진, 이름, 일정, 가격과 예약 버튼을 각각 묶은 카드 예시.',
       group: 'content',
       detail: collectionDetail,
       label: '카드',
@@ -255,6 +261,7 @@
     },
     {
       id: 'table',
+      example: '여러 수업의 날짜, 신청자 수와 상태를 행과 열로 비교하는 표 예시.',
       group: 'content',
       detail: collectionDetail,
       label: '표(Table)',
@@ -265,6 +272,7 @@
     },
     {
       id: 'calendar',
+      example: '요일과 시간에 맞춰 도자기, 요리, 꽃꽂이 수업을 배치한 주간 달력 예시.',
       group: 'content',
       label: '달력',
       meaning: '일정이나 이용 가능한 시간을 날짜에 맞춰 보여 줘요.',
@@ -274,6 +282,7 @@
     },
     {
       id: 'map',
+      example: '길과 주변 장소 위에 도자기 공방과 요리 교실의 위치를 표시한 지도 예시.',
       group: 'content',
       label: '지도',
       meaning: '장소의 위치와 주변 관계를 지도에 표시해요.',
@@ -283,6 +292,7 @@
     },
     {
       id: 'chart',
+      example: '요일별 신청 수를 막대 높이로 비교하는 차트 예시.',
       group: 'content',
       label: '차트',
       meaning: '숫자의 변화나 항목 간 차이를 그림으로 보여 줘요.',
@@ -292,6 +302,7 @@
     },
     {
       id: 'form',
+      example: '이름, 수업, 날짜와 시간을 입력하거나 선택해 신청하는 입력 양식 예시.',
       group: 'input',
       detail: {
         label: '어떤 방식으로 입력하나요?',
@@ -361,6 +372,7 @@
     },
     {
       id: 'upload',
+      example: '파일 선택 버튼과 선택한 사진의 미리보기를 제공하는 파일 첨부 예시.',
       group: 'input',
       label: '사진·파일 첨부',
       meaning: '사진이나 문서를 골라 올리는 영역이에요.',
@@ -370,6 +382,7 @@
     },
     {
       id: 'search',
+      example: '검색창에 도자기를 입력하고 관련 수업을 찾는 예시.',
       group: 'input',
       label: '검색창',
       meaning: '단어나 번호를 입력해 원하는 내용을 찾아요.',
@@ -379,6 +392,7 @@
     },
     {
       id: 'filters',
+      example: '지역과 요일로 수업을 좁히고 표시 순서를 바꾸는 필터·정렬 예시.',
       group: 'input',
       label: '필터·정렬',
       meaning: '조건에 맞는 항목만 보거나 표시 순서를 바꿔요.',
@@ -388,6 +402,8 @@
     },
     {
       id: 'rightpanel',
+      example:
+        '예약 목록을 계속 보면서 오른쪽에서 선택한 예약의 상세 내용을 확인하는 보조 패널 예시.',
       group: 'overlay',
       label: '오른쪽 보조 패널',
       meaning: '주 화면 옆에서 선택한 항목의 상세 정보나 보조 작업을 보여 줘요.',
@@ -397,6 +413,7 @@
     },
     {
       id: 'dialog',
+      example: '배경을 어둡게 하고 화면 가운데에서 예약 취소 여부를 확인하는 대화 상자 예시.',
       group: 'overlay',
       label: '대화 상자',
       meaning: '현재 화면 위에 잠깐 나타나 확인이나 짧은 입력을 받아요.',
@@ -406,6 +423,7 @@
     },
     {
       id: 'footer',
+      example: '페이지 끝에 이용약관, 개인정보처리방침과 문의 링크를 모은 푸터 예시.',
       group: 'navigation',
       label: '화면 아래 공통 정보(푸터)',
       meaning: '페이지 끝에 운영자 정보, 이용약관, 문의·관련 링크를 모아요.',
@@ -416,6 +434,7 @@
     },
     {
       id: 'drawer',
+      example: '메뉴 버튼으로 연 왼쪽 이동 메뉴와 그 뒤로 어두워진 본문을 보여 주는 예시.',
       group: 'navigation',
       label: '접었다 여는 메뉴',
       meaning: '메뉴 버튼을 누르면 옆에서 이동 메뉴가 펼쳐져요.',
@@ -426,6 +445,7 @@
     },
     {
       id: 'breadcrumbs',
+      example: '홈, 클래스, 도자기의 순서로 현재 화면의 상위 경로를 보여 주는 예시.',
       group: 'navigation',
       label: '현재 위치 경로',
       meaning: '‘홈 > 자료 > 상세’처럼 현재 화면의 상위 경로를 보여 줘요.',
@@ -436,6 +456,7 @@
     },
     {
       id: 'image',
+      example: '수업 내용을 설명하기 위해 도자기 만드는 사진 한 장을 보여 주는 이미지 예시.',
       group: 'content',
       label: '이미지',
       meaning: '상품 사진, 안내 그림처럼 내용을 시각적으로 보여 줘요.',
@@ -446,6 +467,7 @@
     },
     {
       id: 'video',
+      example: '재생 버튼, 재생 시간과 진행 막대가 있는 수업 미리보기 영상 예시.',
       group: 'content',
       label: '영상',
       meaning: '시연이나 강의 영상을 화면 안에서 재생해요.',
@@ -456,6 +478,7 @@
     },
     {
       id: 'gallery',
+      example: '큰 사진과 작은 미리보기 사진, 이전·다음 이동으로 공방을 살펴보는 사진 모음 예시.',
       group: 'content',
       label: '사진 모음',
       meaning: '여러 사진을 모아 보여 주고 고른 사진을 크게 보거나 넘겨 봐요.',
@@ -465,6 +488,7 @@
     },
     {
       id: 'accordion',
+      example: '자주 묻는 질문 중 준비물에 관한 답변만 펼치고 다른 답변은 접은 예시.',
       group: 'content',
       label: '접었다 펼치는 내용',
       meaning: '제목을 누르면 그 아래의 설명이 펼쳐져요.',
@@ -474,6 +498,7 @@
     },
     {
       id: 'button',
+      example: '수업 정보 바로 아래에서 예약하기를 실행하는 일반 버튼 예시.',
       group: 'action',
       label: '일반 버튼',
       meaning: '저장·신청·삭제처럼 사용자가 원하는 작업을 실행해요.',
@@ -484,6 +509,7 @@
     },
     {
       id: 'link',
+      example: '밑줄이 있는 파란 글자를 눌러 자세한 이용 안내로 이동하는 링크 예시.',
       group: 'action',
       label: '링크',
       meaning: '다른 페이지나 문서, 같은 화면의 특정 위치로 이동해요.',
@@ -494,6 +520,7 @@
     },
     {
       id: 'fab',
+      example: '본문 위의 오른쪽 아래에 떠 있는 파란색 더하기 버튼으로 수업을 추가하는 예시.',
       group: 'action',
       label: '떠 있는 주요 버튼(FAB)',
       meaning: '화면 위에 떠 있는 눈에 띄는 버튼으로 주요 행동 하나를 실행해요.',
@@ -503,6 +530,7 @@
     },
     {
       id: 'banner',
+      example: '페이지 상단의 안내 영역에서 토요일 점검 소식을 알려 주는 배너 예시.',
       group: 'feedback',
       label: '안내 배너',
       meaning: '공지·주의 사항·현재 상태를 눈에 띄는 영역에 보여 줘요.',
@@ -513,6 +541,7 @@
     },
     {
       id: 'toast',
+      example: '화면을 가로막지 않고 예약 저장 결과를 잠깐 알려 주는 완료 메시지 예시.',
       group: 'feedback',
       label: '잠깐 뜨는 완료 메시지',
       meaning: '‘저장했어요’처럼 작업 결과를 잠깐 알리고 사라져요.',
@@ -523,6 +552,7 @@
     },
     {
       id: 'progress',
+      example: '사진 업로드가 얼마나 진행됐는지 막대와 60% 숫자로 보여 주는 예시.',
       group: 'feedback',
       label: '로딩·진행 표시',
       meaning: '불러오는 중이거나 작업이 얼마나 진행됐는지 보여 줘요.',
@@ -533,6 +563,7 @@
     },
     {
       id: 'bottomsheet',
+      example: '배경 화면을 유지한 채 아래에서 열린 패널에서 정렬 방식을 고르는 예시.',
       group: 'overlay',
       label: '아래에서 여는 패널',
       meaning: '휴대폰 화면 아래에서 선택지나 짧은 상세 내용이 올라와요.',

@@ -4,6 +4,7 @@ const A = require('../dist/answers.js');
 const P = require('../dist/projects.js');
 const S = require('../dist/storage.js');
 const V = require('../dist/views.js');
+const Q = require('../dist/questions.js');
 const question = (id) => A.allQuestions.find((item) => item.id === id);
 let passed = 0;
 function test(name, run) {
@@ -151,7 +152,14 @@ test('Extracted views escape every question type, answer, choice reason and repo
   };
   for (const q of A.allQuestions) {
     const html = V.question(q, answers, { [q.id]: attack }, q.allowRecommend ? [q.id] : []);
-    assert(!/<(?:img|script)\b/i.test(html), q.id);
+    const images = html.match(/<img\b[^>]*>/g) || [];
+    assert.equal(images.length, q.type === 'screens' ? Q.uiElements.length : 0, q.id);
+    for (const image of images)
+      assert(
+        Q.uiElements.some((el) => V.elementExample(el.id) === image),
+        'Only catalog example images may be rendered'
+      );
+    assert(!/<(?:img|script)\b/i.test(html.replace(/<img\b[^>]*>/g, '')), q.id);
     assert(html.includes('&lt;img'), q.id);
     assert(html.includes('maxlength="6000"'), q.id);
   }
@@ -161,6 +169,24 @@ test('Extracted views escape every question type, answer, choice reason and repo
   assert(!/<(?:img|script)\b/i.test(html));
   assert(!/<h[1-6][^>]*>다른 질문/.test(html));
   assert(html.includes('&lt;img'));
+});
+
+test('Example previews use fixed local assets and descriptive alternatives', () => {
+  for (const id of [
+    '',
+    '../private',
+    'https://example.com/image',
+    '"><img src=x onerror=alert(1)>'
+  ])
+    assert.equal(V.elementExample(id, true), '');
+  for (const el of Q.uiElements) {
+    const preview = V.elementExample(el.id, true);
+    assert(preview.includes(`src="element-examples/${el.id}.webp"`));
+    assert(preview.includes(`alt="${V.escapeHtml(el.example)}"`));
+    assert(preview.includes('rel="noopener noreferrer"'));
+    assert(preview.includes('loading="eager"'));
+    assert(V.elementExample(el.id).includes('loading="lazy"'));
+  }
 });
 
 test('Report HTML keeps each reason inside its own question card', () => {

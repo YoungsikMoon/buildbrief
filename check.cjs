@@ -54,8 +54,21 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','guides.js','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
-  for (const file of fs.readdirSync('dist')) assert(fs.lstatSync(`dist/${file}`).isFile(), 'Published files must not be directories or symlinks');
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','element-examples','guides.js','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  for (const file of fs.readdirSync('dist')) {
+    const info = fs.lstatSync(`dist/${file}`);
+    assert(file === 'element-examples' ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and the image directory may be published');
+  }
+  assert.deepEqual(fs.readdirSync('dist/element-examples').sort(), Q.uiElements.map(el => el.id + '.webp').sort());
+  for (const el of Q.uiElements) {
+    const file = `dist/element-examples/${el.id}.webp`;
+    assert(fs.lstatSync(file).isFile(), 'Example assets cannot be symlinks or directories');
+    const bytes = fs.readFileSync(file);
+    assert(bytes.length > 0 && bytes.length <= 250000, 'Example image exceeds the reviewed size limit');
+    assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');
+    assert(el.example?.trim(), 'Every example needs a text description');
+  }
   assert(!fs.existsSync('functions'), 'A server request handler needs a separate security review');
   const html = fs.readFileSync('dist/index.html', 'utf8');
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
