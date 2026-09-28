@@ -320,6 +320,6 @@
   if (firstVisit) save();
   else if (!loadFailed) status('이 브라우저에 저장됨');
   renderStep(currentStep);
-  if (!loadFailed && !workspace.projects.find(p => p.id === workspace.activeId).started) showGuide(false);
+  showGuide(false);
   if (loadFailed) { status('저장 읽기 실패 · 원본 보존 중'); toast('기존 저장 내용을 읽지 못했어요. 저장 안내에서 원본을 백업할 수 있어요.'); }
 })();
