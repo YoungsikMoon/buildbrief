@@ -7,6 +7,8 @@
 3. `node check.cjs`, `node scripts/release.cjs --test`, `node scripts/build.cjs --test`를 실행합니다.
 4. 변경 이유, 사용자에게 달라지는 동작, 검증 결과를 Pull Request에 적습니다.
 
+실행 환경·파일 구성·자산 갱신은 [개발과 검증](docs/development.md), 작업별 상세 문서는 [README 목차](README.md#문서-안내)를 참고하세요. 동작을 바꿨다면 해당 주제 문서를 갱신하고 README에는 요약과 연결만 유지합니다.
+
 개인 답변, 사업 아이디어, API 키, 비밀번호, `.env`, 배포 계정 설정을 올리지 마세요. 질문 예시는 특정 이용자의 실제 사업 내용을 담지 않는 일반적인 예시를 사용합니다.
 
 ## 보안 검토
@@ -23,4 +25,4 @@
 
 ## 버전
 
-버전은 직접 올리지 않습니다. 원본 저장소의 `main`에 변경이 반영되고 검증이 통과하면 자동으로 날짜별 태그와 GitHub Release가 만들어집니다. 자세한 규칙은 [README](README.md#버전-관리)를 참고하세요.
+버전은 직접 올리지 않습니다. 원본 저장소의 `main`에 변경이 반영되고 검증이 통과하면 자동으로 날짜별 태그와 GitHub Release가 만들어집니다. 자세한 규칙은 [배포와 버전 관리](docs/release-and-deployment.md#버전-관리)를 참고하세요.
