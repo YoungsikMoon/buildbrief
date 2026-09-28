@@ -10,7 +10,7 @@
   const initial = P.createProject();
   let workspace = { version:1, activeId:initial.id, projects:[initial] };
   let answers, drafts, notes, recommendations, currentStep, storedRaw = null, originalStorage = null;
-  let loadFailed = false, externalChange = false, storageWorking = true, toastTimer;
+  let loadFailed = false, externalChange = false, storageWorking = true, toastTimer, formScrollY = 0;
   try { storedRaw = originalStorage = localStorage.getItem(P.KEY); if (storedRaw !== null) workspace = P.normalizeWorkspace(JSON.parse(storedRaw)); }
   catch { loadFailed = true; storageWorking = false; }
   activateProject();
@@ -152,6 +152,7 @@
     $('#option-help-dialog').showModal();
   }
   function renderReport() {
+    if (!$('#form-view').hidden) formScrollY = window.scrollY;
     $('#form-view').hidden = true; $('#report-view').hidden = false; setNavigation(false);
     // Only our heading/list prefixes become HTML; all user text remains escaped.
     const readable = value => esc(value.replace(/\\([\\`*_\[\]#|])/g,'$1').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));
@@ -259,8 +260,11 @@
     if (d.projectDelete) { $('#delete-project-dialog').dataset.project = d.projectDelete; $('#delete-project-name').textContent = P.projectTitle(workspace.projects.find(p => p.id === d.projectDelete)); $('#delete-project-error').textContent = ''; return $('#delete-project-dialog').showModal(); }
     switch (b.id) {
       case 'previous-button': return renderStep(currentStep-1,true);
-      case 'report-button': return renderReport();
-      case 'back-to-form': return renderStep(currentStep,true);
+      case 'report-button': case 'mobile-report-button': return renderReport();
+      case 'back-to-form':
+        $('#form-view').hidden = false; $('#report-view').hidden = true; setNavigation(false);
+        $('#page-title').tabIndex = -1; $('#page-title').focus({preventScroll:true});
+        window.scrollTo({top:formScrollY,behavior:'instant'}); return;
       case 'toggle-navigation': return setNavigation($('#sidebar').dataset.open !== 'true');
       case 'save-help-button': return $('#storage-help-dialog').showModal();
       case 'close-storage-help': return $('#storage-help-dialog').close();

@@ -7,12 +7,12 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=ec6e82ec6264">
+  <link rel="stylesheet" href="styles.css?v=ee613d4879e6">
   <script src="questions.js?v=5e7fa8ee03c1" defer></script>
   <script src="report.js?v=130844a85835" defer></script>
   <script src="projects.js?v=75a50fab8a5e" defer></script>
   <script src="guides.js?v=b1a526715dd4" defer></script>
-  <script src="app.js?v=09b4b1f8d979" defer></script>
+  <script src="app.js?v=5ba5b9ac4d6a" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -25,17 +25,6 @@
       <span class="save-state-indicator" id="save-indicator" aria-hidden="true">…</span>
       <span class="save-state-copy"><span id="save-status" role="status">이 브라우저에 자동 저장</span><span class="save-state-hint">저장 위치·백업 안내</span></span>
     </button>
-    <div class="top-actions" role="group" aria-label="현재 프로젝트 작업">
-      <button type="button" class="button secondary" id="export-answers" aria-label="현재 프로젝트 백업 내려받기" title="현재 프로젝트를 JSON 파일로 보관">
-        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span>백업 내려받기</span>
-      </button>
-      <button type="button" class="button secondary" id="import-answers" aria-label="백업 파일 불러오기" aria-describedby="import-description" title="백업 파일을 새 프로젝트로 추가">
-        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M4 16v4h16v-4"/></svg><span>백업 불러오기</span>
-      </button>
-      <button type="button" class="button primary" id="report-button" aria-label="기획 초안 보기">
-        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg><span>기획 초안 보기</span>
-      </button>
-    </div>
   </header>
   <p class="visually-hidden" id="import-description">JSON 백업을 새 프로젝트로 추가합니다. 현재 프로젝트는 유지됩니다.</p>
   <input id="import-file" type="file" accept="application/json,.json" hidden>
@@ -46,24 +35,38 @@
         <div class="project-switcher-heading"><label for="project-select">내 프로젝트</label><button type="button" class="text-button" id="manage-projects" aria-haspopup="dialog" aria-controls="projects-dialog">관리</button></div>
         <div class="project-switcher-controls"><select class="select-input" id="project-select" aria-label="프로젝트 선택"><option value="">새로운 아이디어</option></select><button type="button" class="button secondary small" id="add-project" aria-haspopup="dialog" aria-controls="project-name-dialog">+ 새 프로젝트</button></div>
       </div>
+      <div class="project-backups" role="group" aria-label="프로젝트 백업">
+      <button type="button" class="button secondary" id="export-answers" aria-label="현재 프로젝트 백업 내려받기" title="현재 프로젝트를 JSON 파일로 보관">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span>백업 내려받기</span>
+      </button>
+      <button type="button" class="button secondary" id="import-answers" aria-label="백업 파일 불러오기" aria-describedby="import-description" title="백업 파일을 새 프로젝트로 추가">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M4 16v4h16v-4"/></svg><span>백업 불러오기</span>
+      </button>
+      </div>
       <div class="answer-progress">
-        <div class="progress-heading"><label for="answer-progress">작성 진행률</label><strong id="progress-percent">0%</strong></div>
+        <div class="progress-heading"><label for="answer-progress">작성 현황</label><strong id="progress-percent">0%</strong></div>
         <progress id="answer-progress" value="0" max="100" aria-describedby="progress-caption"></progress>
         <p class="progress-caption" id="progress-caption"></p>
-        <details class="progress-help"><summary>진행률 기준</summary><p>현재 표시되는 질문 중 답변을 적거나 선택한 비율이에요. 선택에 따라 질문 수가 달라지며, 기획의 완성도를 뜻하지는 않아요. 기능 우선순위 검토는 모든 기능의 출시 범위를 정하면 반영해요.</p></details>
+        <details class="progress-help"><summary>작성 현황 안내</summary><p>현재 표시되는 질문 중 답변을 적거나 선택한 비율이에요. 선택에 따라 질문 수가 달라지며, 기획의 완성도를 뜻하지는 않아요. 기능 우선순위 검토는 모든 기능의 출시 범위를 정하면 반영해요.</p></details>
       </div>
       <nav id="step-nav" aria-label="대항목별 작성한 질문 / 전체 질문"></nav>
+      <div class="sidebar-report">
+      <button type="button" class="button primary" id="report-button" aria-label="현재까지 작성한 기획 초안 보기">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg><span>현재까지 작성한<br>기획 초안 보기</span>
+      </button>
+      </div>
     </aside>
     <main id="main" tabindex="-1">
       <div id="form-view">
         <div class="page-topline"><span>아이디어를 기획으로</span><span id="step-badge"></span></div>
         <div class="page-heading"><h1 id="page-title"></h1><p id="page-description"></p></div>
-        <p class="start-note" id="start-note">완벽한 답이 없어도 괜찮아요. 아는 내용부터 적고, 모르는 것은 나중에 채우세요. 입력한 내용은 기획 초안에 그대로 모입니다.</p>
+        <p class="start-note" id="start-note">아는 내용부터 작성하세요. 모르는 질문은 건너뛰어도 되고, 작성한 내용만으로 언제든 기획 초안을 볼 수 있어요.</p>
         <form id="question-form" novalidate><div id="question-groups"></div><div class="bottom-nav"><button class="button secondary" type="button" id="previous-button">← 이전 단계</button><button class="button primary" type="submit" id="next-button">다음 단계 →</button></div></form>
       </div>
       <section id="report-view" hidden aria-labelledby="report-title"></section>
     </main>
   </div>
+  <div class="mobile-report"><button type="button" class="button primary" id="mobile-report-button">현재까지 작성한 기획 초안 보기</button></div>
   <footer class="site-footer">
     <div class="site-footer-inner">
       <div class="site-footer-about"><strong>빌드브리프</strong><p>아이디어를 함께 이해할 수 있는 기획으로.</p></div>
