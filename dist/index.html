@@ -7,12 +7,12 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=9c782c15b7b8">
+  <link rel="stylesheet" href="styles.css?v=c018a8ecfea7">
   <script src="questions.js?v=5e7fa8ee03c1" defer></script>
   <script src="report.js?v=130844a85835" defer></script>
   <script src="projects.js?v=75a50fab8a5e" defer></script>
   <script src="guides.js?v=b1a526715dd4" defer></script>
-  <script src="app.js?v=b367d62dcbe6" defer></script>
+  <script src="app.js?v=4fe059694711" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">질문으로 바로가기</a>
@@ -50,6 +50,7 @@
         <p class="progress-caption" id="progress-caption"></p>
         <details class="progress-help"><summary>작성 현황 안내</summary><p>현재 표시되는 질문 중 답변을 적거나 선택한 비율이에요. 선택에 따라 질문 수가 달라지며, 기획의 완성도를 뜻하지는 않아요. 기능 우선순위 검토는 모든 기능의 출시 범위를 정하면 반영해요.</p></details>
       </div>
+      <button type="button" class="step-link" id="guide-button"><span class="step-number" aria-hidden="true">00</span><span class="step-title">시작 안내</span></button>
       <nav id="step-nav" aria-label="대항목별 작성한 질문 / 전체 질문"></nav>
       <div class="sidebar-report">
       <button type="button" class="button primary" id="report-button" aria-label="기획 초안 보기">
@@ -58,6 +59,18 @@
       </div>
     </aside>
     <main id="main" tabindex="-1">
+      <section id="guide-view" hidden aria-labelledby="guide-title">
+        <div class="page-topline"><span>00 시작 안내</span></div>
+        <div class="page-heading"><h1 id="guide-title" tabindex="-1">아이디어를 기획 초안으로</h1><p>질문에 따라 생각을 정리하고, AI나 협업자에게 전달할 첫 문서를 만들어 보세요.</p></div>
+        <div class="guide-start"><button type="button" class="button primary" id="start-planning">바로 시작하기 →</button><p>아는 내용부터 작성하세요. 모르는 질문은 건너뛰어도 괜찮아요.</p></div>
+        <ol class="guide-flow">
+          <li><strong>질문에 답하기</strong><p>해결할 문제, 사용할 사람, 필요한 기능과 화면을 하나씩 정리해요. 답변과 선택 이유는 언제든 바꿀 수 있어요.</p></li>
+          <li><strong>기획 초안 확인하기</strong><p>모두 답하지 않아도 ‘기획 초안 보기’를 누를 수 있어요. 작성한 답변과 아직 정하지 않은 내용을 모아 보여 줘요.</p></li>
+          <li><strong>AI나 협업자와 보완하기</strong><p>‘AI와 기획 다듬기 · 복사’로 원하는 AI에 전달하거나 초안을 파일로 내려받으세요. 이 사이트가 AI를 직접 실행하거나 개발을 완료해 주는 것은 아니에요.</p></li>
+        </ol>
+        <details class="guide-example"><summary>작성 예시 보기</summary><div class="guide-example-content"><p class="field-help">설명을 위한 가상 사례이며, 내 프로젝트에는 입력되지 않아요.</p><div class="guide-example-grid"><div><h2>처음 떠올린 아이디어</h2><p>동네 사람들이 함께 산책할 약속을 쉽게 잡으면 좋겠어요.</p></div><div><h2>질문으로 정리한 초안</h2><dl><dt>해결할 문제</dt><dd>대화방에서 약속 장소와 시간을 다시 찾기 어려워요.</dd><dt>사용할 사람</dt><dd>가까운 동네에서 함께 산책하고 싶은 사람</dd><dt>첫 버전의 기능</dt><dd>산책 일정 올리기, 참여 신청, 장소·시간 확인</dd><dt>필요한 화면</dt><dd>일정 목록, 일정 상세, 내가 신청한 일정</dd><dt>더 정할 내용</dt><dd>참여 승인 여부와 취소 방법</dd></dl></div></div></div></details>
+        <div class="guide-storage"><strong>답변은 이 브라우저에 자동 저장돼요.</strong><p>같은 기기와 브라우저에서 이어 쓸 수 있어요. 다른 기기로 옮기거나 오래 보관하려면 ‘백업 내려받기’를 사용하세요. 사이트 데이터를 삭제하면 저장 내용이 사라질 수 있어요.</p><p>작성 현황은 답한 질문의 비율이에요. 100%가 기획의 완성도를 뜻하지 않으며, 이 안내는 질문 수에 포함되지 않아요.</p></div>
+      </section>
       <div id="form-view">
         <div class="page-topline"><span>아이디어를 기획으로</span><span id="step-badge"></span></div>
         <div class="page-heading"><h1 id="page-title"></h1><p id="page-description"></p></div>

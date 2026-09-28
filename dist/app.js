@@ -130,18 +130,28 @@
     } else control = q.type === 'textarea' ? `<textarea id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" ${q.help ? `aria-describedby="hint-${q.id}"` : ''} maxlength="6000" rows="4" placeholder="${esc(q.placeholder || '')}">${esc(value)}</textarea>` : `<input id="input-${q.id}" ${attrs(q.id)} aria-labelledby="label-${q.id}" ${q.help ? `aria-describedby="hint-${q.id}"` : ''} type="text" maxlength="${q.id === 'project_name' ? 200 : 6000}" value="${esc(value)}" placeholder="${esc(q.placeholder || '')}" autocomplete="off">`;
     return `<fieldset class="question" id="field-${q.id}"><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help ? `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>` : ''}${control}${recommendationEditor(q)}${reasonEditor(q)}</fieldset>`;
   }
+  function renderNavigation(guide = false) {
+    $('#guide-button').classList.toggle('active',guide);
+    if (guide) $('#guide-button').setAttribute('aria-current','page'); else $('#guide-button').removeAttribute('aria-current');
+    $('#step-nav').innerHTML = steps.map((s,i) => `<button type="button" class="step-link ${!guide && i === currentStep ? 'active' : ''}" data-step="${i}" ${!guide && i === currentStep ? 'aria-current="step"' : ''}><span class="step-number" aria-hidden="true">${String(i+1).padStart(2,'0')}</span><span class="step-title">${esc(s.short || s.title)}</span><span class="step-count" aria-hidden="true"></span></button>`).join('');
+    updateProgress();
+  }
+  function showGuide(focus = true) {
+    $('#guide-view').hidden = false; $('#form-view').hidden = true; $('#report-view').hidden = true;
+    renderNavigation(true); setNavigation(false);
+    window.scrollTo({top:0,behavior:'instant'}); if (focus) $('#guide-title').focus({preventScroll:true});
+  }
   function renderStep(index,navigate = false) {
     const states = new Map([...document.querySelectorAll('#question-groups details[id]')].map(el => [el.id,el.open]));
     currentStep = Math.max(0,Math.min(steps.length-1,index)); const step = steps[currentStep];
-    $('#form-view').hidden = false; $('#report-view').hidden = true;
+    $('#guide-view').hidden = true; $('#form-view').hidden = false; $('#report-view').hidden = true;
     $('#page-title').textContent = step.title; $('#page-description').textContent = step.description;
     $('#step-badge').textContent = `${currentStep+1} / ${steps.length}`;
     $('#start-note').hidden = currentStep !== 0;
-    $('#step-nav').innerHTML = steps.map((s,i) => `<button type="button" class="step-link ${i === currentStep ? 'active' : ''}" data-step="${i}" ${i === currentStep ? 'aria-current="step"' : ''}><span class="step-number" aria-hidden="true">${String(i+1).padStart(2,'0')}</span><span class="step-title">${esc(s.short || s.title)}</span><span class="step-count" aria-hidden="true"></span></button>`).join('');
+    renderNavigation();
     $('#question-groups').innerHTML = R.activeGroups(step,answers,notes).map(g => `<section class="question-group"><div class="group-heading"><h2>${esc(g.title)}</h2>${g.description ? `<p>${esc(g.description)}</p>` : ''}</div><div class="group-body">${g.questions.map(renderQuestion).join('')}</div></section>`).join('');
     for (const [id,open] of states) { const el = document.getElementById(id); if (el) el.open = open; }
     $('#previous-button').disabled = currentStep === 0; $('#next-button').textContent = currentStep === steps.length-1 ? '기획 초안 보기 →' : '다음 단계 →';
-    updateProgress();
     if (navigate) { save(); setNavigation(false); window.scrollTo({top:0,behavior:'instant'}); $('#page-title').tabIndex = -1; $('#page-title').focus({preventScroll:true}); }
   }
   function setNavigation(open) { $('#sidebar').dataset.open = String(open); $('#toggle-navigation').setAttribute('aria-expanded',String(open)); }
@@ -153,7 +163,7 @@
   }
   function renderReport() {
     if (!$('#form-view').hidden) formScrollY = window.scrollY;
-    $('#form-view').hidden = true; $('#report-view').hidden = false; setNavigation(false);
+    $('#guide-view').hidden = true; $('#form-view').hidden = true; $('#report-view').hidden = false; renderNavigation(); setNavigation(false);
     // Only our heading/list prefixes become HTML; all user text remains escaped.
     const readable = value => esc(value.replace(/\\([\\`*_\[\]#|])/g,'$1').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));
     let questionOpen = false, reasonOpen = false;
@@ -259,6 +269,8 @@
     if (d.projectBackup) return backupProject(d.projectBackup);
     if (d.projectDelete) { $('#delete-project-dialog').dataset.project = d.projectDelete; $('#delete-project-name').textContent = P.projectTitle(workspace.projects.find(p => p.id === d.projectDelete)); $('#delete-project-error').textContent = ''; return $('#delete-project-dialog').showModal(); }
     switch (b.id) {
+      case 'guide-button': return showGuide();
+      case 'start-planning': return renderStep(0,true);
       case 'previous-button': return renderStep(currentStep-1,true);
       case 'report-button': case 'mobile-report-button': return renderReport();
       case 'back-to-form':
@@ -301,8 +313,10 @@
   document.addEventListener('keydown',event => { if (event.key === 'Escape' && $('#sidebar').dataset.open === 'true') { setNavigation(false); $('#toggle-navigation').focus(); } });
   window.addEventListener('storage',event => { if (event.key === P.KEY || event.key === null) { externalChange = true; status('다른 탭 변경 · 백업 후 새로고침'); toast('자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.'); } });
   new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-height',`${Math.ceil($('.topbar').getBoundingClientRect().height)}px`)).observe($('.topbar'));
-  if (!loadFailed && storedRaw === null) save();
+  const firstVisit = !loadFailed && storedRaw === null;
+  if (firstVisit) save();
   else if (!loadFailed) status('이 브라우저에 저장됨');
   renderStep(currentStep);
+  if (firstVisit) showGuide(false);
   if (loadFailed) { status('저장 읽기 실패 · 원본 보존 중'); toast('기존 저장 내용을 읽지 못했어요. 저장 안내에서 원본을 백업할 수 있어요.'); }
 })();
