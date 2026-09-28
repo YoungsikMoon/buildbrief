@@ -309,7 +309,7 @@
     } catch (error) { toast(error instanceof SyntaxError ? '올바른 JSON 백업 파일이 아니에요.' : error.message); }
     finally { event.target.value = ''; }
   });
-  $('.brand').addEventListener('click',event => { event.preventDefault(); renderStep(0,true); });
+  $('.brand').addEventListener('click',event => { event.preventDefault(); showGuide(); });
   document.addEventListener('keydown',event => { if (event.key === 'Escape' && $('#sidebar').dataset.open === 'true') { setNavigation(false); $('#toggle-navigation').focus(); } });
   window.addEventListener('storage',event => { if (event.key === P.KEY || event.key === null) { externalChange = true; status('다른 탭 변경 · 백업 후 새로고침'); toast('자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.'); } });
   new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-height',`${Math.ceil($('.topbar').getBoundingClientRect().height)}px`)).observe($('.topbar'));
