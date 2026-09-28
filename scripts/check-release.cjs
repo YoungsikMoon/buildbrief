@@ -24,6 +24,7 @@ const env = { GITHUB_ACTIONS: 'true', GITHUB_REF: 'refs/heads/main', GITHUB_EVEN
   GITHUB_REPOSITORY: 'example/buildbrief', GITHUB_SHA: sha('a') };
 let failPublish = false;
 function run(program, args, input) {
+  if (program === 'git' && args[0] === 'log') return '개선: 버전에서 업데이트 내역 열기';
   if (program === 'git' && args[0] === 'rev-parse') return env.GITHUB_SHA;
   if (program === 'git' && args[0] === 'ls-remote') return [...tags].map(([tag, commit]) => `${commit}\trefs/tags/${tag}`).join('\n');
   if (program === 'gh' && args[0] === 'api' && args.includes('--paginate')) return releases.map(item => JSON.stringify(item)).join('\n');
@@ -36,6 +37,7 @@ function run(program, args, input) {
     if (failPublish) { failPublish = false; throw new Error('Simulated outage after tag reservation'); }
     assert(args.includes('--verify-tag'));
     assert(input.includes(env.GITHUB_SHA));
+    assert(input.includes('개선: 버전에서 업데이트 내역 열기'));
     releases.push({ tag_name: args[2], draft: false, html_url: `https://github.com/example/buildbrief/releases/tag/${args[2]}` });
   } else if (program === 'gh' && args[0] === 'release' && args[1] === 'edit') {
     releases.find(item => item.tag_name === args[2]).draft = false;

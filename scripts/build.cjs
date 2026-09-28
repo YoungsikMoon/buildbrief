@@ -54,8 +54,8 @@ function stampVersion(html, version) {
     throw new Error('The app-version slot must retain its expected class and id.');
   }
   const badge = version
-    ? `<a class="app-version" id="app-version" href="https://github.com/YoungsikMoon/buildbrief/releases/tag/${version}" aria-label="앱 버전 ${version} · 변경 내역 (새 탭)" target="_blank" rel="noopener noreferrer">v${version}</a>`
-    : '<span class="app-version" id="app-version">개발 버전</span>';
+    ? `<a class="app-version" id="app-version" href="https://github.com/YoungsikMoon/buildbrief/releases" title="업데이트 내역 보기" aria-label="앱 버전 ${version} · 업데이트 내역 보기 (새 탭)" target="_blank" rel="noopener noreferrer">v${version}</a>`
+    : '<a class="app-version" id="app-version" href="https://github.com/YoungsikMoon/buildbrief/releases" title="업데이트 내역 보기" aria-label="개발 버전 · 업데이트 내역 보기 (새 탭)" target="_blank" rel="noopener noreferrer">개발 버전</a>';
   return html.slice(0, start) + badge + html.slice(end);
 }
 

@@ -66,7 +66,7 @@ function release({ env = process.env, now = new Date(), run = command } = {}) {
   } else {
     run('gh', ['release', 'create', version, '--repo', repo, '--verify-tag',
       '--target', commit, '--title', version, '--notes-file', '-'],
-    `BuildBrief ${version}\n\nCommit: ${commit}\n\nSource ZIP and tar.gz archives are available below.\n`);
+    `BuildBrief ${version}\n\n${run('git', ['log', '-1', '--format=%B', commit])}\n\nCommit: ${commit}\n\n소스 코드는 아래 ZIP 또는 tar.gz 파일로 받을 수 있습니다.\n`);
   }
   return { version, reused: false, url: `https://github.com/${repo}/releases/tag/${version}` };
 }

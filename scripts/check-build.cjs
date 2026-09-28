@@ -44,12 +44,14 @@ module.exports = (async () => {
     assert.equal(await resolveVersion({ env, head, readTags: () => matching }), '260922.13');
   }
 
-  const slot = '<!-- app-version --><span class="app-version" id="app-version">개발 버전</span><!-- /app-version -->';
+  const slot = '<!-- app-version --><a class="app-version" id="app-version" href="https://github.com/YoungsikMoon/buildbrief/releases" title="업데이트 내역 보기" aria-label="개발 버전 · 업데이트 내역 보기 (새 탭)" target="_blank" rel="noopener noreferrer">개발 버전</a><!-- /app-version -->';
   const html = `<header>${slot}</header><script src="app.js?v=unchanged"></script>`;
   const stamped = stampVersion(html, '260922.14');
   assert(stamped.includes('>v260922.14</a>'));
-  assert(stamped.includes('href="https://github.com/YoungsikMoon/buildbrief/releases/tag/260922.14"'));
-  assert(stamped.includes('aria-label="앱 버전 260922.14 · 변경 내역 (새 탭)"'));
+  assert(stamped.includes('title="업데이트 내역 보기"'));
+  assert(stampVersion(html, null).includes('href="https://github.com/YoungsikMoon/buildbrief/releases"'));
+  assert(stamped.includes('href="https://github.com/YoungsikMoon/buildbrief/releases"'));
+  assert(stamped.includes('aria-label="앱 버전 260922.14 · 업데이트 내역 보기 (새 탭)"'));
   assert(stamped.includes('target="_blank" rel="noopener noreferrer"'));
   assert(stamped.endsWith('</header><script src="app.js?v=unchanged"></script>'));
   assert.equal(stampVersion(stamped, '260922.14'), stamped);
