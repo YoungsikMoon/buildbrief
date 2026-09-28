@@ -7,12 +7,12 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=993fbcd6da90">
+  <link rel="stylesheet" href="styles.css?v=bac653846edb">
   <script src="questions.js?v=5e7fa8ee03c1" defer></script>
   <script src="report.js?v=130844a85835" defer></script>
   <script src="projects.js?v=235891475e67" defer></script>
   <script src="guides.js?v=b1a526715dd4" defer></script>
-  <script src="app.js?v=ad785e2e7f10" defer></script>
+  <script src="app.js?v=ef922dc0250e" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -67,7 +67,7 @@
             <p class="guide-lead">해결할 문제부터 필요한 기능과 화면까지.<br>질문에 답하며, AI나 동료에게 설명할 수 있는 첫 문서를 만들어 보세요.</p>
             <div class="guide-actions">
               <button type="button" class="button primary" id="start-planning">바로 시작하기 <span aria-hidden="true">→</span></button>
-              <a href="#guide-how" class="guide-link">사용 방법 살펴보기 <span aria-hidden="true">↓</span></a>
+              <a href="#guide-walkthrough" class="guide-link" id="guide-details-link">사용 가이드 자세히 보기 <span aria-hidden="true">↓</span></a>
             </div>
             <ul class="guide-reassurance"><li>회원가입 없이 시작</li><li>모르는 질문은 건너뛰기</li></ul>
           </div>
@@ -97,6 +97,57 @@
             <li><span class="guide-flow-number" aria-hidden="true">02</span><h3>한 문서로 모아 보고</h3><p>‘기획 초안 보기’에서 답변과 미정 사항을 확인해요. 모두 답하지 않아도 언제든 볼 수 있어요.</p></li>
             <li><span class="guide-flow-number" aria-hidden="true">03</span><h3>AI·동료와 함께 다듬어요</h3><p>초안을 파일로 내려받거나 AI용 요청문을 복사해요. 원하는 AI에 붙여 넣어 기획을 보완하세요.</p></li>
           </ol>
+          <details class="guide-walkthrough" id="guide-walkthrough">
+            <summary><span><strong>사용 가이드 자세히 보기</strong><span class="walkthrough-summary-note">프로젝트 준비부터 AI에 전달하고 백업하는 과정까지</span></span><span class="walkthrough-chevron" aria-hidden="true">⌄</span></summary>
+            <div class="walkthrough-content" id="guide-storyboard">
+              <div class="walkthrough-intro"><p><strong>가상 아이디어 ‘동네 산책 모임’의 사용 예시예요.</strong> 내 답변에는 추가되지 않아요.</p><p>프로젝트와 목차는 PC의 <strong>왼쪽 메뉴</strong>, 모바일 상단의 <strong>‘프로젝트·목차’</strong>에서 찾을 수 있어요.</p></div>
+              <ol class="walkthrough-steps">
+                <li>
+                  <div class="walkthrough-heading"><span aria-hidden="true">01</span><h3>내 아이디어를 담을 프로젝트를 준비해요</h3></div>
+                  <div class="walkthrough-body">
+                    <div class="walkthrough-copy"><p>처음에는 <strong>‘새로운 아이디어’</strong> 프로젝트가 준비되어 있어요. <strong>‘바로 시작하기’</strong>를 누르고 이름부터 적으면 돼요.</p><p>다른 아이디어도 정리하려면 <strong>‘+ 새 프로젝트’</strong>에서 이름을 적고 <strong>‘프로젝트 만들기’</strong>를 누르세요. ‘내 프로젝트’ 목록에서 전환하면 각자의 답변을 따로 보관해요.</p><p class="walkthrough-tip"><strong>‘관리’</strong>에서 프로젝트 이름을 바꾸거나 전체 프로젝트를 백업할 수 있어요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>프로젝트 영역</figcaption><div class="scene-top"><strong>내 프로젝트</strong><span class="scene-link">관리</span></div><div class="scene-field">동네 산책 모임 <span aria-hidden="true">⌄</span></div><div class="scene-button">+ 새 프로젝트</div><p class="scene-note">아이디어마다 답변과 메모를 따로 보관해요.</p></figure>
+                  </div>
+                </li>
+                <li>
+                  <div class="walkthrough-heading"><span aria-hidden="true">02</span><h3>아는 내용부터 질문에 답해요</h3></div>
+                  <div class="walkthrough-body">
+                    <div class="walkthrough-copy"><p>해결할 문제와 사용할 사람을 적고, 필요한 기능과 화면을 정리해요. <strong>‘다음 단계’</strong>로 이어 가거나 목차에서 필요한 주제를 바로 선택하세요.</p><p><strong>모든 질문에 답할 필요는 없어요.</strong> 모르는 내용은 건너뛰고, 판단한 근거가 있다면 질문 아래 <strong>‘답변·선택 이유 남기기’</strong>를 펼쳐 적어 두세요.</p><p class="walkthrough-tip">입력한 뒤에는 저장 상태가 <strong>‘이 브라우저에 저장됨’</strong>인지 확인해 주세요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>질문 작성</figcaption><strong class="scene-question">누구에게 무엇을 제공하는 서비스인가요?</strong><div class="scene-field">동네 사람들이 산책 일정을 올리고 함께 참여할 수 있는 서비스예요.</div><div class="scene-note-heading">답변·선택 이유 남기기 <span>(선택)</span></div><div class="scene-field">대화방에 흩어진 약속을 한곳에서 보고 싶어요.</div></figure>
+                  </div>
+                </li>
+                <li>
+                  <div class="walkthrough-heading"><span aria-hidden="true">03</span><h3>작성한 만큼 기획 초안을 확인해요</h3></div>
+                  <div class="walkthrough-body">
+                    <div class="walkthrough-copy"><p>목차 맨 아래의 <strong>‘기획 초안 보기’</strong>를 누르세요. 모바일에서는 작성 화면 하단에도 같은 버튼이 있어요.</p><p>작성한 답변과 선택 이유가 <strong>질문별로 묶인 문서</strong>가 돼요. 아직 정하지 않은 내용도 확인하고, 수정할 부분은 <strong>‘작성으로 돌아가기’</strong>를 눌러 보완하세요.</p><p class="walkthrough-tip"><strong>‘기획 초안 내려받기’</strong>는 읽거나 공유할 문서를 저장하는 기능이에요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>기획 초안</figcaption><strong class="scene-document-title">동네 산책 모임 — 서비스 기획 초안</strong><div class="scene-report-question"><strong>누구에게 무엇을 제공하는 서비스인가요?</strong><p>동네 사람들이 산책 일정을 올리고 함께 참여할 수 있는 서비스예요.</p><div class="scene-rationale"><strong>선택 이유·추가 메모</strong><p>대화방에 흩어진 약속을 한곳에서 보고 싶어요.</p></div></div></figure>
+                  </div>
+                </li>
+                <li>
+                  <div class="walkthrough-heading"><span aria-hidden="true">04</span><h3>초안과 AI 요청문을 함께 복사해요</h3></div>
+                  <div class="walkthrough-body">
+                    <div class="walkthrough-copy"><p>기획 초안 화면 위쪽에서 <strong>‘AI와 기획 다듬기 · 복사’</strong>를 누르세요.</p><p>내 초안에 <strong>빠진 내용과 모순을 확인하고 추가 질문으로 기획을 보완해 달라는 요청</strong>이 함께 복사돼요. AI에게 무엇을 부탁할지 처음부터 다시 쓸 필요가 없어요.</p><p class="walkthrough-tip">브라우저에서 복사를 허용하지 않으면 요청문 파일이 대신 내려받아져요. 파일의 내용을 AI에 전달하면 돼요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>초안 화면의 복사 기능</figcaption><div class="scene-button scene-primary">AI와 기획 다듬기 · 복사</div><div class="scene-prompt"><strong>함께 복사되는 내용</strong><p>기획을 검토하고 보완해 달라는 요청</p><span aria-hidden="true">+</span><p>내 답변 · 선택 이유 · 미정 사항</p></div><p class="scene-note">빌드브리프에서 AI가 자동 실행되지는 않아요.</p></figure>
+                  </div>
+                </li>
+                <li>
+                  <div class="walkthrough-heading"><span aria-hidden="true">05</span><h3>원하는 AI에 붙여 넣고 기획을 다듬어요</h3></div>
+                  <div class="walkthrough-body">
+                    <div class="walkthrough-copy"><p>사용하는 <strong>AI 서비스의 대화창을 열고</strong>, 복사한 내용을 붙여 넣어 보내세요. AI가 부족한 정보나 선택지를 물으면 내 상황에 맞게 답하며 기획을 구체화해요.</p><p>새로 결정한 내용은 <strong>빌드브리프의 해당 답변에 직접 반영</strong>하세요. 외부 AI 대화는 자동으로 저장되거나 연결되지 않아요. 수정한 뒤 초안을 다시 확인하고 복사할 수 있어요.</p><p class="walkthrough-tip">여기서 얻는 것은 함께 검토할 기획 문서예요. 실제 개발은 기획을 검토한 뒤 별도로 진행하세요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>외부 AI와 대화하는 예시</figcaption><div class="scene-chat scene-chat-user"><strong>내가 보낸 요청</strong><p>아래 사용자 입력을 바탕으로 서비스 기획 초안을 함께 구체화해 주세요.<br>…동네 산책 모임 기획 초안…</p></div><div class="scene-chat"><strong>AI의 추가 질문 예시</strong><p>참여 신청은 즉시 확정되나요, 모임을 만든 사람의 승인이 필요한가요?</p></div></figure>
+                  </div>
+                </li>
+                <li>
+                  <div class="walkthrough-heading"><span aria-hidden="true">06</span><h3>백업해 두고 다음에 이어 써요</h3></div>
+                  <div class="walkthrough-body">
+                    <div class="walkthrough-copy"><p>저장된 답변은 <strong>같은 기기·브라우저·사이트 주소</strong>에서 이어 쓸 수 있어요. 사이트 데이터를 삭제하면 사라질 수 있으니, 중요한 내용을 바꾼 뒤에는 <strong>‘백업 내려받기’</strong>로 현재 프로젝트를 보관하세요.</p><p>다른 기기나 브라우저에서는 <strong>‘백업 불러오기’</strong>를 누르고 보관한 백업 파일을 선택하세요. 기존 프로젝트를 덮어쓰지 않고 <strong>새 프로젝트로 추가</strong>해요.</p><p class="walkthrough-tip">여러 프로젝트를 한 번에 보관하려면 <strong>‘관리 → 전체 프로젝트 백업’</strong>을 사용하세요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>저장과 백업</figcaption><div class="scene-backups"><span class="scene-button">백업 내려받기</span><span class="scene-button">백업 불러오기</span></div><p class="scene-saved">✓ 이 브라우저에 저장됨</p><dl class="scene-file-types"><div><dt>프로젝트 백업 · JSON</dt><dd>답변과 메모를 다시 불러오는 파일</dd></div><div><dt>기획 초안 · Markdown</dt><dd>읽고 공유하는 문서 · 백업 불러오기용 아님</dd></div></dl></figure>
+                  </div>
+                </li>
+              </ol>
+              <div class="walkthrough-finish"><p>이제 내 아이디어로 시작해 보세요.<br>작성 중에도 상단 로고나 ‘00 시작 안내’에서 이 가이드를 다시 볼 수 있어요.</p><button type="button" class="button primary" data-step="0">바로 시작하기 <span aria-hidden="true">→</span></button></div>
+            </div>
+          </details>
         </section>
         <section class="guide-faq" aria-labelledby="guide-faq-title">
           <div><p class="guide-eyebrow">시작하기 전에</p><h2 id="guide-faq-title">궁금할 수 있는 것들</h2></div>
