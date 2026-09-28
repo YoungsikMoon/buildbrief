@@ -315,7 +315,10 @@
   $('#guide-details-link').addEventListener('click',() => { $('#guide-walkthrough').open = true; });
   document.addEventListener('keydown',event => { if (event.key === 'Escape' && $('#sidebar').dataset.open === 'true') { setNavigation(false); $('#toggle-navigation').focus(); } });
   window.addEventListener('storage',event => { if (event.key === P.KEY || event.key === null) { externalChange = true; status('다른 탭 변경 · 백업 후 새로고침'); toast('자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.'); } });
-  new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-height',`${Math.ceil($('.topbar').getBoundingClientRect().height)}px`)).observe($('.topbar'));
+  for (const [selector,property] of [['.topbar','--topbar-height'],['.mobile-navigation','--mobile-nav-height'],['.mobile-report','--actionbar-height']]) {
+    const bar = $(selector);
+    new ResizeObserver(() => document.documentElement.style.setProperty(property,`${Math.ceil(bar.getBoundingClientRect().height)}px`)).observe(bar);
+  }
   const firstVisit = !loadFailed && storedRaw === null;
   if (firstVisit) save();
   else if (!loadFailed) status('이 브라우저에 저장됨');
