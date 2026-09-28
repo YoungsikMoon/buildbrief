@@ -7,7 +7,7 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214eeb'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=c018a8ecfea7">
+  <link rel="stylesheet" href="styles.css?v=993fbcd6da90">
   <script src="questions.js?v=5e7fa8ee03c1" defer></script>
   <script src="report.js?v=130844a85835" defer></script>
   <script src="projects.js?v=235891475e67" defer></script>
@@ -15,7 +15,7 @@
   <script src="app.js?v=ad785e2e7f10" defer></script>
 </head>
 <body>
-  <a class="skip-link" href="#main">질문으로 바로가기</a>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
   <header class="topbar">
     <div class="brand-group">
       <a class="brand" href="#" aria-label="빌드브리프 시작 안내로"><span class="brand-mark">b<span>·</span></span>빌드브리프</a>
@@ -60,16 +60,53 @@
     </aside>
     <main id="main" tabindex="-1">
       <section id="guide-view" hidden aria-labelledby="guide-title">
-        <div class="page-topline"><span>00 시작 안내</span></div>
-        <div class="page-heading"><h1 id="guide-title" tabindex="-1">아이디어를 기획 초안으로</h1><p>질문에 따라 생각을 정리하고, AI나 협업자에게 전달할 첫 문서를 만들어 보세요.</p></div>
-        <div class="guide-start"><button type="button" class="button primary" id="start-planning">바로 시작하기 →</button><p>아는 내용부터 작성하세요. 모르는 질문은 건너뛰어도 괜찮아요.</p></div>
-        <ol class="guide-flow">
-          <li><strong>질문에 답하기</strong><p>해결할 문제, 사용할 사람, 필요한 기능과 화면을 하나씩 정리해요. 답변과 선택 이유는 언제든 바꿀 수 있어요.</p></li>
-          <li><strong>기획 초안 확인하기</strong><p>모두 답하지 않아도 ‘기획 초안 보기’를 누를 수 있어요. 작성한 답변과 아직 정하지 않은 내용을 모아 보여 줘요.</p></li>
-          <li><strong>AI나 협업자와 보완하기</strong><p>‘AI와 기획 다듬기 · 복사’로 원하는 AI에 전달하거나 초안을 파일로 내려받으세요. 이 사이트가 AI를 직접 실행하거나 개발을 완료해 주는 것은 아니에요.</p></li>
-        </ol>
-        <details class="guide-example"><summary>작성 예시 보기</summary><div class="guide-example-content"><p class="field-help">설명을 위한 가상 사례이며, 내 프로젝트에는 입력되지 않아요.</p><div class="guide-example-grid"><div><h2>처음 떠올린 아이디어</h2><p>동네 사람들이 함께 산책할 약속을 쉽게 잡으면 좋겠어요.</p></div><div><h2>질문으로 정리한 초안</h2><dl><dt>해결할 문제</dt><dd>대화방에서 약속 장소와 시간을 다시 찾기 어려워요.</dd><dt>사용할 사람</dt><dd>가까운 동네에서 함께 산책하고 싶은 사람</dd><dt>첫 버전의 기능</dt><dd>산책 일정 올리기, 참여 신청, 장소·시간 확인</dd><dt>필요한 화면</dt><dd>일정 목록, 일정 상세, 내가 신청한 일정</dd><dt>더 정할 내용</dt><dd>참여 승인 여부와 취소 방법</dd></dl></div></div></div></details>
-        <div class="guide-storage"><strong>답변은 이 브라우저에 자동 저장돼요.</strong><p>같은 기기와 브라우저에서 이어 쓸 수 있어요. 다른 기기로 옮기거나 오래 보관하려면 ‘백업 내려받기’를 사용하세요. 사이트 데이터를 삭제하면 저장 내용이 사라질 수 있어요.</p><p>작성 현황은 답한 질문의 비율이에요. 100%가 기획의 완성도를 뜻하지 않으며, 이 안내는 질문 수에 포함되지 않아요.</p></div>
+        <div class="guide-hero">
+          <div class="guide-copy">
+            <p class="guide-eyebrow">00 시작 안내</p>
+            <h1 id="guide-title" tabindex="-1">머릿속 아이디어를,<br>함께 만들 수 있는<br><span>기획 초안으로.</span></h1>
+            <p class="guide-lead">해결할 문제부터 필요한 기능과 화면까지.<br>질문에 답하며, AI나 동료에게 설명할 수 있는 첫 문서를 만들어 보세요.</p>
+            <div class="guide-actions">
+              <button type="button" class="button primary" id="start-planning">바로 시작하기 <span aria-hidden="true">→</span></button>
+              <a href="#guide-how" class="guide-link">사용 방법 살펴보기 <span aria-hidden="true">↓</span></a>
+            </div>
+            <ul class="guide-reassurance"><li>회원가입 없이 시작</li><li>모르는 질문은 건너뛰기</li></ul>
+          </div>
+          <figure class="guide-preview" aria-labelledby="guide-example-caption">
+            <div class="guide-seed"><span>처음 떠올린 생각</span><p>“동네 사람들이 함께 산책할 약속을<br>쉽게 잡으면 좋겠어요.”</p></div>
+            <div class="guide-bridge"><span aria-hidden="true">↓</span> 질문을 따라 구체화하면</div>
+            <div class="guide-paper">
+              <div class="guide-paper-top"><span>서비스 기획 초안</span><span class="guide-example-tag">예시</span></div>
+              <h2>동네 산책 모임</h2>
+              <dl>
+                <div><dt>해결할 문제</dt><dd>대화방에 묻힌 약속 장소와 시간을 다시 찾기 어려워요.</dd></div>
+                <div><dt>사용할 사람</dt><dd>가까운 동네에서 함께 산책하고 싶은 사람</dd></div>
+                <div><dt>첫 버전 기능</dt><dd>일정 올리기 · 참여 신청 · 장소와 시간 확인</dd></div>
+                <div><dt>필요한 화면</dt><dd>일정 목록 · 일정 상세 · 내가 신청한 일정</dd></div>
+              </dl>
+              <div class="guide-paper-note"><strong>선택 이유도 함께</strong><p>약속을 쉽게 찾는 데 집중하려고, 첫 버전에서는 채팅을 제외해요.</p></div>
+              <p class="guide-paper-pending"><span>아직 정할 것</span> 참여 승인 여부와 취소 방법</p>
+            </div>
+            <figcaption id="guide-example-caption">가상 프로젝트의 예시예요. 내 답변에 추가되지 않아요.</figcaption>
+          </figure>
+        </div>
+        <section class="guide-how" id="guide-how" aria-labelledby="guide-how-title">
+          <p class="guide-eyebrow">사용 방법</p>
+          <h2 id="guide-how-title">아는 것부터, 하나씩 정리하세요.</h2>
+          <ol class="guide-flow">
+            <li><span class="guide-flow-number" aria-hidden="true">01</span><h3>질문으로 생각을 꺼내고</h3><p>해결할 문제와 사용자를 적고, 필요한 기능과 화면을 골라요. 선택한 이유도 남길 수 있어요.</p></li>
+            <li><span class="guide-flow-number" aria-hidden="true">02</span><h3>한 문서로 모아 보고</h3><p>‘기획 초안 보기’에서 답변과 미정 사항을 확인해요. 모두 답하지 않아도 언제든 볼 수 있어요.</p></li>
+            <li><span class="guide-flow-number" aria-hidden="true">03</span><h3>AI·동료와 함께 다듬어요</h3><p>초안을 파일로 내려받거나 AI용 요청문을 복사해요. 원하는 AI에 붙여 넣어 기획을 보완하세요.</p></li>
+          </ol>
+        </section>
+        <section class="guide-faq" aria-labelledby="guide-faq-title">
+          <div><p class="guide-eyebrow">시작하기 전에</p><h2 id="guide-faq-title">궁금할 수 있는 것들</h2></div>
+          <div class="guide-faq-list">
+            <details><summary>모든 질문에 답해야 하나요?</summary><p>아는 내용만 적어도 괜찮아요. 순서를 건너뛰거나 답변을 바꿀 수 있고, 작성한 내용만으로 초안을 볼 수 있어요. 작성 현황은 답한 질문의 비율이며, 100%가 기획의 완성도를 뜻하지는 않아요.</p></details>
+            <details><summary>작성한 내용은 어디에 저장되나요?</summary><p>지금 사용하는 브라우저에 자동 저장돼요. 같은 기기·브라우저에서 이어 쓸 수 있지만, 사이트 데이터를 삭제하면 사라질 수 있어요. 오래 보관하거나 다른 기기로 옮길 때는 ‘백업 내려받기’와 ‘백업 불러오기’를 사용하세요.</p></details>
+            <details><summary>여기서 AI가 기획이나 개발을 해주나요?</summary><p>빌드브리프는 내가 작성한 답변을 기획 초안으로 모아 줘요. ‘AI와 기획 다듬기 · 복사’로 초안과 요청문을 복사한 뒤, 원하는 AI 서비스에 직접 붙여 넣어 대화를 이어갈 수 있어요. 이 사이트에서 AI를 실행하거나 개발을 자동으로 진행하지는 않아요.</p></details>
+          </div>
+        </section>
+        <div class="guide-invite"><div><h2>이제, 내 아이디어를 적어 볼까요?</h2><p>아직 이름이 없어도 괜찮아요. 임시 이름으로 시작하세요.</p></div><button type="button" class="button primary" data-step="0">바로 시작하기 <span aria-hidden="true">→</span></button></div>
       </section>
       <div id="form-view">
         <div class="page-topline"><span>아이디어를 기획으로</span><span id="step-badge"></span></div>
