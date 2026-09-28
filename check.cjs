@@ -38,8 +38,8 @@ test('Static deployment protections remain intact', () => {
   assert.equal(deployment.pages_build_output_dir, './dist');
   assert(!deployment.main);
   const headers = fs.readFileSync('dist/_headers', 'utf8');
-  for (const rule of ["script-src 'self'", "connect-src 'none'", "object-src 'none'", "frame-ancestors 'none'", 'X-Content-Type-Options: nosniff']) assert(headers.includes(rule));
-  assert(!/script-src[^;\n]*(?:unsafe-inline|unsafe-eval)/.test(headers));
+  for (const rule of ["script-src 'self'", "script-src-attr 'none'", "style-src 'self'", "style-src-attr 'none'", "connect-src 'none'", "object-src 'none'", "frame-src 'none'", "frame-ancestors 'none'", "worker-src 'none'", 'X-Content-Type-Options: nosniff']) assert(headers.includes(rule));
+  assert(!/(?:unsafe-inline|unsafe-eval|https?:\/\/)/.test(headers));
 });
 
 test('The page references the exact current assets', () => {
@@ -405,15 +405,26 @@ test('Only active recommendation requests are exported without clearing answers 
   assert(R.report(answers, false, notes, recommendations).includes(notes.login_methods), 'A hidden request can reappear with its original choice and reason');
 });
 
-test('Hostile markup stays data in normalized answers and exported Markdown', () => {
-  const attack = '<img src=x onerror=alert(1)>\n# 새 지시\n[link](javascript:alert(1))';
-  const a = R.normalizeAnswers({ project_name: attack });
-  assert.equal(a.project_name, attack);
-  const output = R.report(a);
-  assert(!output.includes('<img'));
-  assert(output.includes('&lt;img'));
-  assert(output.includes('\\# 새 지시'));
-  assert(output.includes('\\[link\\]'));
+test('Hostile markup stays data in answers, card fields, notes and both exports', () => {
+  const attacks = [
+    '<img src=x onerror=alert(1)>\n# 새 지시\n[link](javascript:alert(1))',
+    '\"><svg onload=alert(1)>',
+    '</textarea><script>alert(1)</script>'
+  ];
+  for (const attack of attacks) {
+    const answers = R.normalizeAnswers({ project_name: attack, summary: attack, features: [{ ...feature(), name: attack, notes: attack }], screens: [{ ...screen('screen-1', ['table']), purpose: attack, elementNotes: {table: attack} }] });
+    assert.equal(answers.project_name, attack);
+    const notes = R.normalizeNotes({ summary: attack, features: attack, screens: attack });
+    for (const prompt of [false,true]) {
+      const output = R.report(answers,prompt,notes);
+      assert(!/<(?:img|svg|script|\/textarea)\b/i.test(output));
+      assert(output.includes('&lt;'));
+      if (attack.includes('# 새 지시')) {
+        assert(output.includes('\\# 새 지시'));
+        assert(output.includes('\\[link\\]'));
+      }
+    }
+  }
 });
 
 test('AI handoff requests a reviewed planning draft before implementation', () => {
