@@ -31,17 +31,38 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [dist/index.html](../dist/index.html) | 페이지 구조, 대화 상자, 자산 참조와 버전 표시 영역 |
 | [dist/questions.js](../dist/questions.js) | 9단계 질문, 표시 조건, 기능 후보, 화면 요소 |
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
-| [dist/app.js](../dist/app.js) | 입력 편집기, 진행률 표시, 자동 저장, 프로젝트 관리, 내보내기 |
-| [dist/report.js](../dist/report.js) | 입력 검증, 조건과 진행률 계산, 기획 초안·AI 전달문 |
+| [dist/app.js](../dist/app.js) | 앱 시작, 화면 이동, 이벤트 연결, 프로젝트 관리 UI, 내보내기 |
+| [dist/answers.js](../dist/answers.js) | 답변·메모 검증, 질문 표시 조건, 진행률, 선택지·입력 상한 |
+| [dist/views.js](../dist/views.js) | 질문·기능·화면 편집기와 초안 HTML 생성, HTML 이스케이프 |
+| [dist/report.js](../dist/report.js) | 기획 초안·AI 전달문 텍스트 생성 |
+| [dist/storage.js](../dist/storage.js) | 브라우저 저장 읽기·쓰기, 실패·복구 상태, 다른 탭 변경 감지 |
 | [dist/projects.js](../dist/projects.js) | 프로젝트 저장·백업 형식과 가져오기 검증 |
 | [dist/styles.css](../dist/styles.css) | PC·모바일 레이아웃 |
 | [dist/_headers](../dist/_headers) | Cloudflare Pages의 보안·캐시 응답 헤더 |
 | [SECURITY.md](../SECURITY.md) | 보안 문서 목차, 작업별 읽는 순서와 문서 갱신 규칙 |
 | [docs/security/](../docs/security/) | 주제별 ASVS 적용 범위·점검표·운영 기준·검증 이력 |
-| [check.cjs](../check.cjs) | 앱 회귀 검사와 자산 해시 검사 |
+| [check.cjs](../check.cjs) | 앱 회귀 검사, 공개 파일·스크립트 순서·자산 해시 검사 |
+| [scripts/check-runtime.cjs](../scripts/check-runtime.cjs) | 저장 실패·충돌·복구와 화면 출력 검사 (`check.cjs`에서 함께 실행) |
 | [scripts/release.cjs](../scripts/release.cjs) | 날짜별 Git 태그와 GitHub Release 발급 |
 | [scripts/build.cjs](../scripts/build.cjs) | 빌드 검증과 배포 커밋의 앱 버전 표시 |
 | [.github/workflows/release.yml](../.github/workflows/release.yml) | Pull Request·main 검증과 자동 릴리스 |
 | [wrangler.jsonc](../wrangler.jsonc) | Pages 프로젝트 이름과 공개 디렉터리 설정 |
+
+## 모듈을 수정하는 기준
+
+- 질문과 도움말의 내용·표시 조건은 `questions.js`, 답변 형식과 공통 제한은 `answers.js`에서 관리합니다. 같은 선택지나 상한을 화면 코드에 다시 선언하지 않습니다.
+- `report.js`는 문서 텍스트, `views.js`는 HTML을 반환합니다. 이 두 모듈은 저장소나 실제 DOM을 변경하지 않습니다. 사용자 입력의 이스케이프와 질문·답변·이유의 경계를 유지하세요.
+- `projects.js`는 저장·백업 형식을 검증하고, `storage.js`는 읽기·쓰기 실패와 다른 탭의 변경을 처리합니다. UI 안내와 프로젝트 전환은 `app.js`에서 연결합니다. 저장 키와 백업 버전은 기존 값을 유지합니다.
+- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
+
+## 코드 정렬
+
+실행·빌드에는 외부 npm 패키지가 필요하지 않습니다. 소스 정렬에는 필요할 때만 아래 고정 버전 명령을 사용합니다. HTML 템플릿은 공백이 입력값이나 배치에 영향을 줄 수 있어 `strict` 옵션을 유지하고 브라우저에서 확인합니다.
+
+```sh
+npm exec --yes --package=prettier@3.6.2 -- prettier --write --single-quote --print-width 100 --trailing-comma none --html-whitespace-sensitivity strict "dist/*.js" dist/styles.css
+```
+
+정렬 뒤에도 자산 해시를 갱신하고 검증해야 합니다. CSS는 기존 선언 순서를 유지해 화면별 우선순위가 바뀌지 않도록 합니다.
 
 상세 문서의 역할과 진입점은 [README 목차](../README.md#문서-안내)에서 확인합니다. 동작을 바꾸면 해당 주제 문서를 갱신하고, 보안 관련 변경은 [SECURITY.md](../SECURITY.md)에서 관련 모듈을 찾아 검토합니다.

@@ -3,13 +3,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { createHash } = require('node:crypto');
 const Q = require('./dist/questions.js');
+const A = require('./dist/answers.js');
 const R = require('./dist/report.js');
 const P = require('./dist/projects.js');
 const G = require('./dist/guides.js');
+const V = require('./dist/views.js');
 const clone = value => JSON.parse(JSON.stringify(value));
-const question = id => R.allQuestions.find(q => q.id === id);
-const typeQuestion = type => R.allQuestions.find(q => q.type === type);
-const activeIds = answers => R.activeQuestions(answers).map(q => q.id);
+const question = id => A.allQuestions.find(q => q.id === id);
+const typeQuestion = type => A.allQuestions.find(q => q.type === type);
+const activeIds = answers => A.activeQuestions(answers).map(q => q.id);
 const feature = (id = 'feature-1', category = 'booking', priority = '첫 버전에 필요') => ({ id, category, name: `예약하기 ${id}`, actor: '손님', outcome: '원하는 시간을 예약하고 결과를 확인한다', priority, notes: '' });
 const screen = (id, elements) => ({ id, name: '예약 관리', purpose: '신청 내용을 빠르게 확인', roles: '운영 직원', featureIds: ['feature-1'], elements, elementNotes: Object.fromEntries(elements.map(item => [item, `${item}의 화면 용도`])), content: '예약 목록', empty: '예약이 없다고 안내', error: '다시 시도', mobile: '작은 화면에서는 상세 화면으로 이동' });
 let passed = 0;
@@ -52,14 +54,14 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','app.js','guides.js','index.html','projects.js','questions.js','report.js','styles.css']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','guides.js','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) assert(fs.lstatSync(`dist/${file}`).isFile(), 'Published files must not be directories or symlinks');
   assert(!fs.existsSync('functions'), 'A server request handler needs a separate security review');
   const html = fs.readFileSync('dist/index.html', 'utf8');
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-  assert.equal(scripts.length, 5);
+  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','report.js','projects.js','guides.js','storage.js','views.js','app.js']);
   for (const [, attributes, body] of scripts) {
-    assert.match(attributes, /^ src="(?:app|guides|projects|questions|report)\.js\?v=[a-f0-9]{12}" defer$/);
+    assert.match(attributes, /^ src="(?:answers|app|guides|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
     assert.equal(body.trim(), '', 'No inline script');
   }
   for (const [tag] of html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/g)) assert(tag.includes('rel="noopener noreferrer"'));
@@ -69,7 +71,7 @@ test('The public bundle contains only reviewed static files and local scripts', 
 
 test('The page references the exact current assets', () => {
   const html = fs.readFileSync('dist/index.html', 'utf8');
-  for (const file of ['app.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'styles.css']) {
+  for (const file of ['app.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css']) {
     const source = fs.readFileSync(`dist/${file}`, 'utf8').replace(/\r\n/g, '\n');
     const hash = createHash('sha256').update(source).digest('hex').slice(0, 12);
     assert(html.includes(`${file}?v=${hash}`), `Stale asset reference: ${file}`);
@@ -78,7 +80,7 @@ test('The page references the exact current assets', () => {
 
 test('Nine coherent stages use unique questions, feature types, and UI elements', () => {
   assert.equal(Q.steps.length, 9);
-  for (const items of [Q.steps, R.allQuestions, Q.featureTypes, Q.uiElements]) assert.equal(new Set(items.map(item => item.id)).size, items.length);
+  for (const items of [Q.steps, A.allQuestions, Q.featureTypes, Q.uiElements]) assert.equal(new Set(items.map(item => item.id)).size, items.length);
   assert(!/MSA|Docker|Kafka|PostgreSQL|TypeScript|Spring Boot/.test(JSON.stringify(Q.steps)));
   const walk = condition => {
     if (!condition) return;
@@ -91,11 +93,11 @@ test('Nine coherent stages use unique questions, feature types, and UI elements'
 
 test('Conditions evaluate actual feature categories and nested choices', () => {
   const answers = { features: [feature()], login: ['카카오', 'Google'], need: '일부' };
-  assert(R.matches({ id: 'features', category: 'booking' }, answers));
-  assert(!R.matches({ id: 'features', category: 'payments' }, answers));
-  assert(!R.matches({ id: 'features', category: 'booking' }, { features: R.UNKNOWN }));
-  assert(R.matches({ all: [{ id: 'need', value: '일부' }, { id: 'login', includes: '카카오' }, { id: 'login', in: ['네이버', 'Google'] }, { not: { id: 'features', category: 'payments' } }] }, answers));
-  assert(R.matches({ any: [{ id: 'need', value: '전체' }, { id: 'need', value: '일부' }] }, answers));
+  assert(A.matches({ id: 'features', category: 'booking' }, answers));
+  assert(!A.matches({ id: 'features', category: 'payments' }, answers));
+  assert(!A.matches({ id: 'features', category: 'booking' }, { features: A.UNKNOWN }));
+  assert(A.matches({ all: [{ id: 'need', value: '일부' }, { id: 'login', includes: '카카오' }, { id: 'login', in: ['네이버', 'Google'] }, { not: { id: 'features', category: 'payments' } }] }, answers));
+  assert(A.matches({ any: [{ id: 'need', value: '전체' }, { id: 'need', value: '일부' }] }, answers));
 });
 
 test('Every selected feature category activates its own real followups', () => {
@@ -115,21 +117,21 @@ test('Every selected feature category activates its own real followups', () => {
 });
 
 test('Inactive answers remain in backup but leave the current document', () => {
-  const q = R.allQuestions.find(q => q.type === 'textarea' && q.when?.category);
+  const q = A.allQuestions.find(q => q.type === 'textarea' && q.when?.category);
   assert(q);
   const original = { features: [feature('feature-1', q.when.category)], [q.id]: '선택한 기능만의 고유 규칙 내용' };
   assert(R.report(original).includes('선택한 기능만의 고유 규칙 내용'));
-  const hidden = R.normalizeAnswers({ ...original, features: [] });
+  const hidden = A.normalizeAnswers({ ...original, features: [] });
   assert.equal(hidden[q.id], original[q.id]);
   assert(!R.report(hidden).includes(original[q.id]));
 });
 
 test('Unknown stays unknown and is not a generated requirement', () => {
-  assert.equal(R.UNKNOWN, '아직 미정');
+  assert.equal(A.UNKNOWN, '아직 미정');
   const q = typeQuestion('single');
-  assert.equal(R.choiceOptions(q).filter(item => item === R.UNKNOWN).length, 1);
-  assert.equal(R.normalizeAnswers({ [q.id]: R.UNKNOWN })[q.id], R.UNKNOWN);
-  assert(R.report({ project_name: R.UNKNOWN }).includes('확인해 볼 질문'));
+  assert.equal(A.choiceOptions(q).filter(item => item === A.UNKNOWN).length, 1);
+  assert.equal(A.normalizeAnswers({ [q.id]: A.UNKNOWN })[q.id], A.UNKNOWN);
+  assert(R.report({ project_name: A.UNKNOWN }).includes('확인해 볼 질문'));
   assert(!R.report({}).includes('React'));
 });
 
@@ -137,30 +139,30 @@ test('Guides explain known choices without inventing advice for unknown items', 
   assert(G.get('features', 'booking')?.meaning);
   assert(G.get('screens', 'fab')?.meaning);
   assert(G.get('login_methods', '이메일 인증 링크·번호')?.meaning);
-  assert.equal(G.get('devices', R.UNKNOWN), null);
+  assert.equal(G.get('devices', A.UNKNOWN), null);
   assert.equal(G.get('features', '없는유형'), null);
 });
 
 test('Exclusive absence choices cannot coexist with positive choices', () => {
   for (const [id, values] of [['current_methods', ['특별한 방법 없음', '전화']], ['signup_fields', ['추가 정보 없음', '이메일']], ['device_needs', ['기기 기능이 필요하지 않음', '카메라로 촬영']]]) {
-    assert.throws(() => R.normalizeAnswers({ [id]: values }));
-    assert.deepEqual(R.normalizeAnswers({ [id]: [values[0]] })[id], [values[0]]);
+    assert.throws(() => A.normalizeAnswers({ [id]: values }));
+    assert.deepEqual(A.normalizeAnswers({ [id]: [values[0]] })[id], [values[0]]);
   }
 });
 
 test('Own credentials and several social login methods coexist', () => {
-  const q = R.allQuestions.find(q => q.type === 'multi' && q.options?.includes('카카오') && q.options.includes('Google'));
+  const q = A.allQuestions.find(q => q.type === 'multi' && q.options?.includes('카카오') && q.options.includes('Google'));
   assert(q);
   const methods = [q.options.find(item => /비밀번호/.test(item)), '카카오', '네이버', 'Google'];
   assert(methods[0]);
-  assert.deepEqual(R.normalizeAnswers({ [q.id]: methods })[q.id], methods);
-  assert.throws(() => R.normalizeAnswers({ [q.id]: [...methods, R.UNKNOWN] }));
+  assert.deepEqual(A.normalizeAnswers({ [q.id]: methods })[q.id], methods);
+  assert.throws(() => A.normalizeAnswers({ [q.id]: [...methods, A.UNKNOWN] }));
   const answers = { features: [feature()], login_need: '일부 기능에서만 로그인', login_features: ['feature-1'], login_methods: methods, password_recovery: '이메일로 다시 설정' };
   assert(activeIds(answers).includes('password_recovery'));
   assert(R.report(answers).includes('이메일로 다시 설정'));
   assert(R.report(answers).includes('예약하기 feature-1'));
   assert(!activeIds({ ...answers, login_methods: ['카카오'] }).includes('password_recovery'));
-  const noLogin = R.normalizeAnswers({ ...answers, login_need: '로그인 없이 사용' });
+  const noLogin = A.normalizeAnswers({ ...answers, login_need: '로그인 없이 사용' });
   assert.equal(noLogin.password_recovery, '이메일로 다시 설정');
   assert(!R.report(noLogin).includes('이메일로 다시 설정'));
   const other = { login_need: '일부 기능에서만 로그인', login_methods: ['다른 방법'], signup_fields: ['다른 정보'] };
@@ -172,13 +174,13 @@ test('Own credentials and several social login methods coexist', () => {
 test('Generic user and role rows retain their distinct fields', () => {
   const q = typeQuestion('rows');
   const row = { id: 'person-1', ...Object.fromEntries(q.fields.map(f => [f.id, f.type === 'multi' ? [f.options[0]] : f.type === 'single' ? f.options[0] : `${f.label} 내용`])) };
-  const a = R.normalizeAnswers({ [q.id]: [row] });
+  const a = A.normalizeAnswers({ [q.id]: [row] });
   assert.deepEqual(a[q.id][0], row);
   assert(R.report(a).includes(q.fields[0].label));
 });
 
 test('Multiple features from the same category retain stable identities', () => {
-  const a = R.normalizeAnswers({ features: [feature(), feature('feature-2')] });
+  const a = A.normalizeAnswers({ features: [feature(), feature('feature-2')] });
   assert.equal(a.features.length, 2);
   assert.notEqual(a.features[0].id, a.features[1].id);
   assert(R.report(a).includes('[F01]'));
@@ -188,7 +190,7 @@ test('Multiple features from the same category retain stable identities', () => 
 test('Screens combine navigation, actions, tables, and side panels per role', () => {
   const elements = ['appbar', 'sidebar', 'fab', 'table', 'rightpanel'];
   assert(elements.every(id => Q.uiElements.some(item => item.id === id)));
-  const answers = R.normalizeAnswers({ features: [feature()], screens: [screen('screen-1', elements), { ...screen('screen-2', [elements[0]]), roles: '손님' }] });
+  const answers = A.normalizeAnswers({ features: [feature()], screens: [screen('screen-1', elements), { ...screen('screen-2', [elements[0]]), roles: '손님' }] });
   assert.deepEqual(answers.screens[0].elements, elements);
   assert.equal(answers.screens[1].elements.length, 1);
   const output = R.report(answers);
@@ -198,7 +200,7 @@ test('Screens combine navigation, actions, tables, and side panels per role', ()
 
 test('Flow preserves sequence, linked names, and manually described actions', () => {
   const q = typeQuestion('flow');
-  const a = R.normalizeAnswers({ features: [feature()], [q.id]: [{ id: 'flow-1', featureId: '', note: '처음 방문해 안내 읽기' }, { id: 'flow-2', featureId: 'feature-1', note: '시간을 선택한다' }] });
+  const a = A.normalizeAnswers({ features: [feature()], [q.id]: [{ id: 'flow-1', featureId: '', note: '처음 방문해 안내 읽기' }, { id: 'flow-2', featureId: 'feature-1', note: '시간을 선택한다' }] });
   const output = R.report(a);
   assert(output.indexOf('처음 방문해 안내 읽기') < output.indexOf('시간을 선택한다'));
   assert(output.includes('2번째 행동'));
@@ -206,7 +208,7 @@ test('Flow preserves sequence, linked names, and manually described actions', ()
 });
 
 test('Removed feature links are preserved and surfaced for review', () => {
-  const a = R.normalizeAnswers({ screens: [screen('screen-1', [])] });
+  const a = A.normalizeAnswers({ screens: [screen('screen-1', [])] });
   assert.deepEqual(a.screens[0].featureIds, ['feature-1']);
   assert(R.report(a).includes('연결할 기능 확인 필요'));
 });
@@ -228,7 +230,7 @@ test('Reports use readable local numbers and omit untouched sections and optiona
 });
 
 test('First-release scope comes from the original feature cards', () => {
-  const a = { features: [feature(), feature('later', 'search', '나중에'), feature('unsure', 'custom', R.UNKNOWN)] };
+  const a = { features: [feature(), feature('later', 'search', '나중에'), feature('unsure', 'custom', A.UNKNOWN)] };
   const output = R.report(a);
   assert(output.includes('첫 버전에 필요한 기능'));
   assert(output.includes('나중에 만들 기능'));
@@ -239,23 +241,23 @@ test('First-release scope comes from the original feature cards', () => {
 
 test('One reference row per URL keeps notes and normalizes HTTP links', () => {
   const q = typeQuestion('references');
-  const a = R.normalizeAnswers({ [q.id]: [{ id: 'ref-1', url: 'https://example.com/a?x=1', note: '검색 화면 참고' }, { id: 'ref-2', url: 'http://example.org', note: '' }] });
+  const a = A.normalizeAnswers({ [q.id]: [{ id: 'ref-1', url: 'https://example.com/a?x=1', note: '검색 화면 참고' }, { id: 'ref-2', url: 'http://example.org', note: '' }] });
   const output = R.report(a);
   assert(output.includes('<https://example.com/a?x=1>'));
   assert(output.includes('<http://example.org/>'));
   assert(output.includes('검색 화면 참고'));
   assert(output.includes('열람·분석한 것은 아닙니다'));
-  for (const url of ['javascript:alert(1)', 'data:text/html,<script>', 'https://', '//example.com', 'https://example.com https://another.example']) assert.equal(R.normalizeHttpUrl(url), '');
+  for (const url of ['javascript:alert(1)', 'data:text/html,<script>', 'https://', '//example.com', 'https://example.com https://another.example']) assert.equal(A.normalizeHttpUrl(url), '');
 });
 
 test('HTTP reference normalization rejects credentials and ambiguous input without claiming SSRF protection', () => {
-  for (const value of [null, {}, 42, 'https:///example.com', 'https://user:secret@example.com', 'https://trusted.example@other.example', 'https://user%40name@example.com', 'https://example.com\\@other.example', 'https://example.com\u0000', '\nhttps://example.com', 'https://exam\tple.com', 'https://example.com/\u007f', 'https://example.com/' + 'a'.repeat(2000)]) assert.equal(R.normalizeHttpUrl(value), '', String(value));
-  for (const [value, expected] of [[' HTTPS://EXAMPLE.COM/a?x=1&y=2#part ', 'https://example.com/a?x=1&y=2#part'], ['https://example.com/자료', 'https://example.com/%EC%9E%90%EB%A3%8C'], ['http://localhost:4173', 'http://localhost:4173/'], ['http://127.0.0.1', 'http://127.0.0.1/'], ['http://[::1]', 'http://[::1]/'], ['http://169.254.169.254', 'http://169.254.169.254/']]) assert.equal(R.normalizeHttpUrl(value), expected);
+  for (const value of [null, {}, 42, 'https:///example.com', 'https://user:secret@example.com', 'https://trusted.example@other.example', 'https://user%40name@example.com', 'https://example.com\\@other.example', 'https://example.com\u0000', '\nhttps://example.com', 'https://exam\tple.com', 'https://example.com/\u007f', 'https://example.com/' + 'a'.repeat(2000)]) assert.equal(A.normalizeHttpUrl(value), '', String(value));
+  for (const [value, expected] of [[' HTTPS://EXAMPLE.COM/a?x=1&y=2#part ', 'https://example.com/a?x=1&y=2#part'], ['https://example.com/자료', 'https://example.com/%EC%9E%90%EB%A3%8C'], ['http://localhost:4173', 'http://localhost:4173/'], ['http://127.0.0.1', 'http://127.0.0.1/'], ['http://[::1]', 'http://[::1]/'], ['http://169.254.169.254', 'http://169.254.169.254/']]) assert.equal(A.normalizeHttpUrl(value), expected);
 });
 
 test('Invalid reference URLs are omitted from both document exports but original drafts survive', () => {
   for (const url of ['https://user:secret@example.com', 'https://example.com\\@other.example', 'javascript:alert(1)', 'https://']) {
-    const answers = R.normalizeAnswers({ references: [{id:'ref-1',url,note:'디자인 참고 메모'}], alternatives:[{id:'alt-1',url,name:'비교 서비스'}] });
+    const answers = A.normalizeAnswers({ references: [{id:'ref-1',url,note:'디자인 참고 메모'}], alternatives:[{id:'alt-1',url,name:'비교 서비스'}] });
     const project = P.createProject({answers});
     const restored = P.importBackup({format:'buildbrief-idea',version:1,...project}).projects[0];
     assert.equal(restored.answers.references[0].url, url);
@@ -274,7 +276,7 @@ test('Invalid reference URLs are omitted from both document exports but original
 test('Unfinished and unsafe URL text survives autosave without becoming a link', () => {
   const q = typeQuestion('references');
   for (const url of ['https://', 'javascript:alert(1)', '주소를 나중에 적기']) {
-    const a = R.normalizeAnswers({ [q.id]: [{ id: 'ref-1', url, note: '' }] });
+    const a = A.normalizeAnswers({ [q.id]: [{ id: 'ref-1', url, note: '' }] });
     assert.equal(a[q.id][0].url, url);
     const output = R.report(a);
     assert(output.includes('URL 확인 필요'));
@@ -283,22 +285,22 @@ test('Unfinished and unsafe URL text survives autosave without becoming a link',
 });
 
 test('Question progress sums active stage counts and handles blank cards, priorities, unknowns, and hidden answers', () => {
-  const empty = R.progress({});
+  const empty = A.progress({});
   assert.equal(empty.answered, 0);
-  assert.equal(empty.total, R.activeQuestions({}).length);
+  assert.equal(empty.total, A.activeQuestions({}).length);
   assert.equal(empty.percent, 0);
   assert.equal(empty.steps.length, Q.steps.length);
   const featureIndex = Q.steps.findIndex(step => step.id === 'features');
   const reviewIndex = Q.steps.findIndex(step => step.id === 'review');
-  const blank = { features: [{ id: 'empty', category: 'custom', name: '', actor: '', outcome: '', notes: '', priority: R.UNKNOWN }], references: [{ id: 'ref-1', url: ' ', note: '' }], audience: [{ id: 'person-1', person: '', goal: '', context: '' }] };
-  assert.equal(R.progress(blank).answered, 0, 'An added card and its automatic unknown priority are not an answer');
-  assert.equal(R.progress({ features: R.UNKNOWN }).steps[featureIndex].answered, 1, 'An explicit unknown response is recorded');
-  assert.equal(R.progress({ login_need: R.UNKNOWN }).answered, 1);
-  assert.equal(R.progress({ features: [feature('feature-1', 'custom', R.UNKNOWN)] }).steps[reviewIndex].answered, 0);
-  assert.equal(R.progress({ features: [feature('feature-1', 'custom', '나중에')] }).steps[reviewIndex].answered, 1);
-  assert.equal(R.progress({ features: [feature(), feature('feature-2', 'custom', '')] }).steps[reviewIndex].answered, 0, 'Every feature needs a reviewed priority');
-  const answers = { project_name: '예시', summary: R.UNKNOWN, features: [feature()], booking_rules: '정원 안에서 신청', references: [] };
-  const counted = R.progress(answers);
+  const blank = { features: [{ id: 'empty', category: 'custom', name: '', actor: '', outcome: '', notes: '', priority: A.UNKNOWN }], references: [{ id: 'ref-1', url: ' ', note: '' }], audience: [{ id: 'person-1', person: '', goal: '', context: '' }] };
+  assert.equal(A.progress(blank).answered, 0, 'An added card and its automatic unknown priority are not an answer');
+  assert.equal(A.progress({ features: A.UNKNOWN }).steps[featureIndex].answered, 1, 'An explicit unknown response is recorded');
+  assert.equal(A.progress({ login_need: A.UNKNOWN }).answered, 1);
+  assert.equal(A.progress({ features: [feature('feature-1', 'custom', A.UNKNOWN)] }).steps[reviewIndex].answered, 0);
+  assert.equal(A.progress({ features: [feature('feature-1', 'custom', '나중에')] }).steps[reviewIndex].answered, 1);
+  assert.equal(A.progress({ features: [feature(), feature('feature-2', 'custom', '')] }).steps[reviewIndex].answered, 0, 'Every feature needs a reviewed priority');
+  const answers = { project_name: '예시', summary: A.UNKNOWN, features: [feature()], booking_rules: '정원 안에서 신청', references: [] };
+  const counted = A.progress(answers);
   assert.equal(counted.answered, 5, 'Name, summary, features, booking rules, and shared scope are recorded');
   assert.equal(counted.steps[0].answered, 2);
   assert.equal(counted.steps[featureIndex].answered, 2);
@@ -306,11 +308,11 @@ test('Question progress sums active stage counts and handles blank cards, priori
   assert.equal(counted.answered, counted.steps.reduce((sum, step) => sum + step.answered, 0));
   assert.equal(counted.total, counted.steps.reduce((sum, step) => sum + step.total, 0));
   assert.equal(counted.percent, Math.round(counted.answered / counted.total * 100));
-  const hidden = R.progress({ ...answers, features: [] });
+  const hidden = A.progress({ ...answers, features: [] });
   assert.equal(hidden.answered, 2);
   assert.equal(hidden.total, empty.total, 'Hidden booking rules leave the denominator as well as the numerator');
   const notesAndRequests = P.createProject({ notes: { summary: '추천받고 싶은 이유' }, recommendations: ['features', 'scope'] });
-  assert.deepEqual(R.progress(notesAndRequests.answers), empty);
+  assert.deepEqual(A.progress(notesAndRequests.answers), empty);
 });
 
 test('Malformed known answer types fail without changing the source', () => {
@@ -318,39 +320,39 @@ test('Malformed known answer types fail without changing the source', () => {
   const invalid = [{ project_name: 42 }, { features: {} }, { features: [null] }, { screens: [{ id: 'screen-1', featureIds: 'wrong' }] }, { [q.id]: '없는 선택지' }, { references: [{ id: 'ref-1', url: {} }] }];
   for (const input of invalid) {
     const before = clone(input);
-    assert.throws(() => R.normalizeAnswers(input));
+    assert.throws(() => A.normalizeAnswers(input));
     assert.deepEqual(input, before);
   }
 });
 
 test('Question and field whitelists block prototype pollution and obsolete schemas', () => {
-  for (const input of [JSON.parse('{"__proto__":{"polluted":true}}'), { backend_framework: 'FastAPI' }, { unknown_question: '답' }]) assert.throws(() => R.normalizeAnswers(input));
-  const a = R.normalizeAnswers({ features: [{ ...feature(), unrecognized: 'not copied' }] });
+  for (const input of [JSON.parse('{"__proto__":{"polluted":true}}'), { backend_framework: 'FastAPI' }, { unknown_question: '답' }]) assert.throws(() => A.normalizeAnswers(input));
+  const a = A.normalizeAnswers({ features: [{ ...feature(), unrecognized: 'not copied' }] });
   assert(!Object.hasOwn(a.features[0], 'unrecognized'));
   assert.equal({}.polluted, undefined);
 });
 
 test('Limits and duplicate identities reject an import instead of truncating it', () => {
-  assert.throws(() => R.normalizeAnswers({ project_name: 'x'.repeat(R.MAX_TEXT + 1) }));
-  assert.equal(R.normalizeAnswers({ project_name: 'x'.repeat(200) }).project_name.length, 200);
-  assert.throws(() => R.normalizeAnswers({ project_name: 'x'.repeat(201) }));
-  assert.equal(R.normalizeAnswers({ summary: 'x'.repeat(6000) }).summary.length, 6000);
-  assert.throws(() => R.normalizeAnswers({ summary: 'x'.repeat(6001) }));
-  assert.throws(() => R.normalizeAnswers({ references: [{ id: 'ref-1', url: 'x'.repeat(2001) }] }));
-  assert.throws(() => R.normalizeAnswers({ features: Array.from({ length: R.MAX_ROWS + 1 }, (_, i) => feature(`feature-${i}`)) }));
-  assert.throws(() => R.normalizeAnswers({ features: [feature(), feature()] }));
-  assert.throws(() => R.normalizeAnswers({ features: [{ ...feature(), id: '<script>' }] }));
-  assert.throws(() => R.normalizeAnswers({ screens: [{ ...screen('screen-1', []), elements: ['unknown-component'] }] }));
+  assert.throws(() => A.normalizeAnswers({ project_name: 'x'.repeat(A.MAX_TEXT + 1) }));
+  assert.equal(A.normalizeAnswers({ project_name: 'x'.repeat(200) }).project_name.length, 200);
+  assert.throws(() => A.normalizeAnswers({ project_name: 'x'.repeat(201) }));
+  assert.equal(A.normalizeAnswers({ summary: 'x'.repeat(6000) }).summary.length, 6000);
+  assert.throws(() => A.normalizeAnswers({ summary: 'x'.repeat(6001) }));
+  assert.throws(() => A.normalizeAnswers({ references: [{ id: 'ref-1', url: 'x'.repeat(2001) }] }));
+  assert.throws(() => A.normalizeAnswers({ features: Array.from({ length: A.MAX_ROWS + 1 }, (_, i) => feature(`feature-${i}`)) }));
+  assert.throws(() => A.normalizeAnswers({ features: [feature(), feature()] }));
+  assert.throws(() => A.normalizeAnswers({ features: [{ ...feature(), id: '<script>' }] }));
+  assert.throws(() => A.normalizeAnswers({ screens: [{ ...screen('screen-1', []), elements: ['unknown-component'] }] }));
 });
 
 test('Normalization is idempotent, detached, and preserves drafts and notes', () => {
   const input = { answers: { features: [feature()] }, drafts: { project_name: '작성 중 이름' }, notes: { features: '내가 남긴 설명' } };
-  const normalized = R.normalizeProject(input);
-  assert.deepEqual(R.normalizeProject(normalized), normalized);
+  const normalized = A.normalizeProject(input);
+  assert.deepEqual(A.normalizeProject(normalized), normalized);
   normalized.answers.features[0].name = '변경';
   assert.equal(input.answers.features[0].name, '예약하기 feature-1');
-  assert.throws(() => R.normalizeProject({ answers: {}, drafts: [], notes: {} }));
-  assert.throws(() => R.normalizeNotes({ features: {} }));
+  assert.throws(() => A.normalizeProject({ answers: {}, drafts: [], notes: {} }));
+  assert.throws(() => A.normalizeNotes({ features: {} }));
 });
 
 test('Every exported question owns its answer and reason, including repeated cards and notes-only questions', () => {
@@ -391,12 +393,12 @@ test('Answer reasons survive project imports and conditional visibility without 
   assert(notesOnly.includes(notes.scope), 'Scope notes must appear even before features are added');
   assert(!notesOnly.includes(notes.booking_rules));
   const withBooking = { features: [feature()] };
-  const progress = R.progress(withBooking);
+  const progress = A.progress(withBooking);
   assert(R.report(withBooking, true, notes).includes(notes.booking_rules));
   assert(!R.report({ features: [] }, false, notes).includes(notes.booking_rules));
   assert(R.report(withBooking, false, notes).includes(notes.booking_rules), 'Reactivating a question restores its reason');
-  assert.deepEqual(R.progress(withBooking), progress);
-  assert.deepEqual(R.progress(imported.projects[0].answers), R.progress({}));
+  assert.deepEqual(A.progress(withBooking), progress);
+  assert.deepEqual(A.progress(imported.projects[0].answers), A.progress({}));
   assert.deepEqual(imported.projects[0].notes, notes, 'Hiding a question must not erase its reason');
 });
 
@@ -420,7 +422,7 @@ test('Recommendation requests round-trip separately while old projects default t
     assert.deepEqual(first.recommendations, ['login_methods', 'screens']);
     assert.deepEqual(second.recommendations, []);
   }
-  for (const recommendations of [null, {}, 'screens', [42], ['missing-question'], ['project_name'], ['screens', 'screens'], Array(R.allQuestions.length + 1).fill('screens')]) {
+  for (const recommendations of [null, {}, 'screens', [42], ['missing-question'], ['project_name'], ['screens', 'screens'], Array(A.allQuestions.length + 1).fill('screens')]) {
     const input = { format: 'buildbrief-idea', version: 1, ...clone(first), recommendations };
     const before = clone(input);
     assert.throws(() => P.importBackup(input));
@@ -447,7 +449,7 @@ test('Only active recommendation requests are exported without clearing answers 
   assert(hidden.includes(question('screens').label));
   const requestOnly = P.createProject({ recommendations: ['screens'] });
   assert.deepEqual(requestOnly.answers, {});
-  assert.deepEqual(R.progress(requestOnly.answers), R.progress({}));
+  assert.deepEqual(A.progress(requestOnly.answers), A.progress({}));
   assert(R.report(requestOnly.answers, false, requestOnly.notes, requestOnly.recommendations).includes('## AI에게 비교·추천을 요청할 항목'));
   assert.deepEqual({ answers, notes, recommendations }, before);
   assert(R.report(answers, false, notes, recommendations).includes(notes.login_methods), 'A hidden request can reappear with its original choice and reason');
@@ -460,9 +462,9 @@ test('Hostile markup stays data in answers, card fields, notes and both exports'
     '</textarea><script>alert(1)</script>'
   ];
   for (const attack of attacks) {
-    const answers = R.normalizeAnswers({ project_name: attack, summary: attack, features: [{ ...feature(), name: attack, notes: attack }], screens: [{ ...screen('screen-1', ['table']), purpose: attack, elementNotes: {table: attack} }] });
+    const answers = A.normalizeAnswers({ project_name: attack, summary: attack, features: [{ ...feature(), name: attack, notes: attack }], screens: [{ ...screen('screen-1', ['table']), purpose: attack, elementNotes: {table: attack} }] });
     assert.equal(answers.project_name, attack);
-    const notes = R.normalizeNotes({ summary: attack, features: attack, screens: attack });
+    const notes = A.normalizeNotes({ summary: attack, features: attack, screens: attack });
     for (const prompt of [false,true]) {
       const output = R.report(answers,prompt,notes);
       assert(!/<(?:img|svg|script|\/textarea)\b/i.test(output));
@@ -538,7 +540,7 @@ test('Single and whole-workspace backup imports validate before cloning project 
 
 test('alternative comparison survives normalization and both exports', () => {
   const raw = { current_pain: '기존 답변 유지', alternatives: [{ id: 'alternative-1', name: '비교 서비스', url: 'https://example.com', strength: '빠른 조회', weakness: '복잡한 설정', context: '혼자 운영하는 매장', evidence: '아직 예상', source: '추후 인터뷰로 확인' }] };
-  const normalized = R.normalizeAnswers(JSON.parse(JSON.stringify(raw)));
+  const normalized = A.normalizeAnswers(JSON.parse(JSON.stringify(raw)));
   assert.deepEqual(normalized.alternatives, raw.alternatives);
   assert.equal(normalized.current_pain, raw.current_pain);
   for (const prompt of [false, true]) {
@@ -550,19 +552,19 @@ test('alternative comparison survives normalization and both exports', () => {
 test('feature questions relocate without losing old answers or notes', () => {
  const step = Q.steps.find(s => s.id === 'features');
  assert(!Q.steps.some(s => s.id === 'data'));
- assert.deepEqual(R.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['features']);
+ assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['features']);
  const answers = { features: [{ ...feature(), savedInfo: '예약 날짜와 확정 상태' }], booking_rules: '하루 전까지 취소', data_items: [{id:'record-1', name:'예약 기록', purpose:'신청 확인', access:'본인', change:'담당자', deletion:'기간 미정'}], general_rules: '예전 메모' };
  const project = P.createProject({answers, notes:{data_items:'기존 이유'}});
  const restored = P.importBackup({format:'buildbrief-ideas', version:1, activeId:project.id, projects:[project]}).projects[0];
- assert.deepEqual(restored.answers, R.normalizeAnswers(answers));
+ assert.deepEqual(restored.answers, A.normalizeAnswers(answers));
  assert.equal(restored.notes.data_items, '기존 이유');
  for(const prompt of [false,true]) { const report = R.report(restored.answers,prompt,restored.notes); for(const value of ['예약 날짜와 확정 상태','하루 전까지 취소','예약 기록','예전 메모','기존 이유']) assert.ok(report.includes(value),value); }
- assert(R.activeGroups(step, {}, {general_rules:'메모만 보존'}).some(g=>g.questions.some(q=>q.id==='general_rules')));
+ assert(A.activeGroups(step, {}, {general_rules:'메모만 보존'}).some(g=>g.questions.some(q=>q.id==='general_rules')));
  assert(R.report({},false,{general_rules:'메모만 보존'}).includes('메모만 보존'));
- assert(!R.activeGroups(step,{features:[feature('f2','browse')]}).some(g=>g.questions.some(q=>q.id==='booking_rules')));
+ assert(!A.activeGroups(step,{features:[feature('f2','browse')]}).some(g=>g.questions.some(q=>q.id==='booking_rules')));
 });
 test('situation choices reveal only their own custom answer and keep hidden text in backup', () => {
- const newChoices = R.allQuestions.filter(q => q.options?.includes('직접 입력'));
+ const newChoices = A.allQuestions.filter(q => q.options?.includes('직접 입력'));
  assert(newChoices.length >= 15);
  for (const q of newChoices) {
    const custom = question(q.id + '_other'); assert(custom, q.id);
@@ -570,9 +572,9 @@ test('situation choices reveal only their own custom answer and keep hidden text
    assert(!activeIds(base).includes(custom.id),q.id);
    const raw = {...base, [q.id]:'직접 입력', [custom.id]:'상황별로 다른 방식', booking_deadline:'이용 하루 전'};
    assert(activeIds(raw).includes(custom.id),q.id);
-   const normalized = R.normalizeAnswers(raw);
+   const normalized = A.normalizeAnswers(raw);
    for (const prompt of [false,true]) { const output = R.report(normalized,prompt,{[q.id]:'이 선택의 이유'}); assert(output.includes('상황별로 다른 방식')); assert(output.includes('이 선택의 이유')); }
-   const hidden = R.normalizeAnswers({...normalized,[q.id]:'아직 미정'});
+   const hidden = A.normalizeAnswers({...normalized,[q.id]:'아직 미정'});
    assert.equal(hidden[custom.id],'상황별로 다른 방식');
    assert(!R.report(hidden).includes('상황별로 다른 방식'));
    assert(!activeIds({...raw,features:[]}).includes(custom.id));
@@ -582,6 +584,7 @@ test('situation choices reveal only their own custom answer and keep hidden text
  assert(activeIds({...base,booking_cancellation:'정해진 시점까지만 가능해요'}).includes('booking_deadline'));
  assert(!activeIds(base).includes('booking_rules'));
  assert(activeIds({...base,booking_rules:'기존 자유 입력'}).includes('booking_rules'));
- assert(!fs.readFileSync('dist/app.js','utf8').includes('<summary>나중에 다시 확인할 정보 (선택)</summary>'));
+ assert(!V.question(question('features'), base).includes('나중에 다시 확인할 정보 (선택)'));
 });
+require('./scripts/check-runtime.cjs');
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);

@@ -2,7 +2,7 @@
 
 [프로젝트 안내·문서 목차](../README.md) · [사용 가이드](user-guide.md)
 
-안내 화면·질문·기획 초안·프로젝트 관리의 색상·글자 크기·접근성을 바꿀 때 읽습니다. 관련 코드: [styles.css](../dist/styles.css), [index.html](../dist/index.html), [app.js](../dist/app.js).
+안내 화면·질문·기획 초안·프로젝트 관리의 색상·글자 크기·접근성을 바꿀 때 읽습니다. 관련 코드: [styles.css](../dist/styles.css), [index.html](../dist/index.html), [views.js](../dist/views.js), [app.js](../dist/app.js).
 
 ## 시작 안내의 구성 원칙
 

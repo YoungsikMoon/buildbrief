@@ -6,7 +6,7 @@ CSP·보안 헤더·외부 링크, 브라우저 저장·백업의 기밀성, 복
 
 담당: 변경을 만드는 개발자와 검토자. 점검 상태는 기재한 검증 범위에 한정하며, ASVS 전체 충족을 뜻하지 않습니다.
 
-관련 코드: [_headers](../../dist/_headers), [index.html](../../dist/index.html), [app.js](../../dist/app.js), [projects.js](../../dist/projects.js). 실제 호스팅·도메인 설정은 [운영 점검표](operations.md)의 OPS-04에서 확인합니다.
+관련 코드: [_headers](../../dist/_headers), [index.html](../../dist/index.html), [app.js](../../dist/app.js), [storage.js](../../dist/storage.js), [projects.js](../../dist/projects.js). 실제 호스팅·도메인 설정은 [운영 점검표](operations.md)의 OPS-04에서 확인합니다.
 
 ## 점검표
 
