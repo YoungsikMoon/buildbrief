@@ -7,7 +7,7 @@
   const exclusive = ['아직 미정','특별한 방법 없음','추가 정보 없음','기기 기능이 필요하지 않음'];
   const priorities = ['첫 버전에 필요', '나중에', '아직 미정'];
   const questions = new Map(R.allQuestions.map(q => [q.id, q]));
-  const initial = P.createProject();
+  const initial = P.createProject({started:false});
   let workspace = { version:1, activeId:initial.id, projects:[initial] };
   let answers, drafts, notes, recommendations, currentStep, storedRaw = null, originalStorage = null;
   let loadFailed = false, externalChange = false, storageWorking = true, toastTimer, formScrollY = 0;
@@ -15,6 +15,7 @@
   catch { loadFailed = true; storageWorking = false; }
   activateProject();
   function activateProject() { const p = workspace.projects.find(p => p.id === workspace.activeId); ({ answers, drafts, notes, recommendations = [] } = p); currentStep = p.step; }
+  function markStarted() { workspace.projects.find(p => p.id === workspace.activeId).started = true; }
   function collectWorkspace() { return { ...workspace,projects:workspace.projects.map(p => p.id === workspace.activeId ? { ...p,answers,drafts,notes,recommendations,step:currentStep,topic:'' } : p) }; }
   function status(message) {
     $('#save-status').textContent = $('#storage-help-status').textContent = message;
@@ -152,10 +153,10 @@
     $('#question-groups').innerHTML = R.activeGroups(step,answers,notes).map(g => `<section class="question-group"><div class="group-heading"><h2>${esc(g.title)}</h2>${g.description ? `<p>${esc(g.description)}</p>` : ''}</div><div class="group-body">${g.questions.map(renderQuestion).join('')}</div></section>`).join('');
     for (const [id,open] of states) { const el = document.getElementById(id); if (el) el.open = open; }
     $('#previous-button').disabled = currentStep === 0; $('#next-button').textContent = currentStep === steps.length-1 ? '기획 초안 보기 →' : '다음 단계 →';
-    if (navigate) { save(); setNavigation(false); window.scrollTo({top:0,behavior:'instant'}); $('#page-title').tabIndex = -1; $('#page-title').focus({preventScroll:true}); }
+    if (navigate) { markStarted(); save(); setNavigation(false); window.scrollTo({top:0,behavior:'instant'}); $('#page-title').tabIndex = -1; $('#page-title').focus({preventScroll:true}); }
   }
   function setNavigation(open) { $('#sidebar').dataset.open = String(open); $('#toggle-navigation').setAttribute('aria-expanded',String(open)); }
-  function changed(rerender = false) { save(); if (rerender) renderStep(currentStep); else updateProgress(); }
+  function changed(rerender = false) { markStarted(); save(); if (rerender) renderStep(currentStep); else updateProgress(); }
   function showHelp(title,guide) {
     $('#help-title').textContent = title;
     $('#help-content').innerHTML = '<dl>' + [['meaning','무엇인가요?'],['fit','언제 잘 맞나요?'],['avoid','어떤 점을 주의하나요?']].filter(([key]) => guide?.[key]).map(([key,label]) => `<div class="help-fact"><dt>${label}</dt><dd>${esc(guide[key])}</dd></div>`).join('') + '</dl>';
@@ -274,6 +275,7 @@
       case 'previous-button': return renderStep(currentStep-1,true);
       case 'report-button': case 'mobile-report-button': return renderReport();
       case 'back-to-form':
+        markStarted(); save();
         $('#form-view').hidden = false; $('#report-view').hidden = true; setNavigation(false);
         $('#page-title').tabIndex = -1; $('#page-title').focus({preventScroll:true});
         window.scrollTo({top:formScrollY,behavior:'instant'}); return;
@@ -317,6 +319,6 @@
   if (firstVisit) save();
   else if (!loadFailed) status('이 브라우저에 저장됨');
   renderStep(currentStep);
-  if (firstVisit) showGuide(false);
+  if (!loadFailed && !workspace.projects.find(p => p.id === workspace.activeId).started) showGuide(false);
   if (loadFailed) { status('저장 읽기 실패 · 원본 보존 중'); toast('기존 저장 내용을 읽지 못했어요. 저장 안내에서 원본을 백업할 수 있어요.'); }
 })();

@@ -27,10 +27,10 @@
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
-  function createProject({ answers = {}, drafts = {}, notes = {}, recommendations = [], step = 0, topic = '' } = {}) {
+  function createProject({ answers = {}, drafts = {}, notes = {}, recommendations = [], step = 0, topic = '', started = true } = {}) {
     const data = projectData({ answers, drafts, notes, recommendations });
     const now = new Date().toISOString();
-    return { id: newId(), createdAt: now, updatedAt: now, step: clampStep(step), topic: topicAt(step, topic), ...data };
+    return { id: newId(), createdAt: now, updatedAt: now, started: started !== false, step: clampStep(step), topic: topicAt(step, topic), ...data };
   }
 
   function normalizeWorkspace(input) {
@@ -45,8 +45,9 @@
       if (!validDate(project.createdAt) || !validDate(project.updatedAt)) {
         throw new Error('프로젝트의 생성·수정 날짜가 올바르지 않아요.');
       }
+      if (project.started !== undefined && typeof project.started !== 'boolean') throw new Error('프로젝트 시작 상태가 올바르지 않아요.');
       ids.add(project.id);
-      return { id: project.id, createdAt: project.createdAt, updatedAt: project.updatedAt, step: clampStep(project.step), topic: topicAt(project.step, project.topic), ...projectData(project) };
+      return { id: project.id, createdAt: project.createdAt, updatedAt: project.updatedAt, started: project.started !== false, step: clampStep(project.step), topic: topicAt(project.step, project.topic), ...projectData(project) };
     });
     if (typeof input.activeId !== 'string' || !ids.has(input.activeId)) throw new Error('현재 선택한 프로젝트를 찾을 수 없어요.');
     return { version: 1, activeId: input.activeId, projects };

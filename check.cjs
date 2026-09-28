@@ -18,6 +18,21 @@ function test(name, run) {
   catch (error) { error.message = `${name}: ${error.message}`; throw error; }
 }
 
+test('Start state survives refresh and backup without changing legacy projects', () => {
+  const pending = P.createProject({started:false});
+  const saved = {version:1,activeId:pending.id,projects:[pending]};
+  assert.equal(P.normalizeWorkspace(JSON.parse(JSON.stringify(saved))).projects[0].started,false);
+  assert.equal(P.importBackup({format:'buildbrief-ideas',...saved}).projects[0].started,false);
+  pending.started = true; pending.step = 3;
+  const restored = P.normalizeWorkspace(saved).projects[0];
+  assert.equal(restored.started,true); assert.equal(restored.step,3);
+  delete pending.started;
+  assert.equal(P.normalizeWorkspace(saved).projects[0].started,true);
+  assert.equal(P.createProject().started,true);
+  pending.started = 'false';
+  assert.throws(() => P.normalizeWorkspace(saved));
+});
+
 test('Static deployment protections remain intact', () => {
   const deployment = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
   assert.equal(deployment.pages_build_output_dir, './dist');
