@@ -8,6 +8,6 @@
 
 ## 보안 영향
 
-[보안 점검표](https://github.com/YoungsikMoon/buildbrief/blob/main/SECURITY.md)의 관련 ID, 검증 결과와 남은 문제를 적어 주세요. 영향이 없다면 그 이유를 적으면 됩니다. 새 기능으로 적용 범위가 바뀌었다면 함께 갱신해 주세요.
+[보안 문서 목차](https://github.com/YoungsikMoon/buildbrief/blob/main/SECURITY.md)에서 관련 모듈을 확인하고, 담당 문서 경로·항목 ID·검증 결과와 남은 문제를 적어 주세요. 영향이 없다면 그 이유를 적으면 됩니다. 새 기능으로 적용 범위가 바뀌었다면 함께 갱신해 주세요.
 
 실제 답변·백업·비밀값이나 악용 가능한 취약점 상세는 공개 PR에 넣지 마세요.
