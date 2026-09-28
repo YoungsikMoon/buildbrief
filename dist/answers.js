@@ -224,6 +224,19 @@
             fail(`${label}의 구성요소 메모`);
           elementNotes[key] = text(item, `${label}의 구성요소 메모`);
         }
+        const options = row.elementOptions === undefined ? {} : row.elementOptions;
+        if (!plain(options)) fail(`${label}의 구성요소 세부 선택`);
+        const elementOptions = {};
+        for (const [key, value] of Object.entries(options)) {
+          const detail = Q.uiElements.find((element) => element.id === key)?.detail;
+          if (!detail) fail(`${label}의 구성요소 세부 선택`);
+          elementOptions[key] = ids(
+            value,
+            label,
+            detail.options.map((option) => option.id)
+          );
+          if (!detail.multiple && value.length > 1) fail(`${label}의 단일 선택`);
+        }
         return {
           ...stringFields(
             row,
@@ -232,7 +245,13 @@
           ),
           featureIds: ids(row.featureIds === undefined ? [] : row.featureIds, label),
           elements,
-          elementNotes
+          elementNotes,
+          elementOptions,
+          customElements: list(
+            row.customElements === undefined ? [] : row.customElements,
+            `${label}의 직접 추가한 요소`,
+            (item, itemLabel) => stringFields(item, ['name', 'purpose'], itemLabel)
+          )
         };
       });
     if (q.type === 'references')

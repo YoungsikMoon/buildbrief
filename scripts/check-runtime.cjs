@@ -133,6 +133,8 @@ test('Extracted views escape every question type, answer, choice reason and repo
     featureIds: ['feature-1'],
     elements: ['table'],
     elementNotes: { table: attack },
+    elementOptions: { table: ['pages'] },
+    customElements: [{ id: 'custom-1', name: attack, purpose: attack }],
     content: attack,
     empty: attack,
     error: attack,

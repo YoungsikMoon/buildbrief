@@ -769,11 +769,49 @@ main {
   font-weight: 600;
   padding: 10px 0;
 }
-.element-picker summary > span {
+.element-picker > summary > span {
   color: var(--muted);
   font-weight: 400;
   font-size: var(--type-control);
   margin-left: 8px;
+}
+.element-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  margin-top: 10px;
+  padding: 0 14px;
+}
+.element-group > summary {
+  padding: 14px 0;
+}
+.element-group-description {
+  display: block;
+  font-size: var(--type-body);
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.element-group .element-grid {
+  padding-bottom: 14px;
+}
+.element-settings {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+  scroll-margin-top: 90px;
+}
+.element-settings h4 {
+  font-size: var(--type-question);
+  margin: 0 0 14px;
+}
+.element-settings .card-top h4 {
+  margin: 0;
+}
+.element-detail {
+  margin: 0;
+}
+.custom-element-add {
+  margin-bottom: 24px;
 }
 .element-grid {
   display: grid;

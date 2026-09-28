@@ -145,13 +145,31 @@
                 field('연결한 기능', (row.featureIds || []).map(featureName));
                 field('보여 줄 정보', row.content);
                 lines.push('**화면 구성요소와 용도**');
-                if (!(row.elements || []).length)
+                const customElements = (row.customElements || []).filter(isAnswered);
+                if (!(row.elements || []).length && !customElements.length)
                   lines.push(quote('구성요소 미정 — 화면 목적을 바탕으로 함께 검토'));
-                for (const id of row.elements || [])
+                for (const id of row.elements || []) {
+                  const element = Q.uiElements.find((item) => item.id === id);
                   lines.push(
-                    quote(
-                      `${(Q.uiElements || []).find((item) => item.id === id)?.label || id}: ${row.elementNotes?.[id] || '이 화면에서의 용도 미정'}`
-                    )
+                    `**${md(element?.label || id)}**`,
+                    quote(row.elementNotes?.[id] || '이 화면에서의 용도 미정')
+                  );
+                  const options = element?.detail?.options.filter((option) =>
+                    (row.elementOptions?.[id] || []).includes(option.id)
+                  );
+                  if (options?.length)
+                    lines.push(
+                      quote(
+                        `${element.detail.label} ${options.map((option) => option.label).join(', ')}`
+                      )
+                    );
+                  lines.push('');
+                }
+                for (const item of customElements)
+                  lines.push(
+                    `**${md(item.name || '이름 미정')} · 직접 추가**`,
+                    quote(item.purpose || '이 화면에서의 용도 미정'),
+                    ''
                   );
                 lines.push('');
                 if (isAnswered(row.empty)) field('자료가 없을 때', row.empty);

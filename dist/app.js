@@ -305,11 +305,27 @@
     if (el.dataset.q && el.matches('select,input[type="checkbox"],input[type="radio"]')) edit(el);
   });
   function edit(el) {
-    const { q: qid, row, field, element } = el.dataset;
+    const { q: qid, row, field, element, custom, property } = el.dataset;
     const object = row === undefined ? answers : rowsOf(qid)[Number(row)];
     if (!object) return;
     const key = field || qid;
-    if (element) {
+    if (field === 'customElements') {
+      const item = object.customElements?.[Number(custom)];
+      if (!item || !['name', 'purpose'].includes(property)) return;
+      item[property] = el.value;
+    } else if (field === 'elementOptions') {
+      const detail = uiElements.find((item) => item.id === element)?.detail;
+      if (!detail) return;
+      object.elementOptions ||= {};
+      const values = object.elementOptions[element] || [];
+      object.elementOptions[element] = detail.multiple
+        ? el.checked
+          ? [...new Set([...values, el.value])]
+          : values.filter((v) => v !== el.value)
+        : el.value
+          ? [el.value]
+          : [];
+    } else if (element) {
       object.elementNotes ||= {};
       object.elementNotes[element] = el.value;
     } else if (el.type === 'checkbox') {
@@ -390,7 +406,37 @@
     }
     if (d.elementHelp) {
       const el = uiElements.find((e) => e.id === d.elementHelp);
-      return showHelp(el.label, el);
+      const guide = d.elementChoice
+        ? el?.detail?.options.find((o) => o.id === d.elementChoice)
+        : el;
+      if (guide) showHelp(guide.label, guide);
+      return;
+    }
+    if (d.addElement !== undefined || d.removeElement !== undefined) {
+      const index = Number(d.screen),
+        screen = rowsOf('screens')[index];
+      if (!screen) return;
+      screen.customElements ||= [];
+      if (d.addElement !== undefined) {
+        if (screen.customElements.length >= A.MAX_ROWS)
+          return toast(`직접 추가하는 요소는 화면마다 최대 ${A.MAX_ROWS}개까지 기록할 수 있어요.`);
+        const item = { id: P.newId(), name: '', purpose: '' };
+        screen.customElements.push(item);
+        changed(true);
+        const card = document.getElementById(`custom-element-${screen.id}-${item.id}`);
+        card?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        card?.querySelector('input')?.focus({ preventScroll: true });
+      } else if (
+        screen.customElements[Number(d.removeElement)] &&
+        window.confirm('이 요소를 삭제할까요? 이름과 용도도 함께 삭제돼요.')
+      ) {
+        screen.customElements.splice(Number(d.removeElement), 1);
+        changed(true);
+        document
+          .querySelector(`[data-add-element][data-screen="${index}"]`)
+          ?.focus({ preventScroll: true });
+      }
+      return;
     }
     if (d.feature || d.add) {
       const qid = d.feature ? 'features' : d.add,
@@ -417,6 +463,8 @@
           featureIds: [],
           elements: [],
           elementNotes: {},
+          elementOptions: {},
+          customElements: [],
           content: '',
           empty: '',
           error: '',

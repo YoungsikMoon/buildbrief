@@ -81,6 +81,11 @@ test('The page references the exact current assets', () => {
 test('Nine coherent stages use unique questions, feature types, and UI elements', () => {
   assert.equal(Q.steps.length, 9);
   for (const items of [Q.steps, A.allQuestions, Q.featureTypes, Q.uiElements]) assert.equal(new Set(items.map(item => item.id)).size, items.length);
+  for (const element of Q.uiElements) {
+    assert(Q.uiElementGroups.some(group => group.id === element.group));
+    for (const item of [element, ...(element.detail?.options || [])])
+      for (const key of ['label', 'meaning', 'fit', 'avoid']) assert(item[key]?.trim(), `${element.id}: ${key}`);
+  }
   assert(!/MSA|Docker|Kafka|PostgreSQL|TypeScript|Spring Boot/.test(JSON.stringify(Q.steps)));
   const walk = condition => {
     if (!condition) return;
@@ -196,6 +201,59 @@ test('Screens combine navigation, actions, tables, and side panels per role', ()
   const output = R.report(answers);
   for (const id of elements) assert(output.includes(answers.screens[0].elementNotes[id]));
   assert(output.includes('운영 직원')); assert(output.includes('손님')); assert(output.includes('예약하기 feature-1'));
+});
+
+test('Screen detail choices and custom elements survive backups without leaking between screens or hidden elements', () => {
+  const first = { ...screen('screen-1', ['form', 'table', 'button']), elementOptions: { form: ['text', 'checkbox', 'datetime'], table: ['pages'] }, customElements: [{ id: 'custom-1', name: '좌석 배치도', purpose: '빈 좌석을 직접 고른다' }] };
+  const answers = A.normalizeAnswers({ screens: [first, { ...screen('screen-2', ['table']), name: '찾아보기', elementOptions: { table: ['more'] } }] });
+  const project = P.createProject({ answers, drafts: answers, notes: { screens: '좌석을 쉽게 고르기 위해' } });
+  for (const backup of [{ format: 'buildbrief-idea', version: 1, ...project }, { format: 'buildbrief-ideas', version: 1, activeId: project.id, projects: [project] }]) {
+    const restored = P.importBackup(clone(backup)).projects[0];
+    assert.deepEqual(restored.answers, answers);
+    assert.deepEqual(restored.drafts, answers);
+    assert.deepEqual(restored.notes, project.notes);
+  }
+  for (const prompt of [false, true]) {
+    const output = R.report(answers, prompt).split('##### 찾아보기');
+    assert(output[0].includes('글 입력, 여러 개 선택, 날짜·시간 선택'));
+    assert(output[0].includes('페이지 번호로 이동'));
+    assert(output[0].includes('좌석 배치도') && output[0].includes('빈 좌석을 직접 고른다'));
+    assert(!output[0].includes('더 보기 버튼'));
+    assert(output[1].includes('더 보기 버튼') && !output[1].includes('좌석 배치도'));
+  }
+  answers.screens[0].elements = ['button'];
+  const hidden = R.report(answers);
+  assert(!hidden.includes('글 입력') && !hidden.includes('페이지 번호로 이동'));
+  const form = V.question(question('screens'), answers);
+  assert(!form.includes('data-element="form"'));
+  answers.screens[0].elements.push('form');
+  assert(R.report(answers).includes('글 입력, 여러 개 선택, 날짜·시간 선택'));
+  assert(V.question(question('screens'), answers).includes('data-element="form"'));
+  const legacy = A.normalizeAnswers({ screens: [screen('legacy-screen', ['fab', 'table'])] }).screens[0];
+  assert.deepEqual(legacy.elementOptions, {});
+  assert.deepEqual(legacy.customElements, []);
+  assert.equal(legacy.elementNotes.table, 'table의 화면 용도');
+  assert.equal(A.isAnswered({ id: 'blank', customElements: [{ id: 'empty', name: '', purpose: '' }] }), false);
+});
+
+test('Nested screen imports reject invalid choices and custom records without mutating the backup', () => {
+  const custom = { id: 'custom-1', name: '구성 요소', purpose: '용도' };
+  for (const changes of [
+    { elementOptions: { form: ['unknown'] } }, { elementOptions: { form: ['text', 'text'] } },
+    { elementOptions: { table: ['pages', 'more'] } }, { elementOptions: { table: 'pages' } },
+    { elementOptions: { button: [] } }, { elementOptions: null },
+    { elementOptions: JSON.parse('{"__proto__":[]}') },
+    { customElements: {} }, { customElements: [null] }, { customElements: [custom, custom] },
+    { customElements: [{ ...custom, id: '\"><script>' }] },
+    { customElements: [{ ...custom, purpose: {} }] },
+    { customElements: [{ ...custom, name: 'x'.repeat(A.MAX_TEXT + 1) }] },
+    { customElements: Array.from({ length: A.MAX_ROWS + 1 }, (_, i) => ({ ...custom, id: 'custom-' + i })) }
+  ]) {
+    const input = { screens: [{ ...screen('screen-1', []), ...changes }] }, before = clone(input);
+    assert.throws(() => A.normalizeAnswers(input));
+    assert.deepEqual(input, before);
+  }
+  assert.equal({}.polluted, undefined);
 });
 
 test('Flow preserves sequence, linked names, and manually described actions', () => {

@@ -43,7 +43,8 @@
 ## 주요 기능
 
 - **기능을 구체화하는 카드**: 검색, 예약, 알림, 결제 등 후보에서 필요한 기능을 추가하거나 직접 만듭니다. 같은 유형의 기능을 여러 개 만들고 실제 이름·사용자·기대 결과를 적을 수 있습니다.
-- **기능과 화면 연결**: 대표 이용 순서와 화면에 앞서 만든 기능을 연결합니다. 상단 바, 사이드바, 목록, 카드, 표, 달력, FAB 등 화면 요소를 작은 그림과 도움말로 살펴보고 함께 선택합니다. 작은 그림은 요소를 설명하는 예시이며 화면 배치를 확정한 결과물은 아닙니다.
+- **기능과 화면 연결**: 대표 이용 순서와 화면에 앞서 만든 기능을 연결합니다. 화면 요소는 화면 틀·이동, 내용 표시, 입력·찾기, 행동 실행, 알림·진행 상태, 보조 화면으로 묶여 있습니다. 필요한 묶음을 펼쳐 작은 그림과 도움말을 살펴보고 함께 선택합니다. 작은 그림은 역할을 설명하는 예시이며 실제 배치를 확정하지 않습니다.
+- **화면 요소 구체화**: 선택한 요소마다 이 화면에서의 용도를 적습니다. 입력 양식에는 글·숫자·단일/복수 선택·날짜 등 입력 방식을 여러 개 고를 수 있고, 목록·카드·표에는 전체 표시·페이지 이동·더 보기·무한 스크롤 중 하나를 고를 수 있습니다. 목록에 없는 요소는 이름과 용도를 직접 추가합니다. 세부 선택은 필수가 아니며, 선택을 해제한 기본 요소의 메모·세부 선택은 보관하고 현재 초안에서는 제외합니다. 다시 고르면 복원됩니다. 직접 추가한 요소를 삭제하면 그 이름과 용도도 삭제됩니다.
 - **서비스에 맞는 로그인 계획**: 자체 이메일·아이디 로그인, 인증 링크·번호, 카카오·네이버·Google·Apple 등을 비교합니다. 빌드브리프 자체에 로그인하는 기능이 아니라, 만들 서비스의 로그인 방식을 정리하는 질문입니다.
 - **참고 자료 정리**: URL을 한 줄씩 추가하거나 여러 줄로 붙여 넣고 참고할 부분을 기록합니다. 주소를 입력해도 사이트 내용을 자동으로 열람하거나 분석하지 않습니다.
 - **답변·선택 이유 기록**: 질문 아래 펼침 영역의 빈 입력란에 판단 근거를 자유롭게 남깁니다. 답변과 별도로 자동 저장되며 기획 초안과 백업에도 포함됩니다. 기획 초안에서는 질문별로 답변과 선택 이유를 한 묶음으로 표시하고, Markdown과 AI 전달문도 같은 질문 아래에 두 내용을 구분해 담습니다.
@@ -66,3 +67,5 @@
 ## 질문 구성의 참고 자료
 
 [Design Council의 Double Diamond](https://www.designcouncil.org.uk/resources/framework-for-innovation/), [Atlassian PRD 안내](https://www.atlassian.com/agile/product-management/requirements), [GOV.UK 사용자 스토리](https://www.gov.uk/service-manual/agile-delivery/writing-user-stories), [Material 구성요소](https://developer.android.com/develop/ui/compose/components), [Carbon 구성요소](https://carbondesignsystem.com/components/overview/components/)를 참고했습니다. 이 서비스의 질문은 해당 자료의 공식 체크리스트나 인증 항목이 아닙니다.
+
+화면 요소의 역할별 분류와 기본 후보는 [KRDS 구성요소](https://www.krds.go.kr/html/site/component/component_summary.html)와 [Material 구성요소 안내](https://developer.android.com/design/ui/mobile/guides/components/material-overview)를 참고합니다. 모든 UI 요소를 망라하는 목록은 아니며, 필요한 역할과 용도를 정리하는 데 사용합니다.

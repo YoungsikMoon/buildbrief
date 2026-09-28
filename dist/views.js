@@ -5,7 +5,7 @@
   const R = root.BriefReport || require('./report.js');
   const P = root.BriefProjects || require('./projects.js');
   const G = root.BriefGuides || require('./guides.js');
-  const { featureTypes, uiElements } = Q;
+  const { featureTypes, uiElements, uiElementGroups } = Q;
   const { priorities } = A;
   const esc = (value) =>
     String(value ?? '').replace(
@@ -283,11 +283,80 @@ ${esc(value)}</textarea
         '<circle cx="22" cy="19" r="4"/><path d="M25 22l4 4M14 44h75M14 57h52"/>',
       filters: [8, 43, 78].map((x) => box(x, 9, 30, 13, true)).join('') + lines,
       rightpanel: box(83, 8, 29, 64, true) + '<path d="M10 20h59M10 32h43M10 44h59M10 56h40"/>',
-      dialog: box(8, 8, 104, 64) + box(28, 22, 64, 38, true) + '<path d="M37 32h43M37 42h28"/>'
+      dialog: box(8, 8, 104, 64) + box(28, 22, 64, 38, true) + '<path d="M37 32h43M37 42h28"/>',
+      footer: lines + box(8, 60, 104, 12, true) + '<path d="M16 66h24m10 0h22m10 0h22"/>',
+      drawer:
+        box(8, 8, 56, 64, true) +
+        '<path d="M17 21h29M17 34h29M17 47h29M80 12h21m-21 7h21m-21 7h21"/>',
+      breadcrumbs:
+        '<path d="M10 15h20m6-4 4 4-4 4m9-4h25m6-4 4 4-4 4"/>' + box(86, 9, 25, 12, true) + lines,
+      image:
+        box(12, 10, 96, 60, true) +
+        '<circle cx="36" cy="27" r="6"/><path d="m18 61 22-21 17 15 20-26 25 32"/>',
+      video:
+        box(12, 10, 96, 60) + '<path class="accent" d="m51 24 23 14-23 14Z"/><path d="M22 62h76"/>',
+      gallery:
+        box(28, 8, 64, 45, true) +
+        [25, 50, 75].map((x) => box(x, 60, 20, 12)).join('') +
+        '<path d="m17 23-8 8 8 8m86-16 8 8-8 8"/>',
+      accordion:
+        box(10, 8, 100, 14, true) +
+        lines +
+        box(10, 59, 100, 13) +
+        '<path d="m96 13 4 4 4-4m-8 50 4 4 4-4"/>',
+      button: box(20, 26, 80, 28, true) + '<path d="M38 40h44"/>',
+      link: '<path d="M15 27h90M15 47h50"/><path class="accent" d="M15 52h50m25-10 10-10m-8 0h8v8"/>',
+      banner:
+        box(8, 8, 104, 20, true) +
+        '<path d="M29 18h58M16 43h87M16 58h62"/><circle cx="18" cy="18" r="4"/>',
+      toast: lines + box(23, 53, 74, 19, true) + '<path d="m31 62 4 4 7-8M49 63h37"/>',
+      progress: box(10, 34, 100, 14) + box(10, 34, 60, 14, true) + '<path d="M32 22h54M35 59h48"/>',
+      bottomsheet:
+        box(8, 8, 104, 64) + box(8, 35, 104, 37, true) + '<path d="M50 41h20M24 52h72M24 62h51"/>'
     };
     return /* HTML */ `<svg class="wireframe" viewBox="0 0 120 80" aria-hidden="true">
       ${shapes[kind] || shapes.cards}
     </svg>`;
+  }
+  function elementDetail(el, row, i) {
+    if (!el.detail) return '';
+    const selected = row.elementOptions?.[el.id] || [];
+    const options = el.detail.multiple
+      ? el.detail.options
+      : [...el.detail.options, { id: '', label: '아직 정하지 않음' }];
+    return /* HTML */ `<fieldset class="sub-field element-detail"
+      ><legend>${esc(el.detail.label)}</legend
+      ><div class="choices"
+        >${options
+          .map(
+            (option) =>
+              /* HTML */ `<div class="choice-row"
+                ><label class="choice"
+                  ><input
+                    type="${el.detail.multiple ? 'checkbox' : 'radio'}"
+                    name="element-${row.id}-${el.id}"
+                    ${attrs('screens', i, 'elementOptions')}
+                    data-element="${el.id}"
+                    value="${option.id}"
+                    ${(option.id ? selected.includes(option.id) : !selected.length)
+                      ? 'checked'
+                      : ''}
+                  /><span>${esc(option.label)}</span></label
+                >${option.id
+                  ? /* HTML */ `<button
+                      type="button"
+                      class="option-help"
+                      data-element-help="${el.id}"
+                      data-element-choice="${option.id}"
+                      aria-label="${esc(option.label)} 설명"
+                      >?</button
+                    >`
+                  : ''}</div
+              >`
+          )
+          .join('')}</div
+      ></fieldset
+    >`;
   }
   function screenEditor(q, answers) {
     const features = rowsOf(answers, 'features');
@@ -334,49 +403,111 @@ ${esc(value)}</textarea
                   >화면에 넣을 요소 고르기
                   <span>${(row.elements || []).length}개 선택</span></summary
                 ><p class="field-help"
-                  >여러 요소를 함께 쓸 수 있어요. 그림은 역할을 보여 주는 예시이며 실제 배치를
-                  확정하지 않아요.</p
-                ><div class="element-grid"
-                  >${uiElements
-                    .map(
-                      (el) =>
-                        /* HTML */ `<div
-                          class="element-option ${(row.elements || []).includes(el.id)
-                            ? 'selected'
-                            : ''}"
-                          ><label
-                            >${wireframe(el.id)}<span
-                              ><input
-                                type="checkbox"
-                                ${attrs(q.id, i, 'elements')}
-                                value="${el.id}"
-                                ${(row.elements || []).includes(el.id) ? 'checked' : ''}
-                              />${esc(el.label)}</span
-                            ></label
-                          ><button
-                            type="button"
-                            class="option-help"
-                            data-element-help="${el.id}"
-                            aria-label="${esc(el.label)} 설명"
-                            >?</button
-                          ></div
-                        >`
-                    )
-                    .join('')}</div
-                ></details
+                  >필요한 역할을 펼쳐 살펴보세요. 여러 요소를 함께 쓸 수 있고 모두 고를 필요는
+                  없어요. 그림은 역할을 보여 주는 예시예요.</p
+                >${uiElementGroups
+                  .map(
+                    (group) =>
+                      /* HTML */ `<details
+                        class="element-group"
+                        id="elements-${row.id}-${group.id}"
+                        ${uiElements.some(
+                          (el) => el.group === group.id && (row.elements || []).includes(el.id)
+                        )
+                          ? 'open'
+                          : ''}
+                        ><summary
+                          >${esc(group.label)}<span class="element-group-description"
+                            >${esc(group.description)}</span
+                          ></summary
+                        >
+                        <div class="element-grid"
+                          >${uiElements
+                            .filter((el) => el.group === group.id)
+                            .map(
+                              (el) =>
+                                /* HTML */ `<div
+                                  class="element-option ${(row.elements || []).includes(el.id)
+                                    ? 'selected'
+                                    : ''}"
+                                  ><label
+                                    >${wireframe(el.id)}<span
+                                      ><input
+                                        type="checkbox"
+                                        ${attrs(q.id, i, 'elements')}
+                                        value="${el.id}"
+                                        ${(row.elements || []).includes(el.id) ? 'checked' : ''}
+                                      />${esc(el.label)}</span
+                                    ></label
+                                  ><button
+                                    type="button"
+                                    class="option-help"
+                                    data-element-help="${el.id}"
+                                    aria-label="${esc(el.label)} 설명"
+                                    >?</button
+                                  ></div
+                                >`
+                            )
+                            .join('')}</div
+                        ></details
+                      >`
+                  )
+                  .join('')}</details
               >${(row.elements || [])
                 .map((id) => {
                   const el = uiElements.find((e) => e.id === id);
                   return el
-                    ? input(
-                        el.prompt || el.label + '에 무엇을 넣나요?',
-                        row.elementNotes?.[id],
-                        attrs(q.id, i, 'elementNotes') + ` data-element="${id}"`,
-                        { placeholder: '아직 정하지 않았다면 비워 두세요' }
-                      )
+                    ? /* HTML */ `<section
+                        class="element-settings"
+                        aria-label="${esc(el.label)}의 용도와 세부 선택"
+                        ><h4>${esc(el.label)}</h4>${input(
+                          el.prompt || el.label + '에 무엇을 넣나요?',
+                          row.elementNotes?.[id],
+                          attrs(q.id, i, 'elementNotes') + ` data-element="${id}"`
+                        )}${elementDetail(el, row, i)}</section
+                      >`
                     : '';
                 })
-                .join('')}${input('보여 줄 내용·정보', row.content, attrs(q.id, i, 'content'), {
+                .join('')}${(row.customElements || [])
+                .map(
+                  (item, j) =>
+                    /* HTML */ `<section
+                      class="element-settings"
+                      id="custom-element-${row.id}-${item.id}"
+                      ><div class="card-top"
+                        ><h4>직접 추가한 요소</h4
+                        ><button
+                          type="button"
+                          class="text-button danger-text"
+                          data-screen="${i}"
+                          data-remove-element="${j}"
+                          aria-label="${esc(item.name || '직접 추가한 요소')} 삭제"
+                          >삭제</button
+                        ></div
+                      >
+                      ${input(
+                        '요소 이름',
+                        item.name,
+                        attrs(q.id, i, 'customElements') +
+                          ` data-custom="${j}" data-property="name"`
+                      )}
+                      ${input(
+                        '이 화면에서 어떤 용도로 쓰나요?',
+                        item.purpose,
+                        attrs(q.id, i, 'customElements') +
+                          ` data-custom="${j}" data-property="purpose"`,
+                        { type: 'textarea' }
+                      )}
+                    </section>`
+                )
+                .join('')}<button
+                type="button"
+                class="button secondary custom-element-add"
+                data-add-element
+                data-screen="${i}"
+                >+ 목록에 없는 요소 직접 추가</button
+              >
+              ${input('보여 줄 내용·정보', row.content, attrs(q.id, i, 'content'), {
                 type: 'textarea',
                 placeholder: '예: 제목, 사진, 날짜, 가격, 처리 상태'
               })}<details id="states-${row.id}" class="optional-details"
