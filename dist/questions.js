@@ -2,6 +2,14 @@
   'use strict';
   const screenRecommendationScope =
     '필요한 요소와 배치, 보여 줄 정보, 빈 화면·오류 안내, 휴대폰에서의 구성';
+  const layoutRegions = [
+    { id: 'top', label: '상단' },
+    { id: 'left', label: '왼쪽' },
+    { id: 'main', label: '본문' },
+    { id: 'right', label: '오른쪽' },
+    { id: 'bottom', label: '하단' },
+    { id: 'overlay', label: '떠 있는 영역' }
+  ];
   const featureTypes = [
     {
       id: 'browse',
@@ -988,6 +996,7 @@
           questions: [
             {
               id: 'screens',
+              allowReason: false,
               allowRecommend: true,
               recommendationLabel: '필요한 화면 목록을 AI에 추천 요청',
               recommendationScope: '필요한 화면의 이름·역할·화면 간 이동 흐름',
@@ -2130,6 +2139,7 @@
     featureTypes,
     uiElements,
     uiElementGroups,
+    layoutRegions,
     screenRecommendationScope
   };
   root.BriefQuestions = api;

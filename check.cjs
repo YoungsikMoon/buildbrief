@@ -54,7 +54,7 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','element-examples','guides.js','idea-examples','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','guides.js','idea-examples','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
     assert(['element-examples', 'idea-examples'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and the image directories may be published');
@@ -82,9 +82,9 @@ test('The public bundle contains only reviewed static files and local scripts', 
     assert(html.includes(`src="idea-examples/${file}"`));
   }
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','report.js','projects.js','guides.js','storage.js','views.js','app.js']);
+  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
   for (const [, attributes, body] of scripts) {
-    assert.match(attributes, /^ src="(?:answers|app|guides|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
+    assert.match(attributes, /^ src="(?:answers|app|designer|guides|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
     assert.equal(body.trim(), '', 'No inline script');
   }
   for (const [tag] of html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/g)) assert(tag.includes('rel="noopener noreferrer"'));
@@ -94,7 +94,7 @@ test('The public bundle contains only reviewed static files and local scripts', 
 
 test('The page references the exact current assets', () => {
   const html = fs.readFileSync('dist/index.html', 'utf8');
-  for (const file of ['app.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css']) {
+  for (const file of ['app.js', 'designer.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css']) {
     const source = fs.readFileSync(`dist/${file}`, 'utf8').replace(/\r\n/g, '\n');
     const hash = createHash('sha256').update(source).digest('hex').slice(0, 12);
     assert(html.includes(`${file}?v=${hash}`), `Stale asset reference: ${file}`);
@@ -259,7 +259,7 @@ test('Screen detail choices and custom elements survive backups without leaking 
   assert(!form.includes('data-element="form"'));
   answers.screens[0].elements.push('form');
   assert(R.report(answers).includes('글 입력, 여러 개 선택, 날짜·시간 선택'));
-  assert(V.question(question('screens'), answers).includes('data-element="form"'));
+  assert(V.question(question('screens'), answers, {}, [], {screenId:answers.screens[0].id,element:'form',panel:'settings'}).includes('data-element="form"'));
   const legacy = A.normalizeAnswers({ screens: [screen('legacy-screen', ['fab', 'table'])] }).screens[0];
   assert.deepEqual(legacy.elementOptions, {});
   assert.deepEqual(legacy.customElements, []);
@@ -628,9 +628,10 @@ test('Screen recommendations retain their scope, answers and identity through ba
     assert(output.includes('table의 화면 용도'));
     assert(output.includes('기존 선택을 덮어쓰지 말고'));
   }
-  const html = V.question(question('screens'), answers, {}, ['screens']);
-  assert.equal((html.match(/data-field="recommendLayout"/g) || []).length, 2);
-  assert(html.indexOf('필요한 화면 목록을 AI에 추천 요청') < html.indexOf('screen-card'));
+  const html = V.question(question('screens'), answers, {}, ['screens'], { screenId: 'screen-1', panel: 'settings' });
+  assert.equal((html.match(/data-field="recommendLayout"/g) || []).length, 1);
+  assert(html.includes('data-designer-screen="screen-2"'));
+  assert(html.indexOf('필요한 화면 목록을 AI에 추천 요청') < html.indexOf('screen-designer'));
   assert(!V.report(answers).includes('<검토>'));
   assert.deepEqual(answers, before);
   answers.screens[0].recommendLayout = false;

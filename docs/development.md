@@ -26,7 +26,7 @@ node scripts/build.cjs --test
 
 JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 합니다. 값은 파일의 줄바꿈을 LF로 맞춘 내용의 **SHA-256 앞 12자리**이며 `check.cjs`가 일치 여부를 검사합니다. 전체 로컬 빌드 검증은 `node scripts/build.cjs`로 실행할 수 있습니다. 이 명령은 위 검사를 실행하고 HTML의 앱 버전 표시를 `개발 버전`으로 설정합니다.
 
-화면·기능 연결과 폼·표 편집은 `node scripts/check-planning-browser.cjs`로 검증합니다. 같은 `PLAYWRIGHT_MODULE` 환경을 사용하고, `PLANNING_SCREENSHOTS`로 화면 저장 위치를 지정할 수 있습니다. 별도 Chrome에서 320·390·1440px, 로그인 선택·역할 추가/이름 변경/삭제·80개 역할의 검색/복수 선택/스크롤·요소별 후보/직접 기능 추가·공유 기능 수정·기능별 동작 정렬·오류/예외 추천 범위·접힌 기능 삭제와 취소·기존 기능의 요소 연결·초안·백업 왕복과 200% 글자 확대를 확인합니다.
+화면·기능 연결과 폼·표 편집은 `node scripts/check-planning-browser.cjs`로 검증합니다. 같은 `PLAYWRIGHT_MODULE` 환경을 사용하고, `PLANNING_SCREENSHOTS`로 화면 저장 위치를 지정할 수 있습니다. 별도 Chrome에서 320·390·1440px, 공통 틀과 개별 화면 전환·요소 삽입과 배치·PC 끌어 놓기·요소별 기능과 오류/예외 추천·공유 기능·검색 가능한 역할·화면별 이유·기존 기록·초안·백업 왕복과 200% 글자 확대를 확인합니다.
 
 ## 파일 구성
 
@@ -37,6 +37,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
 | [dist/app.js](../dist/app.js) | 앱 시작, 화면 이동, 이벤트 연결, 프로젝트 관리 UI, 내보내기 |
 | [dist/answers.js](../dist/answers.js) | 답변·메모 검증, 질문 표시 조건, 진행률, 선택지·입력 상한 |
+| [dist/designer.js](../dist/designer.js) | 공통/개별 화면 작업 영역, 요소 팔레트와 안전한 배치 미리보기 |
 | [dist/views.js](../dist/views.js) | 질문·기능·화면 편집기와 초안 HTML 생성, HTML 이스케이프 |
 | [dist/report.js](../dist/report.js) | 기획 초안·AI 전달문 텍스트 생성 |
 | [dist/storage.js](../dist/storage.js) | 브라우저 저장 읽기·쓰기, 실패·복구 상태, 다른 탭 변경 감지 |
@@ -61,9 +62,9 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 
 - 질문과 도움말의 내용·표시 조건은 `questions.js`, 답변 형식과 공통 제한은 `answers.js`에서 관리합니다. 같은 선택지나 상한을 화면 코드에 다시 선언하지 않습니다.
 - `questions.js`의 `retiredQuestions`는 제거한 질문의 기존 저장·백업을 검증하고 초안에서 보존하기 위한 허용 목록입니다. 작성 화면·진행률에는 넣지 않습니다. 마무리 메모의 `optional` 표시는 진행률과 미정 질문 목록에서 제외하며, `allowReason: false`는 새 이유 입력을 생략하되 이미 남긴 이유는 보존해 표시합니다.
-- `report.js`는 문서 텍스트, `views.js`는 HTML을 반환합니다. 이 두 모듈은 저장소나 실제 DOM을 변경하지 않습니다. 사용자 입력의 이스케이프와 질문·답변·이유의 경계를 유지하세요.
+- `report.js`는 문서 텍스트, `views.js`·`designer.js`는 HTML을 반환합니다. 이 모듈들은 저장소나 실제 DOM을 변경하지 않습니다. 시각 편집은 `designer.js`가 외곽·배치·팔레트를, `views.js`가 선택 대상의 입력을 만듭니다. 편집 중 선택한 화면·요소·패널은 `app.js`의 임시 상태이며 프로젝트 전환 때 초기화합니다. 사용자 입력의 이스케이프와 질문·답변·이유의 경계를 유지하세요.
 - `projects.js`는 저장·백업 형식을 검증하고, `storage.js`는 읽기·쓰기 실패와 다른 탭의 변경을 처리합니다. UI 안내와 프로젝트 전환은 `app.js`에서 연결합니다. 저장 키와 백업 버전은 기존 값을 유지합니다.
-- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
+- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
 - 화면 요소 이미지는 `questions.js`의 요소 ID와 같은 이름의 WebP만 공개합니다. `check.cjs`가 정확한 목록·파일 유형·용량 상한을 확인합니다. 새 이미지는 [UI 기준](ui-guidelines.md#화면-요소-예시)에 따라 수동 검수하고, 생성 프롬프트와 원본·개발용 파일은 공개 폴더에 넣지 않습니다. 이미지 생성 도구는 빌드 의존성이 아닙니다.
 
 ## 코드 정렬

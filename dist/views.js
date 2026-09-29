@@ -5,8 +5,9 @@
   const R = root.BriefReport || require('./report.js');
   const P = root.BriefProjects || require('./projects.js');
   const G = root.BriefGuides || require('./guides.js');
-  const { featureTypes, uiElements, uiElementGroups } = Q;
+  const { featureTypes, uiElements } = Q;
   const { priorities } = A;
+  const D = root.BriefDesigner || require('./designer.js');
   const esc = (value) =>
     String(value ?? '').replace(
       /[&<>"']/g,
@@ -86,8 +87,8 @@ ${esc(value)}</textarea
       >+ ${esc(label)}</button
     >`;
   const empty = (message) => /* HTML */ `<p class="empty-note">${esc(message)}</p>`;
-  function rowReason(value, attributes, id) {
-    return `<details class="answer-note" id="reason-${id}" ${value?.trim() ? 'open' : ''}><summary>선택 이유·메모 <span>(선택)</span></summary>${input('이 항목에 남길 이유·메모', value, attributes, { type: 'textarea' })}</details>`;
+  function rowReason(value, attributes, id, label = '선택 이유·메모') {
+    return `<details class="answer-note" id="reason-${id}" ${value?.trim() ? 'open' : ''}><summary>${esc(label)} <span>(선택)</span></summary>${input('이 항목에 남길 이유·메모', value, attributes, { type: 'textarea' })}</details>`;
   }
   function request(label, value, attributes) {
     return `<div class="recommendation-request"><label><input type="checkbox" ${attributes} ${value ? 'checked' : ''}><span>${esc(label)} AI 추천 요청</span></label></div>`;
@@ -259,7 +260,7 @@ ${esc(value)}</textarea
     return (
       '<details class="screen-section screen-functions" id="screen-features-' +
       row.id +
-      '" open><summary>요소에 연결하지 않은 기능 · ' +
+      '" open><summary>기존 화면 기능 · ' +
       ids.length +
       '개</summary>' +
       rowsOf(answers, 'features')
@@ -392,7 +393,7 @@ ${esc(value)}</textarea
     const destinations = [
       { id: '@stay', name: '현재 화면 유지' },
       { id: '@back', name: '이전 화면으로 돌아가기' },
-      ...rowsOf(answers, 'screens')
+      ...rowsOf(answers, 'screens').filter((s) => !s.isCommon)
     ];
     const rows = (plan.flow || [])
       .map((action, index) => ({ action, index }))
@@ -494,7 +495,7 @@ ${esc(value)}</textarea
           '" ' +
           (rows.length || plan.recommendFlow ? 'open' : '') +
           '><summary>' +
-          (scope ? '기능에 연결하지 않은 동작' : '화면 전체 동작') +
+          '기존 동작 기록' +
           '</summary>' +
           content +
           '</details>';
@@ -596,218 +597,159 @@ ${esc(value)}</textarea
       input(title, item[key], attributes + ` data-item="${j}" data-property="${key}"`, options);
     return `<details class="optional-details" id="content-${row.id}-${el.id}" ${(plan.items || []).length || plan.recommend ? 'open' : ''}><summary>${label} 세부 설정</summary>${el.id !== 'button' ? `${(plan.items || []).map((item, j) => `<section class="content-item" id="content-${row.id}-${el.id}-${item.id}"><div class="card-top"><h6>${label} ${j + 1}</h6><div class="inline-actions"><button type="button" class="text-button" data-content-move="${j}" data-direction="-1" data-screen="${i}" data-element="${el.id}" aria-label="${label} ${j + 1} 위로" ${j === 0 ? 'disabled' : ''}>↑</button><button type="button" class="text-button" data-content-move="${j}" data-direction="1" data-screen="${i}" data-element="${el.id}" aria-label="${label} ${j + 1} 아래로" ${j === plan.items.length - 1 ? 'disabled' : ''}>↓</button><button type="button" class="text-button danger-text" data-content-remove="${j}" data-screen="${i}" data-element="${el.id}">삭제</button></div></div>${itemInput(item, j, 'name', el.id === 'form' ? '항목 이름' : el.id === 'table' ? '열 이름' : '정보 이름')}${el.id === 'form' ? `<div class="field-grid">${itemInput(item, j, 'type', '입력 방식', { type: 'single', options: Q.formInputTypes })}${itemInput(item, j, 'required', '꼭 입력해야 하나요?', { type: 'single', options: ['필수', '선택'] })}</div>${['하나 선택', '여러 개 선택'].includes(item.type) || item.options ? itemInput(item, j, 'options', '선택지 (한 줄에 하나씩)', { type: 'textarea' }) : ''}${itemInput(item, j, 'notes', '설명·제한 (선택)', { help: '예: 인원은 1~6명, 파일은 사진만. 모르면 비워 두세요.' })}` : itemInput(item, j, 'notes', '어떤 내용을 보여 주나요?', { help: '예: 예약 날짜, 처리 상태. 표시 방법이나 정렬이 필요하면 함께 적어요.' })}</section>`).join('')}<button type="button" class="button secondary" data-content-add data-screen="${i}" data-element="${el.id}">+ ${label} 추가</button>` : ''}${el.id !== 'button' || plan.recommend ? request(el.id === 'form' ? '이 폼의 항목과 필수 여부' : el.id === 'table' ? '이 표의 열과 행동' : el.id === 'button' ? '이 버튼의 동작' : '이 요소에 보여 줄 정보', plan.recommend, attributes + ' data-property="recommend"') : ''}${rowReason(plan.reason, attributes + ' data-property="reason"', `element-${row.id}-${el.id}`)}</details>`;
   }
-  function screenEditor(q, answers) {
-    return (
-      (rowsOf(answers, q.id)
-        .map(
-          (row, i) =>
-            /* HTML */ `<section class="editor-card screen-card" id="row-${q.id}-${i}"
-              ><div class="card-top screen-card-heading"
-                ><h3 data-screen-title="${i}">${esc(row.name || '새 화면')}</h3
-                ><button
-                  type="button"
-                  class="text-button danger-text"
-                  data-remove="screens"
-                  data-index="${i}"
-                  >화면 삭제</button
-                ></div
-              ><section class="screen-section screen-basics"
-                ><h4>기본 정보</h4
-                ><div class="field-grid"
-                  >${input('화면 이름', row.name, attrs(q.id, i, 'name'), {
-                    placeholder: '예: 홈, 검색 결과, 내 기록'
-                  })}${screenRoles(row, i, answers)}</div
-                >${input(
-                  '이 화면에서 무엇을 할 수 있어야 하나요?',
-                  row.purpose,
-                  attrs(q.id, i, 'purpose'),
-                  { placeholder: '사용자가 이 화면에 들어오는 목적' }
-                )}</section
-              ><section class="screen-section screen-elements"
-                ><h4>요소와 기능</h4
-                ><div class="recommendation-request screen-recommendation"
-                  ><label
-                    ><input
-                      type="checkbox"
-                      ${attrs(q.id, i, 'recommendLayout')}
-                      ${row.recommendLayout ? 'checked' : ''}
-                      aria-describedby="screen-recommendation-scope-${row.id}"
-                    /><span>화면 구성 AI 추천 요청</span></label
-                  ><p class="visually-hidden" id="screen-recommendation-scope-${row.id}"
-                    >추천 범위: ${esc(Q.screenRecommendationScope)}</p
-                  ></div
-                ><details
-                  class="element-picker"
-                  id="elements-${row.id}"
-                  ${(row.elements || []).length || (row.customElements || []).length ? '' : 'open'}
-                  ><summary
-                    >요소 선택·추가 <span>${(row.elements || []).length}개 선택</span></summary
-                  ><p class="field-help">이미지를 눌러 요소의 예시를 볼 수 있어요.</p
-                  >${uiElementGroups
-                    .map(
-                      (group) =>
-                        /* HTML */ `<details
-                          class="element-group"
-                          id="elements-${row.id}-${group.id}"
-                          ${uiElements.some(
-                            (el) => el.group === group.id && (row.elements || []).includes(el.id)
-                          )
-                            ? 'open'
-                            : ''}
-                          ><summary
-                            >${esc(group.label)}<span class="element-group-description"
-                              >${esc(group.description)}</span
-                            ></summary
-                          >
-                          <div class="element-grid"
-                            >${uiElements
-                              .filter((el) => el.group === group.id)
-                              .map(
-                                (el) =>
-                                  /* HTML */ `<div
-                                    class="element-option ${(row.elements || []).includes(el.id)
-                                      ? 'selected'
-                                      : ''}"
-                                    ><button
-                                      type="button"
-                                      class="element-preview"
-                                      data-element-help="${el.id}"
-                                      aria-label="${esc(el.label)} 예시 크게 보기"
-                                      >${elementExample(el.id)}</button
-                                    >
-                                    <div class="element-choice"
-                                      ><label
-                                        ><span
-                                          ><input
-                                            type="checkbox"
-                                            ${attrs(q.id, i, 'elements')}
-                                            value="${el.id}"
-                                            ${(row.elements || []).includes(el.id) ? 'checked' : ''}
-                                          />${esc(el.label)}</span
-                                        ></label
-                                      ><button
-                                        type="button"
-                                        class="option-help"
-                                        data-element-help="${el.id}"
-                                        aria-label="${esc(el.label)} 설명"
-                                        >?</button
-                                      ></div
-                                    ></div
-                                  >`
-                              )
-                              .join('')}</div
-                          ></details
-                        >`
-                    )
-                    .join('')}</details
-                >${(row.elements || [])
-                  .map((id) => {
-                    const el = uiElements.find((e) => e.id === id);
-                    return el
-                      ? /* HTML */ `<section
-                          class="element-settings"
-                          aria-label="${esc(el.label)}의 용도와 세부 선택"
-                          ><h5>${esc(el.label)}</h5>${input(
-                            el.prompt || el.label + '에 무엇을 넣나요?',
-                            row.elementNotes?.[id],
-                            attrs(q.id, i, 'elementNotes') + ` data-element="${id}"`,
-                            { type: 'textarea' }
-                          )}${elementContent(el, row, i, answers)}${elementDetail(
-                            el,
-                            row,
-                            i
-                          )}${elementFeatures(
-                            row.elementContents?.[id] || {},
-                            row,
-                            i,
-                            answers,
-                            id
-                          )}${screenFlow(
-                            row.elementContents?.[id] || {},
-                            row,
-                            i,
-                            answers,
-                            id
-                          )}</section
-                        >`
-                      : '';
-                  })
-                  .join('')}${(row.customElements || [])
-                  .map(
-                    (item, j) =>
-                      /* HTML */ `<section
-                        class="element-settings"
-                        id="custom-element-${row.id}-${item.id}"
-                        ><div class="card-top"
-                          ><h5>직접 추가한 요소</h5
-                          ><button
-                            type="button"
-                            class="text-button danger-text"
-                            data-screen="${i}"
-                            data-remove-element="${j}"
-                            aria-label="${esc(item.name || '직접 추가한 요소')} 삭제"
-                            >삭제</button
-                          ></div
-                        >
-                        ${input(
-                          '요소 이름',
-                          item.name,
-                          attrs(q.id, i, 'customElements') +
-                            ` data-custom="${j}" data-property="name"`
-                        )}
-                        ${input(
-                          '이 화면에서 어떤 용도로 쓰나요?',
-                          item.purpose,
-                          attrs(q.id, i, 'customElements') +
-                            ` data-custom="${j}" data-property="purpose"`,
-                          { type: 'textarea' }
-                        )}${elementFeatures(
-                          item,
-                          row,
-                          i,
-                          answers,
-                          'custom:' + item.id
-                        )}${screenFlow(item, row, i, answers, 'custom:' + item.id)}
-                      </section>`
-                  )
-                  .join('')}<button
-                  type="button"
-                  class="button secondary custom-element-add"
-                  data-add-element
-                  data-screen="${i}"
-                  >+ 목록에 없는 요소 직접 추가</button
-                > </section
-              >${screenFeatures(row, i, answers)}<details
-                class="screen-section screen-behavior"
-                id="screen-extra-${row.id}"
-                ><summary>화면 전체 설정·메모</summary>${screenFlow(row, row, i, answers)}${input(
-                  '추가로 보여 줄 내용·정보 (선택)',
-                  row.content,
-                  attrs(q.id, i, 'content'),
-                  {
-                    type: 'textarea',
-                    placeholder: '예: 제목, 사진, 날짜, 가격, 처리 상태'
-                  }
-                )}<details id="states-${row.id}" class="optional-details"
-                  ><summary>빈 화면·오류·작은 화면에서의 모습 (선택)</summary
-                  ><p class="field-help"
-                    >처음 자료가 없거나 문제가 생겼을 때 무엇을 보여 줄지 생각해 보세요.</p
-                  >${input('자료가 아직 없을 때', row.empty, attrs(q.id, i, 'empty'), {
-                    placeholder: '예: 안내 문구와 첫 자료 추가 버튼'
-                  })}${input('작업이 실패했을 때', row.error, attrs(q.id, i, 'error'), {
-                    placeholder: '예: 입력 내용을 유지하고 다시 시도할 수 있게'
-                  })}${input('휴대폰의 작은 화면에서', row.mobile, attrs(q.id, i, 'mobile'), {
-                    placeholder: '예: 표를 카드로 바꾸고 메뉴를 아래쪽에 배치'
-                  })}</details
-                >${rowReason(row.reason, attrs(q.id, i, 'reason'), `screen-${row.id}`)}</details
-              >
-            </section>`
+  function screenEditor(q, answers, state = {}) {
+    const { screen: row, index: i, element, panel } = D.selection(answers, state);
+    let inspector = '';
+    if (i < 0) inspector = '<p class="field-help">기본 공통 화면부터 구성하세요.</p>';
+    else if (panel === 'features') {
+      const plan = element.startsWith('custom:')
+        ? row.customElements?.find((el) => el.id === element.slice(7))
+        : row.elementContents?.[element];
+      inspector = element
+        ? featureCatalog(answers, String(i), element, A.linkedFeatureIds(plan))
+        : '<p class="field-help">가운데 화면에서 기능을 넣을 요소를 먼저 선택하세요.</p>';
+    } else if (element) {
+      const placement = A.elementPlacement(row, element);
+      inspector =
+        '<div class="placement-controls"><div class="field-grid"><label>위치<select data-designer-placement="region">' +
+        Q.layoutRegions
+          .map(
+            (region) =>
+              '<option value="' +
+              region.id +
+              '" ' +
+              (placement.region === region.id ? 'selected' : '') +
+              '>' +
+              region.label +
+              '</option>'
+          )
+          .join('') +
+        '</select></label><label>너비<select data-designer-placement="width"><option value="full" ' +
+        (placement.width === 'full' ? 'selected' : '') +
+        '>전체</option><option value="half" ' +
+        (placement.width === 'half' ? 'selected' : '') +
+        '>절반</option></select></label></div><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
+        (A.elementKeys(row).indexOf(element) === 0 ? 'disabled' : '') +
+        '>앞으로</button><button type="button" class="button secondary small" data-designer-move="1" ' +
+        (A.elementKeys(row).indexOf(element) === A.elementKeys(row).length - 1 ? 'disabled' : '') +
+        '>뒤로</button><button type="button" class="text-button danger-text" data-designer-remove-element>요소 빼기</button></div></div>';
+      if (element.startsWith('custom:')) {
+        const index = (row.customElements || []).findIndex((el) => el.id === element.slice(7)),
+          item = row.customElements[index];
+        inspector +=
+          input(
+            '요소 이름',
+            item.name,
+            attrs('screens', i, 'customElements') +
+              ' data-custom="' +
+              index +
+              '" data-property="name"'
+          ) +
+          input(
+            '어떤 용도로 쓰나요?',
+            item.purpose,
+            attrs('screens', i, 'customElements') +
+              ' data-custom="' +
+              index +
+              '" data-property="purpose"',
+            { type: 'textarea' }
+          ) +
+          elementFeatures(item, row, i, answers, element);
+        if ((item.flow || []).some((action) => !action.featureId))
+          inspector += screenFlow(item, row, i, answers, element);
+      } else {
+        const el = uiElements.find((el) => el.id === element),
+          plan = row.elementContents?.[element] || {};
+        inspector +=
+          input(
+            el.prompt || '어떤 용도로 쓰나요?',
+            row.elementNotes?.[element],
+            attrs('screens', i, 'elementNotes') + ' data-element="' + element + '"',
+            { type: 'textarea' }
+          ) +
+          elementContent(el, row, i, answers) +
+          elementDetail(el, row, i) +
+          elementFeatures(plan, row, i, answers, element);
+        if (
+          (plan.flow || []).some(
+            (action) =>
+              !action.featureId ||
+              !rowsOf(answers, 'features').some((f) => f.id === action.featureId)
+          )
         )
-        .join('') ||
-        empty(
-          '처음 만나는 화면부터 추가하세요. 아직 화면이 떠오르지 않으면 나중에 돌아와도 괜찮아요.'
-        )) + addButton(q.id, '화면 추가')
-    );
+          inspector += screenFlow(plan, row, i, answers, element);
+      }
+    } else {
+      inspector =
+        (row.isCommon ? '' : input('화면 이름', row.name, attrs('screens', i, 'name'))) +
+        input(
+          row.isCommon ? '공통 화면의 용도' : '화면의 목적',
+          row.purpose,
+          attrs('screens', i, 'purpose'),
+          { type: 'textarea' }
+        );
+      if (!row.isCommon)
+        inspector +=
+          '<label class="common-layout-choice"><input type="checkbox" ' +
+          attrs('screens', i, 'useCommonLayout') +
+          ' ' +
+          (row.useCommonLayout !== false ? 'checked' : '') +
+          '>기본 공통 화면 사용</label>' +
+          screenRoles(row, i, answers);
+      inspector += request(
+        '화면 구성',
+        row.recommendLayout,
+        attrs('screens', i, 'recommendLayout')
+      );
+      const legacy =
+        ['content', 'empty', 'error', 'mobile'].some((key) => A.isAnswered(row[key])) ||
+        A.isAnswered(row.flow) ||
+        row.recommendFlow ||
+        (row.flow || []).some((action) => action.recommendExceptions) ||
+        (row.featureIds || []).some(
+          (id) =>
+            ![...Object.values(row.elementContents || {}), ...(row.customElements || [])].some(
+              (plan) => A.linkedFeatureIds(plan).includes(id)
+            )
+        );
+      if (legacy)
+        inspector +=
+          '<details class="optional-details"><summary>이전에 작성한 내용</summary>' +
+          ['content', 'empty', 'error', 'mobile']
+            .filter((key) => A.isAnswered(row[key]))
+            .map((key) =>
+              input(
+                {
+                  content: '추가 정보',
+                  empty: '자료가 없을 때',
+                  error: '작업이 실패했을 때',
+                  mobile: '작은 화면에서'
+                }[key],
+                row[key],
+                attrs('screens', i, key),
+                { type: 'textarea' }
+              )
+            )
+            .join('') +
+          screenFeatures(row, i, answers) +
+          ((row.flow || []).length || row.recommendFlow ? screenFlow(row, row, i, answers) : '') +
+          '</details>';
+      if (!row.isCommon)
+        inspector +=
+          '<button type="button" class="text-button danger-text designer-delete-screen" data-remove="screens" data-index="' +
+          i +
+          '">이 화면 삭제</button>';
+    }
+    const reason =
+      i < 0
+        ? ''
+        : rowReason(
+            row.reason,
+            attrs('screens', i, 'reason'),
+            'screen-' + row.id,
+            row.isCommon ? '공통 화면의 선택 이유' : '이 화면의 선택 이유'
+          );
+    return D.render(answers, state, inspector, reason);
   }
   function reasonEditor(q, notes) {
     const value = notes[q.id] || '';
@@ -842,11 +784,11 @@ ${esc(value)}</textarea
         : ''}</div
     >`;
   }
-  function renderQuestion(q, answers = {}, notes = {}, recommendations = []) {
+  function renderQuestion(q, answers = {}, notes = {}, recommendations = [], designerState = {}) {
     const value = answers[q.id];
     let control = '';
     if (q.type === 'features') control = featureEditor(answers);
-    else if (q.type === 'screens') control = screenEditor(q, answers);
+    else if (q.type === 'screens') control = screenEditor(q, answers, designerState);
     else if (q.type === 'references') control = referenceEditor(q, answers);
     else if (q.type === 'roles') control = rolesEditor(answers);
     else if (q.type === 'rows')
@@ -946,8 +888,8 @@ ${esc(value)}</textarea
         ? recommendationEditor(q, recommendations)
         : ''}${control}${q.type === 'screens'
         ? ''
-        : recommendationEditor(q, recommendations)}${q.allowReason !== false ||
-      A.isAnswered(notes[q.id])
+        : recommendationEditor(q, recommendations)}${q.type !== 'screens' &&
+      (q.allowReason !== false || A.isAnswered(notes[q.id]))
         ? reasonEditor(q, notes)
         : ''}</fieldset
     >`;

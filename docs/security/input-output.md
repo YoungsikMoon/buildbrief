@@ -6,7 +6,7 @@
 
 담당: 변경을 만드는 개발자와 검토자. 점검 상태는 기재한 검증 범위에 한정하며, ASVS 전체 충족을 뜻하지 않습니다.
 
-관련 코드: [app.js](../../dist/app.js), [answers.js](../../dist/answers.js), [views.js](../../dist/views.js), [report.js](../../dist/report.js), [projects.js](../../dist/projects.js), [storage.js](../../dist/storage.js), [check.cjs](../../check.cjs), [check-runtime.cjs](../../scripts/check-runtime.cjs). 표 안의 코드 경로는 저장소 루트 기준입니다.
+관련 코드: [app.js](../../dist/app.js), [answers.js](../../dist/answers.js), [views.js](../../dist/views.js), [designer.js](../../dist/designer.js), [report.js](../../dist/report.js), [projects.js](../../dist/projects.js), [storage.js](../../dist/storage.js), [check.cjs](../../check.cjs), [check-runtime.cjs](../../scripts/check-runtime.cjs). 표 안의 코드 경로는 저장소 루트 기준입니다.
 
 ## 점검표
 
@@ -47,3 +47,5 @@
 화면의 `roleIds`와 화면·기본/직접 추가한 요소의 `flow`는 배열 크기·중복 ID·문자 길이·자료형을 검증합니다. 다음 화면은 식별자 또는 `@stay`·`@back`만 받고 코드나 URL로 실행하지 않습니다. 추천 여부는 boolean만 허용합니다. 삭제된 역할·화면·기능 참조는 그대로 보관해 검토하도록 알립니다. 이 자료는 기획 입력이며 실제 접근 권한을 부여하지 않습니다.
 
 요소별 기능 연결은 기존 `featureIds`·동작의 `featureId`를 재사용하며 직접 추가한 요소에도 식별자 배열 검증을 적용합니다. 동작의 `exceptions`는 기존 문자 길이 제한, `recommendExceptions`는 boolean 검증을 적용하고 누락된 기존 값은 빈 문자열·false로 읽습니다. 초안·AI 전달문은 화면·요소·기능·동작별로 대응과 추천을 연결하며 출력 인코딩을 유지합니다. 새 통신이나 AI 호출은 추가하지 않습니다.
+
+시각 편집기의 공통 화면은 최대 1개이며 기존 화면 배열의 상한을 함께 적용합니다. `isCommon`·`useCommonLayout`은 boolean, `layoutOrder`는 허용된 요소 키의 중복 없는 배열, `placements`는 6개 영역과 두 너비 값만 허용합니다. 임의 좌표·CSS·HTML을 받지 않으며 미리보기는 기존 이스케이프 함수를 재사용합니다. 끌어 놓기는 현재 편집기에서 시작한 요소만 이동시키고 외부 드롭 자료는 해석하지 않습니다. 공통 틀과 개별 화면의 선택 이유·접근 역할을 분리하며, 빈 공통 화면은 답변으로 세지 않습니다. 기존 백업은 공통 화면 구성이 없어도 열리고 원래 화면·기능·메모를 보존합니다.

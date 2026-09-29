@@ -5,13 +5,16 @@
     R = window.BriefReport,
     P = window.BriefProjects,
     S = window.BriefStorage,
-    V = window.BriefViews;
+    V = window.BriefViews,
+    D = window.BriefDesigner;
   const { steps, featureTypes, uiElements } = Q;
   const $ = (selector) => document.querySelector(selector);
   const esc = V.escapeHtml;
   const questions = new Map(A.allQuestions.map((q) => [q.id, q]));
   const storage = S.load();
   let answers, drafts, notes, recommendations, currentStep;
+  let designerState = {},
+    draggedElement = null;
   let toastTimer,
     formScrollY = 0;
   activateProject();
@@ -19,6 +22,7 @@
     const p = storage.workspace.projects.find((p) => p.id === storage.workspace.activeId);
     ({ answers, drafts, notes, recommendations = [] } = p);
     currentStep = p.step;
+    designerState = {};
   }
   function markStarted() {
     storage.workspace.projects.find((p) => p.id === storage.workspace.activeId).started = true;
@@ -97,6 +101,43 @@
     picker();
   }
   const rowsOf = (id) => (Array.isArray(answers[id]) ? answers[id] : []);
+  function ensureCommonScreen() {
+    const rows = rowsOf('screens');
+    if (!rows.some((s) => s.isCommon) && rows.length < A.MAX_ROWS)
+      answers.screens = [{ id: P.newId(), isCommon: true, name: '', elements: [] }, ...rows];
+  }
+  function showDesigner(panel, element, screenId) {
+    const selected = D.selection(answers, designerState);
+    designerState = {
+      screenId: screenId || selected.screen.id,
+      element: element === undefined ? selected.element : element,
+      panel
+    };
+    renderStep(currentStep);
+    const target =
+      screenId && element === '' ? $('.designer-stage-heading h3') : $('#inspector-title');
+    if (target) {
+      target.tabIndex = -1;
+      target.focus({ preventScroll: true });
+    }
+    if (window.matchMedia('(max-width: 800px)').matches)
+      (screenId && element === ''
+        ? $('.designer-stage')
+        : $('#designer-inspector-body')
+      )?.scrollIntoView({ block: 'start' });
+  }
+  function moveCanvasElement(key, region, before = '') {
+    const { screen } = D.selection(answers, designerState);
+    const order = A.elementKeys(screen);
+    if (before === key || !order.includes(key) || !Q.layoutRegions.some((r) => r.id === region))
+      return;
+    const next = order.filter((id) => id !== key);
+    next.splice(before && next.includes(before) ? next.indexOf(before) : next.length, 0, key);
+    screen.layoutOrder = next;
+    screen.placements ||= {};
+    screen.placements[key] = { ...A.elementPlacement(screen, key), region };
+    changed(true);
+  }
   function flowTarget(screen, scope = '') {
     if (!screen) return null;
     if (!scope) return screen;
@@ -138,6 +179,16 @@
     return true;
   }
   function focusFeature(screenIndex, scope, id) {
+    const screen = rowsOf('screens')[Number(screenIndex)];
+    if (
+      screen &&
+      (designerState.panel !== 'settings' ||
+        designerState.element !== (scope || '') ||
+        designerState.screenId !== screen.id)
+    ) {
+      designerState = { screenId: screen.id, element: scope || '', panel: 'settings' };
+      renderStep(currentStep);
+    }
     const card = document.getElementById(`feature-${screenIndex}${scope ? '-' + scope : ''}-${id}`);
     if (!card) return;
     card.open = true;
@@ -165,6 +216,7 @@
     updateProgress();
   }
   function showGuide(focus = true) {
+    document.body.classList.remove('designing');
     $('#guide-view').hidden = false;
     $('#form-view').hidden = true;
     $('#report-view').hidden = true;
@@ -179,6 +231,8 @@
     );
     currentStep = Math.max(0, Math.min(steps.length - 1, index));
     const step = steps[currentStep];
+    document.body.classList.toggle('designing', step.id === 'screens');
+    if (step.id === 'screens') ensureCommonScreen();
     $('#guide-view').hidden = true;
     $('#form-view').hidden = false;
     $('#report-view').hidden = true;
@@ -189,20 +243,28 @@
     renderNavigation();
     $('#question-groups').innerHTML = A.activeGroups(step, answers, notes)
       .map(
-        (g) =>
-          /* HTML */ `<section class="question-group"
-            >${g.title
-              ? /* HTML */ `<div class="group-heading"
-                  ><h2>${esc(g.title)}</h2>${g.description
-                    ? /* HTML */ `<p>${esc(g.description)}</p>`
-                    : ''}</div
-                >`
-              : ''}<div class="group-body"
-              >${g.questions
-                .map((q) => V.question(q, answers, notes, recommendations))
-                .join('')}</div
-            ></section
-          >`
+        (g, groupIndex) =>
+          /* HTML */ `${step.id === 'screens' && !g.questions.some((q) => q.id === 'screens')
+              ? '<details class="designer-related" id="designer-topic-' +
+                groupIndex +
+                '"><summary>' +
+                esc(g.title || '추가 기획') +
+                '</summary>'
+              : ''}<section class="question-group"
+              >${g.title
+                ? /* HTML */ `<div class="group-heading"
+                    ><h2>${esc(g.title)}</h2>${g.description
+                      ? /* HTML */ `<p>${esc(g.description)}</p>`
+                      : ''}</div
+                  >`
+                : ''}<div class="group-body"
+                >${g.questions
+                  .map((q) => V.question(q, answers, notes, recommendations, designerState))
+                  .join('')}</div
+              ></section
+            >${step.id === 'screens' && !g.questions.some((q) => q.id === 'screens')
+              ? '</details>'
+              : ''}`
       )
       .join('');
     for (const [id, open] of states) {
@@ -252,6 +314,7 @@
     $('#option-help-dialog').scrollTop = 0;
   }
   function renderReport() {
+    document.body.classList.remove('designing');
     if (!$('#form-view').hidden) formScrollY = window.scrollY;
     $('#guide-view').hidden = true;
     $('#form-view').hidden = true;
@@ -362,6 +425,22 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.dataset.designerPlacement) {
+      const { screen, element } = D.selection(answers, designerState);
+      const key = el.dataset.designerPlacement;
+      if (
+        !element ||
+        !(key === 'region'
+          ? Q.layoutRegions.some((r) => r.id === el.value)
+          : key === 'width' && ['full', 'half'].includes(el.value))
+      )
+        return;
+      screen.placements ||= {};
+      screen.placements[element] = { ...A.elementPlacement(screen, element), [key]: el.value };
+      changed(true);
+      document.querySelector(`[data-designer-placement="${key}"]`)?.focus({ preventScroll: true });
+      return;
+    }
     if (el.matches('select[data-link-feature]')) {
       const screen = rowsOf('screens')[Number(el.dataset.screen)];
       if (screen && rowsOf('features').some((f) => f.id === el.value)) {
@@ -453,8 +532,8 @@
     } else if (element) {
       object.elementNotes ||= {};
       object.elementNotes[element] = el.value;
-    } else if (qid === 'screens' && field === 'recommendLayout') {
-      object.recommendLayout = el.checked;
+    } else if (qid === 'screens' && ['recommendLayout', 'useCommonLayout'].includes(field)) {
+      object[field] = el.checked;
     } else if (el.type === 'checkbox') {
       let values = Array.isArray(object[key]) ? [...object[key]] : [];
       values = el.checked
@@ -499,9 +578,27 @@
       (row === undefined && el.matches('select,input[type="checkbox"],input[type="radio"]')) ||
       field === 'elements' ||
       field === 'elementOptions' ||
+      field === 'useCommonLayout' ||
       (field === 'flow' && property === 'featureId') ||
       (field === 'elementContents' && ['type', 'featureIds'].includes(property));
     changed(rerender);
+    if (!rerender && qid === 'screens') {
+      const current = D.selection(answers, designerState);
+      const tab = document.querySelector(`[data-designer-screen="${object.id}"]`);
+      if (tab && !object.isCommon && field === 'name') tab.textContent = object.name || '새 화면';
+      if (current.screen.id === object.id && field === 'name')
+        document.querySelector('.canvas-chrome span:last-child').textContent =
+          object.name || '새 화면';
+      document.querySelectorAll('[data-canvas-element]').forEach((block) => {
+        if (block.dataset.canvasOwner !== object.id) return;
+        const scope = block.dataset.canvasElement;
+        block.querySelector('.wire-preview').innerHTML = D.preview(object, scope);
+        if (!block.classList.contains('inherited'))
+          block.querySelector('.canvas-block-title').textContent = D.elementName(object, scope);
+      });
+      if (current.element && field === 'customElements' && property === 'name')
+        $('#inspector-title').textContent = D.elementName(object, current.element);
+    }
     if (rerender)
       [...document.querySelectorAll('[data-q]')]
         .find(
@@ -556,6 +653,47 @@
     else $('#projects-dialog').close();
     toast(id ? '이름을 변경했어요.' : '새 프로젝트를 만들었어요.');
   });
+  document.addEventListener('dragstart', (event) => {
+    const block = event.target.closest('[data-canvas-element][draggable="true"]');
+    if (!block) return;
+    draggedElement = { screenId: block.dataset.canvasOwner, key: block.dataset.canvasElement };
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', draggedElement.key);
+  });
+  document.addEventListener('dragover', (event) => {
+    const zone = event.target.closest('[data-drop-region]');
+    if (
+      !zone ||
+      !draggedElement ||
+      draggedElement.screenId !== D.selection(answers, designerState).screen.id
+    )
+      return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.drop-active').forEach((el) => el.classList.remove('drop-active'));
+    zone.classList.add('drop-active');
+  });
+  document.addEventListener('drop', (event) => {
+    const zone = event.target.closest('[data-drop-region]');
+    if (
+      !zone ||
+      !draggedElement ||
+      draggedElement.screenId !== D.selection(answers, designerState).screen.id
+    )
+      return;
+    event.preventDefault();
+    const before = event.target.closest('[data-canvas-element]');
+    moveCanvasElement(
+      draggedElement.key,
+      zone.dataset.dropRegion,
+      before?.dataset.canvasOwner === draggedElement.screenId ? before.dataset.canvasElement : ''
+    );
+    draggedElement = null;
+  });
+  document.addEventListener('dragend', () => {
+    draggedElement = null;
+    document.querySelectorAll('.drop-active').forEach((el) => el.classList.remove('drop-active'));
+  });
   document.addEventListener('click', async (event) => {
     document.querySelectorAll('.role-picker[open]').forEach((picker) => {
       if (!picker.contains(event.target)) picker.open = false;
@@ -563,6 +701,66 @@
     const b = event.target.closest('button');
     if (!b) return;
     const d = b.dataset;
+    if (d.designerScreen !== undefined) return showDesigner('elements', '', d.designerScreen);
+    if (d.createCommon !== undefined) {
+      if (rowsOf('screens').length >= A.MAX_ROWS)
+        return toast('공통 화면을 추가하려면 사용하지 않는 화면 하나를 먼저 삭제해 주세요.');
+      ensureCommonScreen();
+      changed(true);
+      return;
+    }
+    if (d.designerPanel) return showDesigner(d.designerPanel);
+    if (d.designerSettings !== undefined) return showDesigner('settings', '');
+    if (d.canvasElement) return showDesigner('settings', d.canvasElement, d.canvasOwner);
+    if (d.insertElement) {
+      const { screen } = D.selection(answers, designerState);
+      const common = rowsOf('screens').find((s) => s.isCommon);
+      if (!screen.id || !uiElements.some((el) => el.id === d.insertElement)) return;
+      if (
+        !screen.isCommon &&
+        screen.useCommonLayout !== false &&
+        !(screen.elements || []).includes(d.insertElement) &&
+        common?.elements?.includes(d.insertElement)
+      )
+        return showDesigner('settings', d.insertElement, common.id);
+      screen.elements = [...new Set([...(screen.elements || []), d.insertElement])];
+      designerState = { screenId: screen.id, element: d.insertElement, panel: 'settings' };
+      changed(true);
+      $('#inspector-title')?.focus({ preventScroll: true });
+      if (window.matchMedia('(max-width: 800px)').matches)
+        $('#designer-inspector-body')?.scrollIntoView({ block: 'start' });
+      return;
+    }
+    if (d.designerMove) {
+      const { screen, element } = D.selection(answers, designerState),
+        order = A.elementKeys(screen);
+      const from = order.indexOf(element),
+        to = from + Number(d.designerMove);
+      if (from < 0 || to < 0 || to >= order.length) return;
+      [order[from], order[to]] = [order[to], order[from]];
+      screen.layoutOrder = order;
+      changed(true);
+      (
+        document.querySelector(`[data-designer-move="${d.designerMove}"]:not(:disabled)`) ||
+        document.querySelector('[data-designer-move]:not(:disabled)')
+      )?.focus({ preventScroll: true });
+      return;
+    }
+    if (d.designerRemoveElement !== undefined) {
+      const { screen, element } = D.selection(answers, designerState);
+      if (!element) return;
+      if (element.startsWith('custom:')) {
+        if (!window.confirm('이 요소와 작성한 내용을 삭제할까요?')) return;
+        screen.customElements = screen.customElements.filter((el) => el.id !== element.slice(7));
+        screen.layoutOrder = (screen.layoutOrder || []).filter((key) => key !== element);
+        if (screen.placements) delete screen.placements[element];
+      } else screen.elements = screen.elements.filter((id) => id !== element);
+      designerState.element = '';
+      designerState.panel = 'elements';
+      changed(true);
+      $('#inspector-title')?.focus({ preventScroll: true });
+      return;
+    }
     if (d.featureCatalogTarget) {
       const panel = document.getElementById(d.featureCatalogTarget);
       panel.hidden = !panel.hidden;
@@ -738,15 +936,19 @@
           return toast(`직접 추가하는 요소는 화면마다 최대 ${A.MAX_ROWS}개까지 기록할 수 있어요.`);
         const item = { id: P.newId(), name: '', purpose: '' };
         screen.customElements.push(item);
+        designerState = { screenId: screen.id, element: 'custom:' + item.id, panel: 'settings' };
         changed(true);
-        const card = document.getElementById(`custom-element-${screen.id}-${item.id}`);
-        card?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        card?.querySelector('input')?.focus({ preventScroll: true });
+        $('#designer-inspector-body')
+          ?.querySelector('[data-property="name"]')
+          ?.focus({ preventScroll: true });
       } else if (
         screen.customElements[Number(d.removeElement)] &&
         window.confirm('이 요소를 삭제할까요? 이름과 용도도 함께 삭제돼요.')
       ) {
+        const key = 'custom:' + screen.customElements[Number(d.removeElement)].id;
         screen.customElements.splice(Number(d.removeElement), 1);
+        screen.layoutOrder = (screen.layoutOrder || []).filter((id) => id !== key);
+        if (screen.placements) delete screen.placements[key];
         changed(true);
         document
           .querySelector(`[data-add-element][data-screen="${index}"]`)
@@ -798,6 +1000,7 @@
           : null;
       if (screen && !connectFeature(screen, d.flowScope, row.id)) return;
       answers[qid] = [...rows, row];
+      if (qid === 'screens') designerState = { screenId: row.id, element: '', panel: 'settings' };
       changed(true);
       if (screen) {
         focusFeature(d.screen, d.flowScope, row.id);
@@ -806,7 +1009,9 @@
       const card = document.getElementById(
         qid === 'features'
           ? `feature-${screen ? d.screen : 'shared'}-${row.id}`
-          : `row-${qid}-${rows.length}`
+          : qid === 'screens'
+            ? 'designer-inspector-body'
+            : `row-${qid}-${rows.length}`
       );
       card?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       card?.querySelector('input,textarea,select')?.focus({ preventScroll: true });
@@ -815,6 +1020,7 @@
     if (d.remove) {
       const rows = rowsOf(d.remove),
         index = Number(d.index);
+      if (d.remove === 'screens' && rows[index]?.isCommon) return;
       const message =
         d.remove === 'roles'
           ? '이 역할을 삭제할까요? 이 역할을 선택한 화면은 다시 확인해야 해요.'

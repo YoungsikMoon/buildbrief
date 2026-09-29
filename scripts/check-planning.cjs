@@ -68,11 +68,12 @@ assert(R.report(different).includes('을 사용할 수 있는지 확인'));
 const unsafe = '<img src=x onerror=alert(1)>\n### 다른 질문';
 const attack = clone(answers); attack.screens[0].elementContents.form.items[0].name=unsafe;
 attack.features[0].permission=unsafe; attack.screens[0].reason=unsafe;
-const html = V.question(A.allQuestions.find(q=>q.id==='screens'),attack);
+const html = V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'apply',element:'form',panel:'settings'});
 assert(!html.includes('<img src=x'));
 assert(!R.report(attack,true).includes('<img src=x'));
 assert(!V.report(attack).includes('<img src=x'));
-assert(html.includes('기능 후보에서 선택') && html.includes('만들어 둔 기능 연결'));
+assert(html.includes('기능 후보에서 선택'));
+assert(V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'history',element:'table',panel:'features'}).includes('만들어 둔 기능 연결'));
 for (const contents of [null,[],{form:null},{nope:{}},JSON.parse('{"__proto__":{}}'),{form:{recommend:'yes'}},{form:{featureIds:['bad id']}},{form:{items:[{id:'a',type:'SQL'}]}},{form:{items:[{id:'a',required:true}]}},{form:{items:[{id:'a'},{id:'a'}]}},{table:{items:[{id:'a',notes:'x'.repeat(A.MAX_TEXT+1)}]}},{button:{items:[{id:'a'}]}},{table:{items:Array.from({length:A.MAX_ROWS+1},(_,i)=>({id:'i'+i}))}}]) {
   const input = {screens:[{id:'s',elementContents:contents}]}; const before=clone(input);
   assert.throws(()=>A.normalizeAnswers(input)); assert.deepEqual(input,before);
@@ -128,7 +129,7 @@ renamed.roles=[]; renamed.screens.pop(); renamed.features=[];
 assert(R.report(renamed).includes('연결할 역할 확인 필요'));
 assert(R.report(renamed).includes('연결할 화면 확인 필요'));
 assert(R.report(renamed).includes('연결할 기능 확인 필요'));
-assert(V.question(A.allQuestions.find(q=>q.id==='screens'),renamed).includes('삭제된 역할'));
+assert(V.question(A.allQuestions.find(q=>q.id==='screens'),renamed,{},[],{panel:'settings'}).includes('삭제된 역할'));
 const hiddenFlow = clone(local); hiddenFlow.screens[0].elements=[];
 assert(!R.report(hiddenFlow).includes('신청 버튼 누르기'));
 assert(!R.report(hiddenFlow).includes('/ 일반 버튼'));
@@ -200,4 +201,45 @@ for(const bad of [{recommendExceptions:'yes'},{exceptions:[]},{exceptions:'x'.re
   for(const screen of [{id:'s',flow:[{id:'a',...bad}]},{id:'s',elementContents:{button:{flow:[{id:'a',...bad}]}}},{id:'s',customElements:[{id:'el',flow:[{id:'a',...bad}]}]}]) assert.throws(()=>A.normalizeAnswers({screens:[screen]}));
 }
 assert.throws(()=>A.normalizeAnswers({screens:[{id:'s',customElements:[{id:'el',featureIds:['bad id']}]}]}));
-console.log('Connected planning checks passed: migration, roles, element features, scoped actions/exceptions, exports and backup validation.');
+// Shared layout and visual placement stay separate from each screen's roles and reason.
+const design=A.normalizeAnswers({screens:[
+  {id:'common',isCommon:true,elements:['appbar','sidebar'],reason:'공통 메뉴의 이유',placements:{appbar:{region:'top',width:'full'}}},
+  {id:'home',name:'첫 화면',purpose:'신청',reason:'첫 화면만의 이유',elements:['form','table'],layoutOrder:['table','form'],placements:{table:{region:'main',width:'half'}},customElements:[{id:'custom',name:unsafe}]},
+  {id:'independent',name:'독립 화면',useCommonLayout:false,reason:'독립 화면만의 이유'}
+]});
+const D=require('../dist/designer.js'),screenQ=A.allQuestions.find(q=>q.id==='screens');
+assert.equal(design.screens[1].useCommonLayout,true);
+assert.deepEqual(A.elementKeys(design.screens[1]),['table','form','custom:custom']);
+assert.deepEqual(A.elementPlacement(design.screens[0],'sidebar'),{region:'left',width:'full'});
+assert.deepEqual(A.progress(A.normalizeAnswers({screens:[{id:'c',isCommon:true}]})),A.progress({}));
+assert(!R.report(A.normalizeAnswers({screens:[{id:'c',isCommon:true}]})).includes('##### 기본 공통 화면'));
+const recommendation=A.normalizeAnswers({screens:[{id:'c',isCommon:true,recommendLayout:true}]});
+assert(R.report(recommendation).includes('화면 구성 추천 — 기본 공통 화면'));
+assert(R.report(recommendation).includes('**이 화면의 구성 추천 요청 · 미확정**'));
+for(const prompt of [false,true]) {
+  const text=R.report(design,prompt,{screens:'예전 전체 메모'});
+  assert(text.includes('기본 공통 화면 [공통]') && text.includes('첫 화면 [S01]') && text.includes('독립 화면 [S02]'));
+  assert(text.includes('공통 레이아웃 적용') && text.includes('사용하지 않음'));
+  assert(text.includes('예전 전체 메모') && text.includes('요소 배치 순서'));
+  assert(!text.includes('기본 공통 화면 \\[공통\\]: 사용할 역할 확인'));
+  const common=text.split('##### 기본 공통 화면')[1].split('##### 첫 화면')[0];
+  assert(common.includes('공통 메뉴의 이유') && !common.includes('첫 화면만의 이유'));
+}
+const homeHtml=V.question(screenQ,design,{screens:'예전 전체 메모'},[],{screenId:'home',element:'custom:custom',panel:'settings'});
+assert(!homeHtml.includes('<img src=x'));
+assert(homeHtml.includes('이 화면의 선택 이유') && !homeHtml.includes('data-note="screens"'));
+assert(homeHtml.includes(' inherited') && !V.question(screenQ,design,{},[],{screenId:'independent'}).includes(' inherited'));
+assert(!homeHtml.includes('공통 메뉴의 이유') && homeHtml.includes('첫 화면만의 이유'));
+assert.equal(D.selection(design,{screenId:'deleted'}).screen.id,'common');
+assert(!D.preview({elementContents:{form:{items:[{name:unsafe}]}}},'form').includes('<img src=x'));
+const designProject=P.createProject({answers:design,drafts:design,notes:{screens:'예전 전체 메모'}});
+for(const backup of [{format:'buildbrief-idea',version:1,...designProject},{format:'buildbrief-ideas',version:1,activeId:designProject.id,projects:[designProject]}]) {
+  const restored=P.importBackup(clone(backup)).projects[0];assert.deepEqual(restored.answers,design);assert.deepEqual(restored.drafts,design);assert.deepEqual(restored.notes,designProject.notes);
+}
+for(const invalid of [
+  {isCommon:'yes'},{useCommonLayout:0},{layoutOrder:['form','form']},{layoutOrder:['unknown']},{layoutOrder:['custom:missing']},
+  {placements:null},{placements:[]},{placements:{form:{region:'url(x)',width:'full'}}},{placements:{form:{region:'main',width:'auto'}}},
+  {placements:{form:null}},{placements:JSON.parse('{"__proto__":{"region":"main","width":"full"}}')}
+]) {const input={screens:[{id:'s',...invalid}]},before=clone(input);assert.throws(()=>A.normalizeAnswers(input));assert.deepEqual(input,before);}
+assert.throws(()=>A.normalizeAnswers({screens:[{id:'a',isCommon:true},{id:'b',isCommon:true}]}));
+console.log('Connected planning checks passed: migration, visual layouts, roles, scoped actions, safe exports and backup validation.');

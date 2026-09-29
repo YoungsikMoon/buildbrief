@@ -204,6 +204,31 @@
       ...(plan.flow || []).map((action) => action.featureId).filter(Boolean)
     ])
   ];
+  const elementKeys = (screen = {}) => {
+    const selected = [
+      ...(screen.elements || []),
+      ...(screen.customElements || []).map((el) => 'custom:' + el.id)
+    ];
+    return [
+      ...new Set([
+        ...(screen.layoutOrder || []).filter((key) => selected.includes(key)),
+        ...selected
+      ])
+    ];
+  };
+  const elementPlacement = (screen, key) =>
+    screen.placements?.[key] || {
+      region:
+        {
+          appbar: 'top',
+          sidebar: 'left',
+          rightpanel: 'right',
+          footer: 'bottom',
+          bottomnav: 'bottom',
+          fab: 'overlay'
+        }[key] || 'main',
+      width: 'full'
+    };
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
   // For reference text only: this does not check DNS, redirects or private networks.
@@ -320,7 +345,47 @@
             )
           };
         }
+        const customElements = list(
+          row.customElements === undefined ? [] : row.customElements,
+          `${label}의 직접 추가한 요소`,
+          (item, itemLabel) => ({
+            ...stringFields(item, ['name', 'purpose'], itemLabel),
+            featureIds: ids(item.featureIds === undefined ? [] : item.featureIds, itemLabel),
+            ...flowPlan(item, itemLabel)
+          })
+        );
+        const keys = [
+          ...Q.uiElements.map((el) => el.id),
+          ...customElements.map((el) => 'custom:' + el.id)
+        ];
+        const layoutOrder = row.layoutOrder === undefined ? [] : row.layoutOrder;
+        if (
+          !Array.isArray(layoutOrder) ||
+          layoutOrder.length > keys.length ||
+          new Set(layoutOrder).size !== layoutOrder.length ||
+          layoutOrder.some((key) => !keys.includes(key))
+        )
+          fail(label + ' 배치 순서');
+        const placements = {};
+        if (row.placements !== undefined && !plain(row.placements)) fail(label + ' 배치');
+        for (const [key, placement] of Object.entries(row.placements || {})) {
+          if (
+            !keys.includes(key) ||
+            !plain(placement) ||
+            !Q.layoutRegions.some((region) => region.id === placement.region) ||
+            !['full', 'half'].includes(placement.width)
+          )
+            fail(label + ' 배치');
+          placements[key] = { region: placement.region, width: placement.width };
+        }
         return {
+          isCommon: boolean(row.isCommon, label + ' 공통 화면'),
+          useCommonLayout:
+            row.useCommonLayout === undefined
+              ? true
+              : boolean(row.useCommonLayout, label + ' 공통 화면 적용'),
+          layoutOrder: [...layoutOrder],
+          placements,
           ...flowPlan(row, label),
           ...stringFields(
             row,
@@ -334,15 +399,7 @@
           elementNotes,
           elementOptions,
           elementContents,
-          customElements: list(
-            row.customElements === undefined ? [] : row.customElements,
-            `${label}의 직접 추가한 요소`,
-            (item, itemLabel) => ({
-              ...stringFields(item, ['name', 'purpose'], itemLabel),
-              featureIds: ids(item.featureIds === undefined ? [] : item.featureIds, itemLabel),
-              ...flowPlan(item, itemLabel)
-            })
-          )
+          customElements
         };
       });
     if (q.type === 'references')
@@ -383,6 +440,11 @@
       if (!q) fail(`알 수 없는 질문 ${id}`);
       result[id] = normalizeAnswer(q, value);
     }
+    if (
+      Array.isArray(result.screens) &&
+      result.screens.filter((screen) => screen.isCommon).length > 1
+    )
+      fail('기본 공통 화면의 중복');
     if (questions.get('login_need').legacyOptions.includes(result.login_need)) {
       if (!Object.hasOwn(result, 'login_scope_history'))
         result.login_scope_history = result.login_need;
@@ -439,7 +501,9 @@
     progress,
     normalizeHttpUrl,
     priorities,
-    linkedFeatureIds
+    linkedFeatureIds,
+    elementKeys,
+    elementPlacement
   };
   root.BriefAnswers = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
