@@ -22,7 +22,9 @@
     if (typeof value !== 'string' || value.length > max) fail(label);
     return value;
   };
-  const choiceOptions = (q) => [...new Set([...(q.options || []), UNKNOWN])];
+  const choiceOptions = (q) => [
+    ...new Set([...(q.options || []), ...(q.omitUnknown ? [] : [UNKNOWN])])
+  ];
   const isAnswered = (value) =>
     typeof value === 'string'
       ? value.trim() !== ''
@@ -118,7 +120,7 @@
   }
 
   function selected(value, field, label) {
-    const options = choiceOptions(field);
+    const options = [...choiceOptions(field), ...(field.legacyOptions || [])];
     const valid = (item) =>
       typeof item === 'string' &&
       (item === '' ||
@@ -168,6 +170,28 @@
     )
       fail(label);
     return result;
+  }
+  function flowPlan(row, label) {
+    return {
+      recommendFlow: boolean(row.recommendFlow, label + ' 동작 추천'),
+      flow: list(
+        row.flow === undefined ? [] : row.flow,
+        label + ' 이용 흐름',
+        (item, itemLabel) => ({
+          ...stringFields(item, ['event', 'result'], itemLabel),
+          featureId:
+            item.featureId === undefined || item.featureId === ''
+              ? ''
+              : rowId(item.featureId, itemLabel),
+          nextScreenId:
+            item.nextScreenId === undefined || item.nextScreenId === ''
+              ? ''
+              : ['@stay', '@back'].includes(item.nextScreenId)
+                ? item.nextScreenId
+                : rowId(item.nextScreenId, itemLabel)
+        })
+      )
+    };
   }
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
@@ -254,9 +278,10 @@
         if (!plain(contents)) fail(`${label}의 요소별 내용`);
         const elementContents = {};
         for (const [key, content] of Object.entries(contents)) {
-          if (!Q.elementContentTypes.includes(key) || !plain(content))
+          if (!Q.uiElements.some((el) => el.id === key) || !plain(content))
             fail(`${label}의 요소별 내용`);
           elementContents[key] = {
+            ...flowPlan(content, label),
             reason: text(content.reason === undefined ? '' : content.reason, label),
             recommend: boolean(content.recommend, label + ' 요소 추천'),
             featureIds: ids(content.featureIds === undefined ? [] : content.featureIds, label),
@@ -264,7 +289,7 @@
               content.items === undefined ? [] : content.items,
               label + ' 항목',
               (item, itemLabel) => {
-                if (key === 'button') fail(itemLabel);
+                if (!['form', 'table', 'list', 'cards'].includes(key)) fail(itemLabel);
                 const result = stringFields(item, ['name', 'notes'], itemLabel);
                 if (key === 'form') {
                   result.type = selected(
@@ -285,12 +310,14 @@
           };
         }
         return {
+          ...flowPlan(row, label),
           ...stringFields(
             row,
             ['name', 'purpose', 'roles', 'content', 'empty', 'error', 'mobile', 'reason'],
             label
           ),
           featureIds: ids(row.featureIds === undefined ? [] : row.featureIds, label),
+          roleIds: ids(row.roleIds === undefined ? [] : row.roleIds, label),
           recommendLayout: row.recommendLayout === true,
           elements,
           elementNotes,
@@ -299,7 +326,10 @@
           customElements: list(
             row.customElements === undefined ? [] : row.customElements,
             `${label}의 직접 추가한 요소`,
-            (item, itemLabel) => stringFields(item, ['name', 'purpose'], itemLabel)
+            (item, itemLabel) => ({
+              ...stringFields(item, ['name', 'purpose'], itemLabel),
+              ...flowPlan(item, itemLabel)
+            })
           )
         };
       });
@@ -316,7 +346,7 @@
           row.featureId === undefined || row.featureId === '' ? '' : rowId(row.featureId, label),
         note: text(row.note === undefined ? '' : row.note, label)
       }));
-    if (q.type === 'rows')
+    if (q.type === 'rows' || q.type === 'roles')
       return list(value, q.label, (row, label) =>
         Object.fromEntries(
           q.fields.map((field) => {
@@ -340,6 +370,11 @@
       const q = questions.get(id);
       if (!q) fail(`알 수 없는 질문 ${id}`);
       result[id] = normalizeAnswer(q, value);
+    }
+    if (questions.get('login_need').legacyOptions.includes(result.login_need)) {
+      if (!Object.hasOwn(result, 'login_scope_history'))
+        result.login_scope_history = result.login_need;
+      result.login_need = '로그인 필요';
     }
     return result;
   }

@@ -97,6 +97,15 @@
     picker();
   }
   const rowsOf = (id) => (Array.isArray(answers[id]) ? answers[id] : []);
+  function flowTarget(screen, scope = '') {
+    if (!screen) return null;
+    if (!scope) return screen;
+    if (scope.startsWith('custom:'))
+      return screen.customElements?.find((el) => el.id === scope.slice(7));
+    if (!uiElements.some((el) => el.id === scope)) return null;
+    screen.elementContents ||= {};
+    return (screen.elementContents[scope] ||= { items: [], featureIds: [] });
+  }
   function renderNavigation(guide = false) {
     $('#guide-button').classList.toggle('active', guide);
     if (guide) $('#guide-button').setAttribute('aria-current', 'page');
@@ -321,11 +330,22 @@
     if (el.dataset.q && el.matches('select,input[type="checkbox"],input[type="radio"]')) edit(el);
   });
   function edit(el) {
-    const { q: qid, row, field, element, custom, property, item } = el.dataset;
+    const { q: qid, row, field, element, custom, property, item, flowScope, flowRow } = el.dataset;
     const object = row === undefined ? answers : rowsOf(qid)[Number(row)];
     if (!object) return;
     const key = field || qid;
-    if (field === 'elementContents') {
+    if (qid === 'screens' && ['flow', 'recommendFlow'].includes(field)) {
+      const plan = flowTarget(object, flowScope);
+      if (!plan) return;
+      if (field === 'recommendFlow') plan.recommendFlow = el.checked;
+      else {
+        const action = plan.flow?.[Number(flowRow)];
+        if (!action || !['event', 'featureId', 'nextScreenId', 'result'].includes(property)) return;
+        action[property] = el.value;
+        if (property === 'featureId' && el.value)
+          object.featureIds = [...new Set([...(object.featureIds || []), el.value])];
+      }
+    } else if (field === 'elementContents') {
       if (!Q.elementContentTypes.includes(element)) return;
       object.elementContents ||= {};
       const plan = (object.elementContents[element] ||= { items: [], featureIds: [] });
@@ -389,6 +409,7 @@
     const rerender =
       (row === undefined && el.matches('select,input[type="checkbox"],input[type="radio"]')) ||
       field === 'elements' ||
+      (field === 'flow' && property === 'featureId') ||
       (field === 'elementContents' && ['type', 'featureIds'].includes(property));
     changed(rerender);
     if (rerender)
@@ -401,6 +422,8 @@
             c.dataset.element === element &&
             c.dataset.item === item &&
             c.dataset.property === property &&
+            c.dataset.flowScope === flowScope &&
+            c.dataset.flowRow === flowRow &&
             c.value === el.value
         )
         ?.focus({ preventScroll: true });
@@ -447,6 +470,15 @@
     const b = event.target.closest('button');
     if (!b) return;
     const d = b.dataset;
+    if (d.editRoles !== undefined) {
+      renderStep(
+        steps.findIndex((s) => s.id === 'users'),
+        true
+      );
+      document.getElementById('field-roles')?.scrollIntoView({ block: 'start' });
+      document.querySelector('[data-role-preset]')?.focus({ preventScroll: true });
+      return;
+    }
     if (d.step !== undefined) return renderStep(Number(d.step), true);
     if (d.help) {
       const q = questions.get(d.help),
@@ -471,8 +503,50 @@
       screen.featureIds = (screen.featureIds || []).filter((id) => id !== d.unlinkFeature);
       for (const plan of Object.values(screen.elementContents || {}))
         plan.featureIds = (plan.featureIds || []).filter((id) => id !== d.unlinkFeature);
+      for (const plan of [
+        screen,
+        ...Object.values(screen.elementContents || {}),
+        ...(screen.customElements || [])
+      ])
+        for (const action of plan.flow || [])
+          if (action.featureId === d.unlinkFeature) action.featureId = '';
       changed(true);
       toast('이 화면에서 연결을 해제했어요. 기능 내용은 그대로 남아 있어요.');
+      return;
+    }
+    if (d.flowAdd !== undefined || d.flowRemove !== undefined || d.flowMove !== undefined) {
+      const screen = rowsOf('screens')[Number(d.screen)];
+      const plan = flowTarget(screen, d.flowScope);
+      if (!plan) return;
+      const rows = (plan.flow ||= []);
+      let focusId = '';
+      if (d.flowAdd !== undefined) {
+        if (rows.length >= A.MAX_ROWS)
+          return toast(`한곳에 최대 ${A.MAX_ROWS}개 동작을 기록할 수 있어요.`);
+        const action = { id: P.newId(), event: '', featureId: '', nextScreenId: '', result: '' };
+        rows.push(action);
+        focusId = action.id;
+      } else if (d.flowRemove !== undefined) {
+        if (!rows[Number(d.flowRemove)] || !window.confirm('이 동작과 작성한 내용을 삭제할까요?'))
+          return;
+        rows.splice(Number(d.flowRemove), 1);
+      } else {
+        const from = Number(d.flowMove),
+          to = from + Number(d.direction);
+        if (!rows[from] || !rows[to]) return;
+        [rows[from], rows[to]] = [rows[to], rows[from]];
+        focusId = rows[to].id;
+      }
+      changed(true);
+      const panel = document.getElementById(`flow-${screen.id}-${d.flowScope || ''}`);
+      panel.open = true;
+      const target = focusId
+        ? document
+            .getElementById(`flow-row-${screen.id}-${d.flowScope || ''}-${focusId}`)
+            ?.querySelector('input')
+        : panel.querySelector('[data-flow-add]');
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: 'center' });
       return;
     }
     if (
@@ -544,12 +618,17 @@
       }
       return;
     }
-    if (d.feature || d.add) {
-      const qid = d.feature ? 'features' : d.add,
+    if (d.feature || d.add || d.rolePreset !== undefined) {
+      const qid = d.rolePreset !== undefined ? 'roles' : d.feature ? 'features' : d.add,
         rows = rowsOf(qid);
       if (rows.length >= A.MAX_ROWS)
         return toast(`한 목록에는 최대 ${A.MAX_ROWS}개까지 추가할 수 있어요.`);
       let row = { id: P.newId() };
+      if (qid === 'roles') {
+        const name = d.rolePreset === undefined ? '' : Q.rolePresets[Number(d.rolePreset)];
+        if (name === undefined || (name && rows.some((r) => r.role.trim() === name))) return;
+        row = { ...row, role: name, actions: '', data: '' };
+      }
       if (qid === 'features')
         row = {
           ...row,
@@ -596,29 +675,17 @@
       const rows = rowsOf(d.remove),
         index = Number(d.index);
       const message =
-        d.remove === 'features'
-          ? '이 기능을 삭제할까요? 모든 화면·이용 과정의 연결에 영향을 줘요. 한 화면에서만 빼려면 연결 해제를 사용하세요.'
-          : d.remove === 'screens'
-            ? '이 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.'
-            : '이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.';
+        d.remove === 'roles'
+          ? '이 역할을 삭제할까요? 이 역할을 선택한 화면은 다시 확인해야 해요.'
+          : d.remove === 'features'
+            ? '이 기능을 삭제할까요? 모든 화면·이용 과정의 연결에 영향을 줘요. 한 화면에서만 빼려면 연결 해제를 사용하세요.'
+            : d.remove === 'screens'
+              ? '이 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.'
+              : '이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.';
       if (rows[index] && window.confirm(message)) {
         answers[d.remove] = rows.filter((_, i) => i !== index);
         changed(true);
         document.querySelector(`[data-add="${d.remove}"]`)?.focus({ preventScroll: true });
-      }
-      return;
-    }
-    if (d.move !== undefined) {
-      const rows = rowsOf('main_flow'),
-        from = Number(d.move),
-        to = from + Number(d.direction);
-      if (to >= 0 && to < rows.length) {
-        [rows[from], rows[to]] = [rows[to], rows[from]];
-        changed(true);
-        document
-          .getElementById(`row-main_flow-${to}`)
-          ?.querySelector('select')
-          ?.focus({ preventScroll: true });
       }
       return;
     }

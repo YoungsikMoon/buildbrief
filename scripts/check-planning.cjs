@@ -26,11 +26,11 @@ for (const backup of [{format:'buildbrief-idea',version:1,...project},{format:'b
   assert.equal(restored.step,4);
 }
 // Old numeric positions are translated once; new positions do not drift on reload.
-for (const [oldStep, newStep] of [[0,0],[1,1],[2,2],[3,4],[4,5],[5,6],[6,3],[7,4],[8,7]]) {
+for (const [oldStep, newStep] of [[0,0],[1,1],[2,2],[3,4],[4,4],[5,2],[6,3],[7,4],[8,5]]) {
   const old = {...clone(project),step:oldStep}; delete old.navigationVersion;
   const restored = P.normalizeWorkspace({version:1,activeId:old.id,projects:[old]}).projects[0];
   assert.equal(restored.step,newStep);
-  assert.equal(restored.navigationVersion,2);
+  assert.equal(restored.navigationVersion,3);
   assert.deepEqual(restored.answers,answers);
   assert.equal(P.importBackup({format:'buildbrief-idea',version:1,...restored}).projects[0].step,newStep);
 }
@@ -79,4 +79,74 @@ for (const contents of [null,[],{form:null},{nope:{}},JSON.parse('{"__proto__":{
 }
 assert.throws(()=>A.normalizeAnswers({features:[{id:'f',recommendPermission:'yes'}]}));
 assert.throws(()=>A.normalizeAnswers({main_flow:[{id:'flow',screenId:'<script>'}]}));
-console.log('Connected planning checks passed: stage migration, shared features, form/table content, scoped recommendations, safe export and backup validation.');
+// The previous eight-stage release also migrates once, including its two removed tabs.
+for (const [oldStep,newStep] of [0,1,2,3,4,4,2,5].entries()) {
+  const old = {...clone(project),navigationVersion:2,step:oldStep};
+  const result = P.normalizeWorkspace({version:1,activeId:old.id,projects:[old]}).projects[0];
+  assert.equal(result.step,newStep); assert.equal(result.navigationVersion,3);
+  assert.equal(P.normalizeWorkspace({version:1,activeId:result.id,projects:[result]}).projects[0].step,newStep);
+}
+assert.equal(new Set([...A.allQuestions,...Q.retiredQuestions].map(q=>q.id)).size,A.allQuestions.length+Q.retiredQuestions.length);
+const login = A.allQuestions.find(q=>q.id==='login_need');
+assert.deepEqual(A.choiceOptions(login),['로그인 없이 사용','로그인 필요']);
+for (const legacy of login.legacyOptions) {
+  const a = A.normalizeAnswers({login_need:legacy,login_methods:['카카오','네이버','Google'],login_features:['book']});
+  assert.equal(a.login_need,'로그인 필요'); assert.equal(a.login_scope_history,legacy);
+  assert.deepEqual(A.normalizeAnswers(a),a);
+  assert(A.activeQuestions(a).some(q=>q.id==='login_methods'));
+  a.login_need='로그인 없이 사용';
+  assert(!A.activeQuestions(a).some(q=>q.id==='login_methods'));
+  assert.deepEqual(A.normalizeAnswers(a).login_methods,['카카오','네이버','Google']);
+}
+assert(!A.allQuestions.some(q=>['main_flow','signup_fields','password_recovery','login_features'].includes(q.id)));
+const local = A.normalizeAnswers({
+  login_need:'로그인 필요',login_methods:['카카오','Google'],
+  roles:[{id:'member',role:'로그인 사용자'}],
+  features:[{id:'save',category:'custom',name:'예약 저장',outcome:'예약 번호 표시'}],
+  screens:[{id:'booking',name:'예약',roleIds:['member'],elements:['button','sidebar'],
+    flow:[{id:'load',event:'처음 들어오면',nextScreenId:'@stay',result:'내 예약 안내'}],
+    elementContents:{button:{flow:[{id:'submit',event:'신청 버튼 누르기',featureId:'save',nextScreenId:'done',result:unsafe}],recommendFlow:true},sidebar:{flow:[{id:'back',event:'뒤로 가기',nextScreenId:'@back'}]}},
+    customElements:[{id:'seat',name:'좌석 배치도',purpose:'좌석 선택',recommendFlow:true,flow:[{id:'pick',event:'좌석 선택',nextScreenId:'@stay'}]}]},
+    {id:'done',name:'예약 완료'}]
+});
+for (const prompt of [false,true]) {
+  const output = R.report(local,prompt);
+  assert(output.includes('**사용할 역할**\n> 로그인 사용자'));
+  assert(output.includes('**다음 화면**\n> 예약 완료 \\[S02\\]'));
+  assert(output.includes('현재 화면 유지') && output.includes('이전 화면으로 돌아가기'));
+  assert(output.includes('동작·이동 추천 — 예약 \\[S01\\] / 일반 버튼'));
+  assert(output.includes('동작·이동 추천 — 예약 \\[S01\\] / 좌석 배치도'));
+  assert(output.split('###### 일반 버튼')[1].split('######')[0].includes('신청 버튼 누르기'));
+  assert(!output.includes('<img src=x'));
+}
+assert(!V.question(A.allQuestions.find(q=>q.id==='screens'),local).includes('<img src=x'));
+assert(!V.report(local).includes('<img src=x'));
+const renamed = clone(local); renamed.roles[0].role='예약 회원';
+assert(R.report(renamed).includes('**사용할 역할**\n> 예약 회원'));
+assert.deepEqual(renamed.screens[0].roleIds,['member']);
+renamed.roles=[]; renamed.screens.pop(); renamed.features=[];
+assert(R.report(renamed).includes('연결할 역할 확인 필요'));
+assert(R.report(renamed).includes('연결할 화면 확인 필요'));
+assert(R.report(renamed).includes('연결할 기능 확인 필요'));
+assert(V.question(A.allQuestions.find(q=>q.id==='screens'),renamed).includes('삭제된 역할'));
+const hiddenFlow = clone(local); hiddenFlow.screens[0].elements=[];
+assert(!R.report(hiddenFlow).includes('신청 버튼 누르기'));
+assert(!R.report(hiddenFlow).includes('/ 일반 버튼'));
+assert(R.report(hiddenFlow).includes('좌석 선택'));
+const onlyRequest=A.normalizeAnswers({screens:[{id:'s',recommendFlow:true}]});
+assert.equal(A.progress(onlyRequest).answered,0);
+assert(R.report(onlyRequest).includes('동작·이동 추천'));
+const p = P.createProject({answers:local,drafts:local,notes:{roles:'이용 범위 구분'}});
+for (const backup of [{format:'buildbrief-idea',version:1,...p},{format:'buildbrief-ideas',version:1,activeId:p.id,projects:[p]}]) {
+  const restored=P.importBackup(clone(backup)).projects[0];
+  assert.deepEqual(restored.answers,local); assert.deepEqual(restored.drafts,local);
+  assert.deepEqual(restored.notes,p.notes);
+}
+for (const flow of [null,{},[{id:'x',nextScreenId:'javascript:alert(1)'}],[{id:'x',featureId:'bad id'}],[{id:'x',result:[]}],[{id:'x'},{id:'x'}],[{id:'x',event:'x'.repeat(A.MAX_TEXT+1)}],Array.from({length:A.MAX_ROWS+1},(_,i)=>({id:'a'+i}))]) {
+  for (const screen of [{id:'s',flow},{id:'s',elementContents:{sidebar:{flow}}},{id:'s',customElements:[{id:'el',flow}]}]) {
+    const input={screens:[screen]},before=clone(input);
+    assert.throws(()=>A.normalizeAnswers(input)); assert.deepEqual(input,before);
+  }
+}
+for (const screen of [{id:'s',recommendFlow:'yes'},{id:'s',roleIds:['bad id']},{id:'s',roleIds:['r','r']},{id:'s',elementContents:{sidebar:{recommendFlow:1}}}]) assert.throws(()=>A.normalizeAnswers({screens:[screen]}));
+console.log('Connected planning checks passed: two stage migrations, login, stable roles, shared features, nested flow/content, scoped reports and backup validation.');

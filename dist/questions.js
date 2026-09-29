@@ -575,10 +575,6 @@
       prompt: '어떤 상황에서 열리고 어떤 내용·선택을 제공하나요?'
     }
   ];
-  const loginRequired = {
-    id: 'login_need',
-    in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
-  };
   const category = (id) => ({ id: 'features', category: id });
   const steps = [
     {
@@ -705,7 +701,7 @@
               label: '처음 사용할 사람은 누구인가요?',
               type: 'rows',
               rowLabel: '사용자',
-              help: '필요가 다른 사람만 나누어요. 계정 권한은 뒤에서 정하므로 여기서는 목적에 집중해요.',
+              help: '필요가 다른 사람만 나누어요. 여기서는 사용하는 목적에 집중해요. 아래에서 로그인과 역할 이름도 정할 수 있어요.',
               fields: [
                 {
                   id: 'person',
@@ -793,6 +789,136 @@
               help: '',
               placeholder: '예: 메신저에서 대화로 이용',
               when: { id: 'service_form', includes: '다른 이용 방식' }
+            }
+          ]
+        },
+        {
+          title: '로그인과 역할',
+          description:
+            '로그인 방식과 역할 이름을 한곳에서 정해요. 구체적인 이용 범위는 화면에서 연결해요.',
+          questions: [
+            {
+              id: 'login_need',
+              allowRecommend: true,
+              label: '로그인 기능이 필요한가요?',
+              type: 'single',
+              options: ['로그인 없이 사용', '로그인 필요'],
+              help: '로그인을 제공해도 일부 화면은 공개할 수 있어요. 화면별 이용 대상은 ‘화면·기능’에서 정해요.',
+              omitUnknown: true,
+              legacyOptions: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+            },
+            {
+              id: 'login_methods',
+              allowRecommend: true,
+              label: '어떤 방법으로 로그인하면 좋을까요?',
+              type: 'multi',
+              options: [
+                '이메일·비밀번호',
+                '아이디·비밀번호',
+                '이메일 인증 링크·번호',
+                '휴대폰 인증번호',
+                '카카오',
+                '네이버',
+                'Google',
+                'Apple',
+                '다른 방법',
+                '아직 미정'
+              ],
+              optionLabels: {
+                '다른 방법': '직접 입력'
+              },
+              help: '여러 방법을 함께 제공할 수 있어요. 소셜 로그인과 서비스 안의 회원 정보·역할은 따로 정해요. 실제 계정이나 비밀번호를 적지 마세요.',
+              when: {
+                id: 'login_need',
+                in: ['로그인 필요', '일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+              },
+              optionHelp: {
+                '이메일·비밀번호': {
+                  meaning: '이메일 주소와 서비스용 비밀번호로 로그인해요.',
+                  fit: '이메일을 사용자를 알아보는 값으로 쓰고 싶을 때',
+                  avoid: '비밀번호를 잊었을 때 다시 접근할 방법도 필요해요.'
+                },
+                '아이디·비밀번호': {
+                  meaning: '이 서비스의 아이디와 비밀번호로 로그인해요.',
+                  fit: '이메일 대신 정한 아이디로 구분하고 싶을 때',
+                  avoid: '아이디나 비밀번호 분실 시 확인 방법도 생각해요.'
+                },
+                '이메일 인증 링크·번호': {
+                  meaning: '이메일로 받은 링크나 번호를 이용해 로그인해요.',
+                  fit: '서비스용 비밀번호를 따로 기억하지 않게 하고 싶을 때',
+                  avoid: '메일 수신이 늦거나 불가능할 때의 안내가 필요해요.'
+                },
+                '휴대폰 인증번호': {
+                  meaning: '휴대폰으로 받은 번호를 입력해 로그인해요.',
+                  fit: '휴대폰을 이용한 접근이 사용자에게 익숙할 때',
+                  avoid:
+                    '번호 변경이나 수신 실패를 생각해요. 가입자에 관한 모든 정보를 증명하는 것은 아니에요.'
+                },
+                카카오: {
+                  meaning: '카카오 계정을 이용해 로그인해요.',
+                  fit: '예상 사용자가 카카오 계정으로 접근하기를 원할 때',
+                  avoid: '필요한 회원 정보를 모두 받을 수 있다고 가정하지 않아요.'
+                },
+                네이버: {
+                  meaning: '네이버 계정을 이용해 로그인해요.',
+                  fit: '예상 사용자가 네이버 계정으로 접근하기를 원할 때',
+                  avoid: '로그인 성공과 서비스 이용 승인은 별도로 정해요.'
+                },
+                Google: {
+                  meaning: 'Google 계정을 이용해 로그인해요.',
+                  fit: '예상 사용자가 Google 계정을 쓰는 경우',
+                  avoid: '우리 서비스의 역할과 이용 기록은 따로 정해요.'
+                },
+                Apple: {
+                  meaning: 'Apple 계정을 이용해 로그인해요.',
+                  fit: '예상 사용자가 Apple 계정으로 접근하기를 원할 때',
+                  avoid: '다른 로그인 방법과 같은 사람으로 연결할지는 별도로 생각해요.'
+                }
+              }
+            },
+            {
+              id: 'login_other',
+              label: '목록에 없는 로그인 방법은 무엇인가요?',
+              type: 'text',
+              help: '사용자가 어떻게 본인임을 확인하고 들어오는지 적어요. 실제 계정이나 비밀값은 넣지 마세요.',
+              placeholder: '예: 회사에서 이미 사용하는 계정으로 로그인',
+              when: {
+                all: [
+                  {
+                    id: 'login_need',
+                    in: ['로그인 필요', '일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+                  },
+                  {
+                    id: 'login_methods',
+                    includes: '다른 방법'
+                  }
+                ]
+              }
+            },
+            {
+              id: 'roles',
+              allowRecommend: true,
+              label: '서비스에 어떤 역할이 있나요?',
+              type: 'roles',
+              rowLabel: '역할',
+              help: '기본 역할을 추가하거나 직접 이름을 붙이세요. 만든 역할은 각 화면에서 선택할 수 있어요.',
+              fields: [
+                {
+                  id: 'role',
+                  label: '역할 이름',
+                  placeholder: '예: 신청자 / 작업실 담당자'
+                },
+                {
+                  id: 'actions',
+                  label: '할 수 있는 행동',
+                  placeholder: '예: 내 예약 신청·취소 / 신청 승인'
+                },
+                {
+                  id: 'data',
+                  label: '볼 수 있는 자료',
+                  placeholder: '예: 본인 예약 / 담당 작업실 예약'
+                }
+              ]
             }
           ]
         }
@@ -1788,253 +1914,6 @@
       ]
     },
     {
-      id: 'flow',
-      title: '대표 이용 과정',
-      short: '이용 과정',
-      description: '가장 중요한 목적 하나를 달성하는 순서부터 연결해요.',
-      groups: [
-        {
-          title: '시작부터 목적 달성까지',
-          description:
-            '앞에서 만든 화면과 기능을 순서대로 연결하거나 내 말로 적어요. 대표 과정 하나면 충분해요.',
-          questions: [
-            {
-              id: 'main_flow',
-              allowRecommend: true,
-              label: '사용자는 어떤 순서로 목적을 달성하나요?',
-              type: 'flow',
-              help: '누가 어떤 상황에서 시작하는지 포함해요. 예: 빈 시간 보기 → 시간 선택 → 신청 내용 확인 → 예약 결과 확인.'
-            },
-            {
-              id: 'journey_finish',
-              label: '마지막에 무엇이 보이거나 달라져야 하나요?',
-              type: 'textarea',
-              help: '이용자가 원하는 일을 끝냈다고 알 수 있는 결과를 적어요. 기능 카드와 같다면 핵심만 짚어도 돼요.',
-              placeholder: '예: 예약 번호와 확정 시간을 보고 내 예약 목록에서도 확인할 수 있어요.'
-            },
-            {
-              id: 'failure_experience',
-              allowRecommend: true,
-              label: '중간에 막히면 어떻게 도와주면 좋을까요?',
-              type: 'textarea',
-              help: '걱정되는 상황 한두 개만 적어요. 원인 안내, 입력 내용 유지, 다시 시도, 담당자 문의 등을 생각해요.',
-              placeholder:
-                '예: 다른 사람이 먼저 예약했다면 입력 내용은 유지하고 다른 시간을 고르게 해요.'
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'accounts',
-      title: '로그인과 권한',
-      short: '로그인·권한',
-      description: '로그인이 필요한 범위와 사람마다 할 수 있는 일을 정해요.',
-      groups: [
-        {
-          title: '로그인이 필요한가요?',
-          description: '로그인은 사용자를 알아보는 방법이에요. 할 수 있는 일은 역할과 함께 정해요.',
-          questions: [
-            {
-              id: 'login_need',
-              allowRecommend: true,
-              label: '어디에 로그인이 필요한가요?',
-              type: 'single',
-              options: [
-                '로그인 없이 사용',
-                '일부 기능에서만 로그인',
-                '주요 기능은 로그인 후 사용',
-                '아직 미정'
-              ],
-              help: '단순히 정보를 보는 일에도 로그인이 필요한지 생각해요. 모르면 지금 정하지 않아도 돼요.'
-            },
-            {
-              id: 'login_features',
-              label: '어떤 기능을 사용할 때 로그인하나요?',
-              type: 'multi',
-              source: 'features',
-              help: '앞에서 만든 기능 중 로그인이 필요한 대상을 골라요. 목록에 없으면 ‘화면·기능’ 단계에서 추가할 수 있어요.',
-              when: { id: 'login_need', value: '일부 기능에서만 로그인' }
-            },
-            {
-              id: 'login_methods',
-              allowRecommend: true,
-              label: '어떤 방법으로 로그인하면 좋을까요?',
-              type: 'multi',
-              options: [
-                '이메일·비밀번호',
-                '아이디·비밀번호',
-                '이메일 인증 링크·번호',
-                '휴대폰 인증번호',
-                '카카오',
-                '네이버',
-                'Google',
-                'Apple',
-                '다른 방법',
-                '아직 미정'
-              ],
-              optionLabels: { '다른 방법': '직접 입력' },
-              help: '여러 방법을 함께 제공할 수 있어요. 소셜 로그인과 서비스 안의 회원 정보·역할은 따로 정해요. 실제 계정이나 비밀번호를 적지 마세요.',
-              when: loginRequired,
-              optionHelp: {
-                '이메일·비밀번호': {
-                  meaning: '이메일 주소와 서비스용 비밀번호로 로그인해요.',
-                  fit: '이메일을 사용자를 알아보는 값으로 쓰고 싶을 때',
-                  avoid: '비밀번호를 잊었을 때 다시 접근할 방법도 필요해요.'
-                },
-                '아이디·비밀번호': {
-                  meaning: '이 서비스의 아이디와 비밀번호로 로그인해요.',
-                  fit: '이메일 대신 정한 아이디로 구분하고 싶을 때',
-                  avoid: '아이디나 비밀번호 분실 시 확인 방법도 생각해요.'
-                },
-                '이메일 인증 링크·번호': {
-                  meaning: '이메일로 받은 링크나 번호를 이용해 로그인해요.',
-                  fit: '서비스용 비밀번호를 따로 기억하지 않게 하고 싶을 때',
-                  avoid: '메일 수신이 늦거나 불가능할 때의 안내가 필요해요.'
-                },
-                '휴대폰 인증번호': {
-                  meaning: '휴대폰으로 받은 번호를 입력해 로그인해요.',
-                  fit: '휴대폰을 이용한 접근이 사용자에게 익숙할 때',
-                  avoid:
-                    '번호 변경이나 수신 실패를 생각해요. 가입자에 관한 모든 정보를 증명하는 것은 아니에요.'
-                },
-                카카오: {
-                  meaning: '카카오 계정을 이용해 로그인해요.',
-                  fit: '예상 사용자가 카카오 계정으로 접근하기를 원할 때',
-                  avoid: '필요한 회원 정보를 모두 받을 수 있다고 가정하지 않아요.'
-                },
-                네이버: {
-                  meaning: '네이버 계정을 이용해 로그인해요.',
-                  fit: '예상 사용자가 네이버 계정으로 접근하기를 원할 때',
-                  avoid: '로그인 성공과 서비스 이용 승인은 별도로 정해요.'
-                },
-                Google: {
-                  meaning: 'Google 계정을 이용해 로그인해요.',
-                  fit: '예상 사용자가 Google 계정을 쓰는 경우',
-                  avoid: '우리 서비스의 역할과 이용 기록은 따로 정해요.'
-                },
-                Apple: {
-                  meaning: 'Apple 계정을 이용해 로그인해요.',
-                  fit: '예상 사용자가 Apple 계정으로 접근하기를 원할 때',
-                  avoid: '다른 로그인 방법과 같은 사람으로 연결할지는 별도로 생각해요.'
-                }
-              }
-            },
-            {
-              id: 'login_other',
-              label: '목록에 없는 로그인 방법은 무엇인가요?',
-              type: 'text',
-              help: '사용자가 어떻게 본인임을 확인하고 들어오는지 적어요. 실제 계정이나 비밀값은 넣지 마세요.',
-              placeholder: '예: 회사에서 이미 사용하는 계정으로 로그인',
-              when: { all: [loginRequired, { id: 'login_methods', includes: '다른 방법' }] }
-            },
-            {
-              id: 'signup_audience',
-              label: '누가 가입하거나 이용 승인을 받을 수 있나요?',
-              type: 'textarea',
-              help: '누구나 가입, 초대받은 사람만, 담당자 승인처럼 필요한 조건을 적어요. 여러 조건을 조합할 수 있어요.',
-              placeholder: '예: 누구나 가입 가능. 담당자 역할은 운영자가 확인 후 부여.',
-              when: loginRequired
-            },
-            {
-              id: 'signup_fields',
-              label: '회원에게 꼭 받아야 할 정보가 있나요?',
-              type: 'multi',
-              options: [
-                '추가 정보 없음',
-                '표시 이름·닉네임',
-                '이름',
-                '이메일',
-                '전화번호',
-                '소속',
-                '프로필 정보',
-                '다른 정보',
-                '아직 미정'
-              ],
-              optionLabels: { '다른 정보': '직접 입력' },
-              help: '가입과 이용에 꼭 필요한 정보의 종류만 골라요. 실제 개인정보는 적지 않아요. 로그인 수단에서 받을 수 있는지는 나중에 확인해요.',
-              when: loginRequired
-            },
-            {
-              id: 'signup_other',
-              label: '추가로 받을 회원 정보와 필요한 이유는 무엇인가요?',
-              type: 'textarea',
-              help: '정보의 종류와 쓰임만 적어요. 실제 개인정보는 넣지 마세요.',
-              placeholder: '예: 수강할 반 — 담당 선생님과 수업 자료를 연결하기 위해 필요',
-              when: { all: [loginRequired, { id: 'signup_fields', includes: '다른 정보' }] }
-            },
-            {
-              id: 'account_actions',
-              allowRecommend: true,
-              label: '이용자가 자기 계정에서 무엇을 할 수 있어야 하나요?',
-              type: 'multi',
-              options: [
-                '프로필 수정',
-                '연락처 변경',
-                '다른 로그인 방법 연결',
-                '회원 탈퇴',
-                '담당자에게 변경 요청',
-                '다른 계정 기능',
-                '아직 미정'
-              ],
-              optionLabels: { '다른 계정 기능': '직접 입력' },
-              help: '필요한 행동을 골라요. 탈퇴 후 작성한 글이나 이용 내역의 처리가 정해졌다면 해당 기능에 함께 적어요.',
-              when: loginRequired
-            },
-            {
-              id: 'account_actions_other',
-              label: '추가로 필요한 계정 기능은 무엇인가요?',
-              type: 'text',
-              help: '',
-              placeholder: '예: 알림 수신 설정을 한곳에서 변경',
-              when: { all: [loginRequired, { id: 'account_actions', includes: '다른 계정 기능' }] }
-            },
-            {
-              id: 'password_recovery',
-              label: '아이디나 비밀번호를 잊으면 어떻게 다시 들어오나요?',
-              type: 'textarea',
-              help: '사용자가 겪는 복구 방법을 적어요. 확인 방법을 모르면 미정으로 남겨요.',
-              placeholder: '예: 등록한 이메일로 비밀번호 재설정 안내를 받아요.',
-              when: {
-                all: [
-                  loginRequired,
-                  { id: 'login_methods', in: ['이메일·비밀번호', '아이디·비밀번호'] }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          title: '사람마다 할 수 있는 일이 다른가요?',
-          description:
-            '사용자 종류가 다를 때만 나누어요. 비회원이나 운영 담당자도 포함할 수 있어요.',
-          questions: [
-            {
-              id: 'roles',
-              allowRecommend: true,
-              label: '역할별로 무엇을 보거나 할 수 있나요?',
-              type: 'rows',
-              rowLabel: '역할',
-              help: '화면에서 정한 기능별 권한을 먼저 확인해요. 역할 전체에 공통으로 적용할 설명만 추가하세요. 버튼을 숨기는 것만으로 접근 권한이 제한되지는 않아요.',
-              fields: [
-                { id: 'role', label: '역할 이름', placeholder: '예: 신청자 / 작업실 담당자' },
-                {
-                  id: 'actions',
-                  label: '할 수 있는 행동',
-                  placeholder: '예: 내 예약 신청·취소 / 신청 승인'
-                },
-                {
-                  id: 'data',
-                  label: '볼 수 있는 자료',
-                  placeholder: '예: 본인 예약 / 담당 작업실 예약'
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       id: 'review',
       title: '마무리 메모',
       short: '마무리 메모',
@@ -2059,13 +1938,175 @@
 
   // Retained only to validate and preserve earlier answers and backups, not as form questions.
   const retiredQuestions = [
-    { id: 'scope', label: '기능별 첫 버전 우선순위 검토', type: 'scope', allowRecommend: true },
-    { id: 'excluded_work', label: '추가로 이번에는 하지 않을 일', type: 'textarea' },
+    {
+      id: 'scope',
+      label: '기능별 첫 버전 우선순위 검토',
+      type: 'scope',
+      allowRecommend: true
+    },
+    {
+      id: 'excluded_work',
+      label: '추가로 이번에는 하지 않을 일',
+      type: 'textarea'
+    },
     {
       id: 'success_check',
       label: '아이디어가 쓸모 있는지 확인하는 방법',
       type: 'textarea',
       allowRecommend: true
+    },
+    {
+      id: 'main_flow',
+      allowRecommend: true,
+      label: '사용자는 어떤 순서로 목적을 달성하나요?',
+      type: 'flow',
+      help: '누가 어떤 상황에서 시작하는지 포함해요. 예: 빈 시간 보기 → 시간 선택 → 신청 내용 확인 → 예약 결과 확인.'
+    },
+    {
+      id: 'journey_finish',
+      label: '마지막에 무엇이 보이거나 달라져야 하나요?',
+      type: 'textarea',
+      help: '이용자가 원하는 일을 끝냈다고 알 수 있는 결과를 적어요. 기능 카드와 같다면 핵심만 짚어도 돼요.',
+      placeholder: '예: 예약 번호와 확정 시간을 보고 내 예약 목록에서도 확인할 수 있어요.'
+    },
+    {
+      id: 'failure_experience',
+      allowRecommend: true,
+      label: '중간에 막히면 어떻게 도와주면 좋을까요?',
+      type: 'textarea',
+      help: '걱정되는 상황 한두 개만 적어요. 원인 안내, 입력 내용 유지, 다시 시도, 담당자 문의 등을 생각해요.',
+      placeholder: '예: 다른 사람이 먼저 예약했다면 입력 내용은 유지하고 다른 시간을 고르게 해요.'
+    },
+    {
+      id: 'login_features',
+      label: '어떤 기능을 사용할 때 로그인하나요?',
+      type: 'multi',
+      source: 'features',
+      help: '앞에서 만든 기능 중 로그인이 필요한 대상을 골라요. 목록에 없으면 ‘화면·기능’ 단계에서 추가할 수 있어요.',
+      when: {
+        id: 'login_need',
+        value: '일부 기능에서만 로그인'
+      }
+    },
+    {
+      id: 'signup_audience',
+      label: '누가 가입하거나 이용 승인을 받을 수 있나요?',
+      type: 'textarea',
+      help: '누구나 가입, 초대받은 사람만, 담당자 승인처럼 필요한 조건을 적어요. 여러 조건을 조합할 수 있어요.',
+      placeholder: '예: 누구나 가입 가능. 담당자 역할은 운영자가 확인 후 부여.',
+      when: {
+        id: 'login_need',
+        in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+      }
+    },
+    {
+      id: 'signup_fields',
+      label: '회원에게 꼭 받아야 할 정보가 있나요?',
+      type: 'multi',
+      options: [
+        '추가 정보 없음',
+        '표시 이름·닉네임',
+        '이름',
+        '이메일',
+        '전화번호',
+        '소속',
+        '프로필 정보',
+        '다른 정보',
+        '아직 미정'
+      ],
+      optionLabels: {
+        '다른 정보': '직접 입력'
+      },
+      help: '가입과 이용에 꼭 필요한 정보의 종류만 골라요. 실제 개인정보는 적지 않아요. 로그인 수단에서 받을 수 있는지는 나중에 확인해요.',
+      when: {
+        id: 'login_need',
+        in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+      }
+    },
+    {
+      id: 'signup_other',
+      label: '추가로 받을 회원 정보와 필요한 이유는 무엇인가요?',
+      type: 'textarea',
+      help: '정보의 종류와 쓰임만 적어요. 실제 개인정보는 넣지 마세요.',
+      placeholder: '예: 수강할 반 — 담당 선생님과 수업 자료를 연결하기 위해 필요',
+      when: {
+        all: [
+          {
+            id: 'login_need',
+            in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+          },
+          {
+            id: 'signup_fields',
+            includes: '다른 정보'
+          }
+        ]
+      }
+    },
+    {
+      id: 'account_actions',
+      allowRecommend: true,
+      label: '이용자가 자기 계정에서 무엇을 할 수 있어야 하나요?',
+      type: 'multi',
+      options: [
+        '프로필 수정',
+        '연락처 변경',
+        '다른 로그인 방법 연결',
+        '회원 탈퇴',
+        '담당자에게 변경 요청',
+        '다른 계정 기능',
+        '아직 미정'
+      ],
+      optionLabels: {
+        '다른 계정 기능': '직접 입력'
+      },
+      help: '필요한 행동을 골라요. 탈퇴 후 작성한 글이나 이용 내역의 처리가 정해졌다면 해당 기능에 함께 적어요.',
+      when: {
+        id: 'login_need',
+        in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+      }
+    },
+    {
+      id: 'account_actions_other',
+      label: '추가로 필요한 계정 기능은 무엇인가요?',
+      type: 'text',
+      help: '',
+      placeholder: '예: 알림 수신 설정을 한곳에서 변경',
+      when: {
+        all: [
+          {
+            id: 'login_need',
+            in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+          },
+          {
+            id: 'account_actions',
+            includes: '다른 계정 기능'
+          }
+        ]
+      }
+    },
+    {
+      id: 'password_recovery',
+      label: '아이디나 비밀번호를 잊으면 어떻게 다시 들어오나요?',
+      type: 'textarea',
+      help: '사용자가 겪는 복구 방법을 적어요. 확인 방법을 모르면 미정으로 남겨요.',
+      placeholder: '예: 등록한 이메일로 비밀번호 재설정 안내를 받아요.',
+      when: {
+        all: [
+          {
+            id: 'login_need',
+            in: ['일부 기능에서만 로그인', '주요 기능은 로그인 후 사용']
+          },
+          {
+            id: 'login_methods',
+            in: ['이메일·비밀번호', '아이디·비밀번호']
+          }
+        ]
+      }
+    },
+    {
+      id: 'login_scope_history',
+      label: '이전에 정한 로그인 범위',
+      type: 'text'
     }
   ];
   const formInputTypes = [
@@ -2083,6 +2124,7 @@
   ];
   const elementContentTypes = ['form', 'table', 'list', 'cards', 'button'];
   const api = {
+    rolePresets: ['비로그인 사용자', '로그인 사용자', '관리자'],
     formInputTypes,
     elementContentTypes,
     steps,

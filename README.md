@@ -30,7 +30,7 @@ python -m http.server 4173 --bind 127.0.0.1 --directory dist
 
 | 알아보거나 변경할 내용 | 문서 |
 | --- | --- |
-| 시작 안내, 8단계 질문, 기획 초안·AI 전달문, 진행률 | [사용 가이드](docs/user-guide.md) |
+| 시작 안내, 6단계 질문, 기획 초안·AI 전달문, 진행률 | [사용 가이드](docs/user-guide.md) |
 | 자동 저장, 백업·복구, 기기 간 이동, 저장 형식 | [저장과 백업](docs/storage-and-backup.md) |
 | 색상, 글자 크기, 모바일·접근성 기준 | [UI와 접근성](docs/ui-guidelines.md) |
 | 실행 환경, 파일 구성, 테스트, 자산 갱신 | [개발과 검증](docs/development.md) |

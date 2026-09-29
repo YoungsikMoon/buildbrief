@@ -101,8 +101,8 @@ test('The page references the exact current assets', () => {
   }
 });
 
-test('Eight coherent stages use unique questions, feature types, and UI elements', () => {
-  assert.deepEqual(Q.steps.map(s => s.id), ['idea','problem','users','references','screens','flow','accounts','review']);
+test('Six coherent stages use unique questions, feature types, and UI elements', () => {
+  assert.deepEqual(Q.steps.map(s => s.id), ['idea','problem','users','references','screens','review']);
   for (const items of [Q.steps, A.allQuestions, Q.featureTypes, Q.uiElements]) assert.equal(new Set(items.map(item => item.id)).size, items.length);
   for (const element of Q.uiElements) {
     assert(Q.uiElementGroups.some(group => group.id === element.group));
@@ -156,7 +156,7 @@ test('Inactive answers remain in backup but leave the current document', () => {
 
 test('Unknown stays unknown and is not a generated requirement', () => {
   assert.equal(A.UNKNOWN, '아직 미정');
-  const q = typeQuestion('single');
+  const q = A.allQuestions.find(q => q.type === 'single' && !q.omitUnknown);
   assert.equal(A.choiceOptions(q).filter(item => item === A.UNKNOWN).length, 1);
   assert.equal(A.normalizeAnswers({ [q.id]: A.UNKNOWN })[q.id], A.UNKNOWN);
   assert(R.report({ project_name: A.UNKNOWN }).includes('확인해 볼 질문'));
@@ -186,16 +186,16 @@ test('Own credentials and several social login methods coexist', () => {
   assert.deepEqual(A.normalizeAnswers({ [q.id]: methods })[q.id], methods);
   assert.throws(() => A.normalizeAnswers({ [q.id]: [...methods, A.UNKNOWN] }));
   const answers = { features: [feature()], login_need: '일부 기능에서만 로그인', login_features: ['feature-1'], login_methods: methods, password_recovery: '이메일로 다시 설정' };
-  assert(activeIds(answers).includes('password_recovery'));
+  assert(!activeIds(answers).includes('password_recovery'));
   assert(R.report(answers).includes('이메일로 다시 설정'));
   assert(R.report(answers).includes('예약하기 feature-1'));
   assert(!activeIds({ ...answers, login_methods: ['카카오'] }).includes('password_recovery'));
   const noLogin = A.normalizeAnswers({ ...answers, login_need: '로그인 없이 사용' });
   assert.equal(noLogin.password_recovery, '이메일로 다시 설정');
-  assert(!R.report(noLogin).includes('이메일로 다시 설정'));
+  assert(R.report(noLogin).split('## 이전에 작성한 내용')[1].includes('이메일로 다시 설정'));
   const other = { login_need: '일부 기능에서만 로그인', login_methods: ['다른 방법'], signup_fields: ['다른 정보'] };
   assert(activeIds(other).includes('login_other'));
-  assert(activeIds(other).includes('signup_other'));
+  assert(!activeIds(other).includes('signup_other'));
   assert(!activeIds({ ...other, login_need: '로그인 없이 사용' }).some(id => ['login_other', 'signup_other'].includes(id)));
 });
 
@@ -280,7 +280,7 @@ test('Nested screen imports reject invalid choices and custom records without mu
 });
 
 test('Flow preserves sequence, linked names, and manually described actions', () => {
-  const q = typeQuestion('flow');
+  const q = Q.retiredQuestions.find(q => q.type === 'flow');
   const a = A.normalizeAnswers({ features: [feature()], [q.id]: [{ id: 'flow-1', featureId: '', note: '처음 방문해 안내 읽기' }, { id: 'flow-2', featureId: 'feature-1', note: '시간을 선택한다' }] });
   const output = R.report(a);
   assert(output.indexOf('처음 방문해 안내 읽기') < output.indexOf('시간을 선택한다'));
@@ -342,7 +342,7 @@ test('Closing memo is optional while retired review answers survive reload, back
     answers: {open_questions:'남겨 둔 궁금증',scope:'',excluded_work:'예전에 정한 제외 범위 <script>alert(1)</script>',success_check:'예전 확인 방법'},
     drafts: {success_check:'추천 전에 적은 초안'},
     notes: {scope:'범위를 고른 이유',excluded_work:'제외한 이유',success_check:'확인하려던 이유',open_questions:'추가 메모 이유'},
-    recommendations: ['scope','success_check'], step:7
+    recommendations: ['scope','success_check'], step:5
   };
   const project = P.createProject(input);
   const workspace = P.normalizeWorkspace(JSON.parse(JSON.stringify({version:1,activeId:project.id,projects:[project]})));
@@ -543,7 +543,7 @@ test('Recommendation requests round-trip separately while old projects default t
   for (const backup of [{ format: 'buildbrief-idea', version: 1, ...first }, { format: 'buildbrief-ideas', version: 1, activeId: first.id, projects: [first, second] }]) {
     const imported = P.importBackup(JSON.parse(JSON.stringify(backup)));
     assert.deepEqual(imported.projects[0].recommendations, ['login_methods', 'screens']);
-    assert.deepEqual(imported.projects[0].answers, answers);
+    assert.deepEqual(imported.projects[0].answers, A.normalizeAnswers(answers));
     assert.deepEqual(imported.projects[0].notes, notes);
     if (imported.projects[1]) assert.deepEqual(imported.projects[1].recommendations, []);
     imported.projects[0].recommendations.push('scope');

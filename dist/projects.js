@@ -56,7 +56,7 @@
       createdAt: now,
       updatedAt: now,
       started: started !== false,
-      navigationVersion: 2,
+      navigationVersion: 3,
       step: clampStep(step),
       topic: topicAt(step, topic),
       ...data
@@ -90,21 +90,24 @@
       if (project.started !== undefined && typeof project.started !== 'boolean')
         throw new Error('프로젝트 시작 상태가 올바르지 않아요.');
       ids.add(project.id);
-      if (project.navigationVersion !== undefined && project.navigationVersion !== 2)
+      if (project.navigationVersion !== undefined && ![2, 3].includes(project.navigationVersion))
         throw new Error('지원하지 않는 단계 저장 형식이에요. 원본 백업을 보관해 주세요.');
-      const previousOrder = [
-        'idea',
-        'problem',
-        'users',
-        'screens',
-        'flow',
-        'accounts',
-        'references',
-        'screens',
-        'review'
-      ];
-      const step =
+      const previousOrder =
         project.navigationVersion === 2
+          ? ['idea', 'problem', 'users', 'references', 'screens', 'screens', 'users', 'review']
+          : [
+              'idea',
+              'problem',
+              'users',
+              'screens',
+              'screens',
+              'users',
+              'references',
+              'screens',
+              'review'
+            ];
+      const step =
+        project.navigationVersion === 3
           ? clampStep(project.step)
           : Math.max(
               0,
@@ -115,7 +118,7 @@
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
         started: project.started !== false,
-        navigationVersion: 2,
+        navigationVersion: 3,
         step,
         topic: topicAt(step, project.topic),
         ...projectData(project)
