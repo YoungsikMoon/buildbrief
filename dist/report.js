@@ -56,7 +56,10 @@
       )
     );
     const requestedIds = normalizeRecommendations(recommendations);
-    const requests = activeQuestions(answers).filter((q) => requestedIds.includes(q.id));
+    const requests = [
+      ...activeQuestions(answers),
+      ...Q.retiredQuestions.filter((q) => q.id === 'features')
+    ].filter((q) => requestedIds.includes(q.id));
     const screenRequests = screens.filter((screen) => screen.recommendLayout === true);
     const elementRequests = screens.flatMap((screen) =>
       (screen.elements || [])

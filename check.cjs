@@ -9,8 +9,8 @@ const P = require('./dist/projects.js');
 const G = require('./dist/guides.js');
 const V = require('./dist/views.js');
 const clone = value => JSON.parse(JSON.stringify(value));
-const question = id => A.allQuestions.find(q => q.id === id);
-const typeQuestion = type => A.allQuestions.find(q => q.type === type);
+const question = id => [...A.allQuestions, ...Q.retiredQuestions].find(q => q.id === id);
+const typeQuestion = type => [...A.allQuestions, ...Q.retiredQuestions].find(q => q.type === type);
 const activeIds = answers => A.activeQuestions(answers).map(q => q.id);
 const feature = (id = 'feature-1', category = 'booking', priority = '첫 버전에 필요') => ({ id, category, name: `예약하기 ${id}`, actor: '손님', outcome: '원하는 시간을 예약하고 결과를 확인한다', priority, notes: '' });
 const screen = (id, elements) => ({ id, name: '예약 관리', purpose: '신청 내용을 빠르게 확인', roles: '운영 직원', featureIds: ['feature-1'], elements, elementNotes: Object.fromEntries(elements.map(item => [item, `${item}의 화면 용도`])), content: '예약 목록', empty: '예약이 없다고 안내', error: '다시 시도', mobile: '작은 화면에서는 상세 화면으로 이동' });
@@ -128,28 +128,24 @@ test('Conditions evaluate actual feature categories and nested choices', () => {
   assert(A.matches({ any: [{ id: 'need', value: '전체' }, { id: 'need', value: '일부' }] }, answers));
 });
 
-test('Every selected feature category activates its own real followups', () => {
+test('Earlier feature questions remain in exports without activating separate form sections', () => {
   const expected = { booking: ['booking_confirmation','booking_history','booking_cancellation','booking_capacity'], payments: ['payment_offer','payment_timing','payment_refund','payment_failure'], ai: ['ai_help','ai_result_use','ai_retry'], location: ['location_use','device_needs'], device: ['device_needs'], files: ['file_kind','file_limit','device_needs'], collaboration: ['collaboration_join','collaboration_edit'], workflow: ['workflow_approval','workflow_tracking'], notifications: ['notification_event','notification_channel'] };
-  const followups = [...new Set(Object.values(expected).flat())];
-  for (const [category, visible] of Object.entries(expected)) {
+  for (const [category, previous] of Object.entries(expected)) {
     const active = activeIds({ features: [feature('feature-1', category)] });
-    for (const id of followups) assert.equal(active.includes(id), visible.includes(id), `${category}: ${id}`);
+    assert(!active.includes('features'));
+    for (const id of previous) {
+      assert(Q.retiredQuestions.some(q => q.id === id), id);
+      assert(!active.includes(id), `${category}: ${id}`);
+    }
   }
-  assert(!activeIds({ features: [feature('read', 'browse')] }).some(id => followups.includes(id)));
-  assert(!activeIds({ features: [feature('map', 'location')], location_use: ['정해진 장소를 지도에서 보기'] }).includes('permission_response'));
-  assert(activeIds({ features: [feature('map', 'location')], location_use: ['내 현재 위치 주변 찾기'] }).includes('permission_response'));
-  assert(!activeIds({ features: [], device_needs: ['카메라로 촬영'], location_use: ['내 위치를 다른 사람에게 공유'] }).includes('permission_response'), 'Inactive device choices must not activate a stale followup');
-  assert(activeIds({ features: [feature('map', 'location')], location_use: ['다른 용도'] }).includes('location_other'));
-  assert(activeIds({ features: [feature('device', 'device')], device_needs: ['다른 기능'] }).includes('device_other'));
-  assert(!activeIds({ features: [], device_needs: ['다른 기능'], location_use: ['다른 용도'] }).some(id => ['location_other', 'device_other'].includes(id)));
+  assert(R.report({}, true, {}, ['features']).includes(question('features').label), 'Earlier feature recommendation requests are preserved');
 });
 
 test('Inactive answers remain in backup but leave the current document', () => {
-  const q = A.allQuestions.find(q => q.type === 'textarea' && q.when?.category);
-  assert(q);
-  const original = { features: [feature('feature-1', q.when.category)], [q.id]: '선택한 기능만의 고유 규칙 내용' };
+  const q = question('visual_style_other');
+  const original = { visual_style: ['다른 분위기'], [q.id]: '선택한 기능만의 고유 규칙 내용' };
   assert(R.report(original).includes('선택한 기능만의 고유 규칙 내용'));
-  const hidden = A.normalizeAnswers({ ...original, features: [] });
+  const hidden = A.normalizeAnswers({ ...original, visual_style: ['간결하고 실용적인'] });
   assert.equal(hidden[q.id], original[q.id]);
   assert(!R.report(hidden).includes(original[q.id]));
 });
@@ -430,16 +426,16 @@ test('Question progress sums active stage counts and handles blank cards, priori
   const reviewIndex = Q.steps.findIndex(step => step.id === 'review');
   const blank = { features: [{ id: 'empty', category: 'custom', name: '', actor: '', outcome: '', notes: '', priority: A.UNKNOWN }], references: [{ id: 'ref-1', url: ' ', note: '' }], audience: [{ id: 'person-1', person: '', goal: '', context: '' }] };
   assert.equal(A.progress(blank).answered, 0, 'An added card and its automatic unknown priority are not an answer');
-  assert.equal(A.progress({ features: A.UNKNOWN }).steps[featureIndex].answered, 1, 'An explicit unknown response is recorded');
+  assert.equal(A.progress({ features: A.UNKNOWN }).steps[featureIndex].answered, 0, 'Retired feature responses do not count as current questions');
   assert.equal(A.progress({ login_need: A.UNKNOWN }).answered, 1);
   assert.equal(A.progress({ features: [feature('feature-1', 'custom', A.UNKNOWN)] }).steps[reviewIndex].answered, 0);
   assert.equal(A.progress({ features: [feature('feature-1', 'custom', '나중에')] }).steps[reviewIndex].answered, 0);
   assert.equal(A.progress({ features: [feature(), feature('feature-2', 'custom', '')] }).steps[reviewIndex].total, 0, 'Optional closing memo is outside progress');
   const answers = { project_name: '예시', summary: A.UNKNOWN, features: [feature()], booking_rules: '정원 안에서 신청', references: [] };
   const counted = A.progress(answers);
-  assert.equal(counted.answered, 4, 'Name, summary, features and booking rules are recorded once');
+  assert.equal(counted.answered, 2, 'Only the current name and summary questions count');
   assert.equal(counted.steps[0].answered, 2);
-  assert.equal(counted.steps[featureIndex].answered, 2);
+  assert.equal(counted.steps[featureIndex].answered, 0);
   assert.equal(counted.steps[reviewIndex].answered, 0);
   assert.equal(counted.answered, counted.steps.reduce((sum, step) => sum + step.answered, 0));
   assert.equal(counted.total, counted.steps.reduce((sum, step) => sum + step.total, 0));
@@ -527,11 +523,11 @@ test('Answer reasons survive project imports and conditional visibility without 
   assert(notesOnly.includes('#### 선택 이유·추가 메모'));
   assert(notesOnly.includes(notes.summary));
   assert(notesOnly.includes(notes.scope), 'Scope notes must appear even before features are added');
-  assert(!notesOnly.includes(notes.booking_rules));
+  assert(notesOnly.includes(notes.booking_rules), 'Retired notes remain in the previous-records section');
   const withBooking = { features: [feature()] };
   const progress = A.progress(withBooking);
   assert(R.report(withBooking, true, notes).includes(notes.booking_rules));
-  assert(!R.report({ features: [] }, false, notes).includes(notes.booking_rules));
+  assert(R.report({ features: [] }, false, notes).includes(notes.booking_rules));
   assert(R.report(withBooking, false, notes).includes(notes.booking_rules), 'Reactivating a question restores its reason');
   assert.deepEqual(A.progress(withBooking), progress);
   assert.deepEqual(A.progress(imported.projects[0].answers), A.progress({}));
@@ -738,38 +734,38 @@ test('alternative comparison survives normalization and both exports', () => {
 test('feature questions relocate without losing old answers or notes', () => {
  const step = Q.steps.find(s => s.id === 'screens');
  assert(!Q.steps.some(s => s.id === 'data'));
- assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['screens','features']);
+ assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['screens']);
  const answers = { features: [{ ...feature(), savedInfo: '예약 날짜와 확정 상태' }], booking_rules: '하루 전까지 취소', data_items: [{id:'record-1', name:'예약 기록', purpose:'신청 확인', access:'본인', change:'담당자', deletion:'기간 미정'}], general_rules: '예전 메모' };
  const project = P.createProject({answers, notes:{data_items:'기존 이유'}});
  const restored = P.importBackup({format:'buildbrief-ideas', version:1, activeId:project.id, projects:[project]}).projects[0];
  assert.deepEqual(restored.answers, A.normalizeAnswers(answers));
  assert.equal(restored.notes.data_items, '기존 이유');
  for(const prompt of [false,true]) { const report = R.report(restored.answers,prompt,restored.notes); for(const value of ['예약 날짜와 확정 상태','하루 전까지 취소','예약 기록','예전 메모','기존 이유']) assert.ok(report.includes(value),value); }
- assert(A.activeGroups(step, {}, {general_rules:'메모만 보존'}).some(g=>g.questions.some(q=>q.id==='general_rules')));
+ assert(!A.activeGroups(step, {}, {general_rules:'메모만 보존'}).some(g=>g.questions.some(q=>q.id==='general_rules')));
  assert(R.report({},false,{general_rules:'메모만 보존'}).includes('메모만 보존'));
  assert(!A.activeGroups(step,{features:[feature('f2','browse')]}).some(g=>g.questions.some(q=>q.id==='booking_rules')));
 });
-test('situation choices reveal only their own custom answer and keep hidden text in backup', () => {
- const newChoices = A.allQuestions.filter(q => q.options?.includes('직접 입력'));
+test('Retired situation choices and their custom answers survive backup and export', () => {
+ const newChoices = Q.retiredQuestions.filter(q => q.options?.includes('직접 입력'));
  assert(newChoices.length >= 15);
  for (const q of newChoices) {
    const custom = question(q.id + '_other'); assert(custom, q.id);
    const base = { features: Q.featureTypes.map((type,i) => feature('choice-'+i,type.id)), location_use:['내 위치를 다른 사람에게 공유'], device_needs:['카메라로 촬영'] };
    assert(!activeIds(base).includes(custom.id),q.id);
    const raw = {...base, [q.id]:'직접 입력', [custom.id]:'상황별로 다른 방식', booking_deadline:'이용 하루 전'};
-   assert(activeIds(raw).includes(custom.id),q.id);
+   assert(!activeIds(raw).includes(custom.id),q.id);
    const normalized = A.normalizeAnswers(raw);
    for (const prompt of [false,true]) { const output = R.report(normalized,prompt,{[q.id]:'이 선택의 이유'}); assert(output.includes('상황별로 다른 방식')); assert(output.includes('이 선택의 이유')); }
    const hidden = A.normalizeAnswers({...normalized,[q.id]:'아직 미정'});
    assert.equal(hidden[custom.id],'상황별로 다른 방식');
-   assert(!R.report(hidden).includes('상황별로 다른 방식'));
+   assert(R.report(hidden).includes('상황별로 다른 방식'), 'Earlier answers remain explicitly marked as previous records');
    assert(!activeIds({...raw,features:[]}).includes(custom.id));
  }
  const base = {features:[feature()]};
  assert(!activeIds(base).includes('booking_deadline'));
- assert(activeIds({...base,booking_cancellation:'정해진 시점까지만 가능해요'}).includes('booking_deadline'));
+ assert(!activeIds({...base,booking_cancellation:'정해진 시점까지만 가능해요'}).includes('booking_deadline'));
  assert(!activeIds(base).includes('booking_rules'));
- assert(activeIds({...base,booking_rules:'기존 자유 입력'}).includes('booking_rules'));
+ assert(!activeIds({...base,booking_rules:'기존 자유 입력'}).includes('booking_rules'));
  assert(!V.question(question('features'), base).includes('나중에 다시 확인할 정보 (선택)'));
 });
 require('./scripts/check-runtime.cjs');

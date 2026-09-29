@@ -1945,6 +1945,10 @@
 
   // Retained only to validate and preserve earlier answers and backups, not as form questions.
   const retiredQuestions = [
+    ...steps
+      .find((step) => step.id === 'screens')
+      .groups.splice(1)
+      .flatMap((group) => group.questions),
     {
       id: 'scope',
       label: '기능별 첫 버전 우선순위 검토',

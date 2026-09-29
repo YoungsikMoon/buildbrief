@@ -370,7 +370,16 @@ a.app-version:focus-visible {
   grid-template-columns: 18.75rem minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-height));
 }
-/* Screen planning keeps the shared page width and outer spacing. */
+/* Give the canvas space while keeping text-based steps at a readable width. */
+@media (min-width: 1001px) {
+  .designing .workspace {
+    max-width: none;
+  }
+  .designing main {
+    max-width: none;
+    padding-inline: clamp(24px, 2.3vw, 48px);
+  }
+}
 .designing #field-screens > legend {
   position: absolute;
   width: 1px;
@@ -456,7 +465,7 @@ a.app-version:focus-visible {
 }
 .designer-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   align-items: start;
   gap: 20px;
 }
@@ -558,9 +567,26 @@ a.app-version:focus-visible {
 .reference-feature:hover {
   border-color: var(--blue);
 }
-.inspector-body > h5 {
+.reference-picker {
+  display: block;
+  position: sticky;
+  top: -18px;
+  z-index: 1;
+  margin: -18px -18px 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
   font-size: var(--type-control);
-  margin: 22px 0 10px;
+  font-weight: 600;
+}
+.reference-picker select {
+  margin-top: 8px;
+}
+.reference-category.reference-features {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.reference-category .reference-feature {
+  min-height: 48px;
 }
 .inspector-body > .inspector-add {
   margin: 0 0 20px;
@@ -619,15 +645,6 @@ a.app-version:focus-visible {
   scroll-margin-top: 160px;
 }
 
-.insert-group {
-  border-top: 1px solid var(--line);
-  padding: 4px 0;
-}
-.insert-group > summary {
-  font-size: var(--type-control);
-  font-weight: 600;
-  padding: 12px 0;
-}
 .insert-elements {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -649,6 +666,9 @@ a.app-version:focus-visible {
   padding: 0 0 12px;
   text-align: left;
 }
+.insert-element:hover {
+  border-color: var(--blue);
+}
 .insert-element img {
   display: block;
   width: 100%;
@@ -656,15 +676,9 @@ a.app-version:focus-visible {
 }
 .insert-element span {
   display: block;
-  padding: 8px 28px 0 10px;
+  padding: 8px 10px 0;
   font-size: var(--type-control);
   font-weight: 600;
-}
-.insert-element small {
-  display: block;
-  padding: 4px 10px 0;
-  color: var(--blue);
-  font-size: var(--type-small);
 }
 .inspector-body > .button {
   width: 100%;
@@ -862,24 +876,6 @@ a.app-version:focus-visible {
   padding-top: 14px;
   border-top: 1px solid #c8d4e5;
 }
-.designer-related {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  margin: 16px 0;
-}
-.designer-related > summary {
-  padding: 16px 20px;
-  font-size: var(--type-control);
-  font-weight: 600;
-}
-.designer-related .group-heading {
-  display: none;
-}
-.designer-related .question-group {
-  border: 0;
-  margin: 0;
-}
 @media (max-width: 1200px) {
   .designer-workspace {
     grid-template-columns: minmax(0, 1fr) 290px;
@@ -899,6 +895,10 @@ a.app-version:focus-visible {
   }
   .inspector-body {
     overflow: visible;
+  }
+  .designer-inspector:has([data-reference-category]) .inspector-body {
+    max-height: min(38rem, 65dvh);
+    overflow-y: auto;
   }
   .insert-elements {
     grid-template-columns: repeat(3, minmax(0, 1fr));

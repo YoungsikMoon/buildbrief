@@ -21,7 +21,6 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const choose=async(owner,key)=>{await page.locator(`[data-designer-screen="${owner}"]`).click();await page.locator(`[data-canvas-owner="${owner}"][data-canvas-element="${key}"]`).click();};
     const name=()=>page.locator('#designer-inspector-body [data-property="name"]');
     const describe=()=>page.locator('#designer-inspector-body [data-property="purpose"]');
-    const reveal=async target=>{const parents=target.locator('xpath=ancestor::details');for(let i=0;i<await parents.count();i++){const p=parents.nth(i);if(!await p.evaluate(n=>n.open))await p.locator(':scope > summary').click();}};
     const validate=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Overflow ${width}`);assert.equal(await page.locator('[id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length-new Set(ids).size;}),0);};
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
@@ -30,6 +29,16 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       for(const value of ['카카오','Google'])await page.locator(`[data-q="login_methods"][value="${value}"]`).check();
       await page.locator('[data-role-preset="1"]').click();await go(4);
       assert.equal(await page.locator('[data-designer-panel],[data-designer-placement],[data-insert-element]').count(),0);
+      assert.equal(await page.locator('#field-features,.designer-related').count(),0);
+      if(width===1440){
+        const original=await page.locator('.designer-stage').boundingBox();
+        await page.setViewportSize({width:1920,height:1000});
+        const wider=await page.locator('.designer-stage').boundingBox(), main=await page.locator('main').boundingBox();
+        assert(wider.width>original.width+400,'Extra desktop width goes to the canvas');
+        assert(main.x+main.width>=1919,'The editor uses the available right edge');
+        if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,'wide-editor-1920.png')});}
+        await page.setViewportSize({width,height:1000});
+      }
       await page.locator('[data-add-element][data-target="region:top"]').click();
       let state=await stored();const common=state.answers.screens[0].id,top='custom:'+state.answers.screens[0].customElements[0].id;
       await name().fill('상단 메뉴');await describe().fill('왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.');
@@ -40,13 +49,30 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal((await stored()).answers.screens[0].placements[first].parent,top);
       const beforeHelp=(await stored()).answers;
       await page.locator('[data-open-reference]').click();
-      assert.equal(await page.locator('.insert-group[open]').count(),0);
-      const formExample=page.locator('.insert-element [data-element-help="form"]');await reveal(formExample);await formExample.click();
+      assert.equal(await page.locator('.reference-category:visible').count(),1);
+      assert(!(await page.locator('#designer-inspector').innerText()).includes('예시와 설명 보기'));
+      const categories=await page.evaluate(()=>BriefQuestions.uiElementGroups.map(g=>g.id));
+      const category=page.getByLabel('참고할 분류',{exact:true});
+      for(const id of [...categories,'features']){
+        await category.selectOption(id);
+        assert.equal(await page.locator('.reference-category:visible').count(),1);
+        assert(await page.locator(`[data-reference-group="${id}"]`).isVisible());
+        await validate();
+      }
+      const formGroup=await page.evaluate(()=>BriefQuestions.uiElements.find(el=>el.id==='form').group);
+      await category.selectOption(formGroup);
+      const formExample=page.locator('.insert-element [data-element-help="form"]');await formExample.click();
       assert(await page.locator('#option-help-dialog img').evaluate(img=>img.complete&&img.naturalWidth>0));
       assert((await page.locator('#help-content').innerText()).includes('무엇인가요?'));
       await page.locator('#help-content [data-element-choice]').first().click();assert((await page.locator('#help-content').innerText()).includes('언제 잘 맞나요?'));
       await page.locator('#close-option-help').click();
+      await category.selectOption('features');
       await page.locator('[data-feature-help="booking"]').click();assert((await page.locator('#help-content').innerText()).includes('무엇인가요?'));await page.locator('#close-option-help').click();
+      const lastFeature=page.locator('[data-reference-group="features"] button').last();await lastFeature.click();await page.locator('#close-option-help').click();
+      assert((await page.locator('#designer-inspector-body').boundingBox()).height<1000);
+      await category.scrollIntoViewIfNeeded();
+      if(width<800)assert((await page.locator('#designer-inspector-body').boundingBox()).height<=650,'Mobile references stay within a bounded panel');
+      await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();await page.evaluate(()=>document.documentElement.style.fontSize='');
       assert.deepEqual((await stored()).answers,beforeHelp,'Reference browsing never inserts or changes data');
       await validate();await shot('references');await page.locator('[data-close-reference]').click();
       assert.equal(await name().inputValue(),'검색');
@@ -96,6 +122,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       // Previously structured fields/actions stay available in every export after the UI change.
       await page.evaluate(answers=>{const p=BriefProjects.createProject({answers});localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:p.id,projects:[p]}));},legacy);
       await page.reload();await go(4);await choose('home','form');
+      assert.equal(await page.locator('#field-features,.designer-related').count(),0,'Existing projects also use the unified editor');
       const previous=(await stored()).answers.screens[1].elementContents.form;
       await name().fill('수업 신청서');await page.locator('[data-field="elementNotes"][data-element="form"]').fill('수업과 연락처를 받아요. 오류가 생기면 입력값을 유지해요.');
       const after=(await stored()).answers.screens[1].elementContents.form;assert.deepEqual(after,{...previous,name:'수업 신청서'});

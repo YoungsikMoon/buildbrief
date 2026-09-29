@@ -75,7 +75,7 @@ assert(!V.report(attack).includes('<img src=x'));
 assert(html.includes('요소 이름') && html.includes('어떤 용도로 쓰나요?'));
 assert(!html.includes('data-designer-placement') && !html.includes('data-designer-panel'));
 const library=V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'history',element:'table',referenceOpen:true});
-assert(library.includes('요소 참고') && library.includes('기능 참고'));
+assert(library.includes('data-reference-category') && !library.includes('예시와 설명 보기'));
 assert.equal((library.match(/data-element-help=/g)||[]).length,Q.uiElements.length);
 assert.equal((library.match(/data-feature-help=/g)||[]).length,Q.featureTypes.filter(f=>f.id!=='custom').length);
 assert(!library.includes('data-insert-element'));

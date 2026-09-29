@@ -23,31 +23,40 @@
       : screen.elementNotes?.[key];
     return `<span class="canvas-description">${esc(description || '')}</span>`;
   }
-  function references() {
+  function references(category = Q.uiElementGroups[0].id) {
     const V = root.BriefViews || require('./views.js');
+    if (!Q.uiElementGroups.some((group) => group.id === category) && category !== 'features')
+      category = Q.uiElementGroups[0].id;
     return (
-      '<p class="field-help">예시를 살펴보고 내 요소의 용도와 동작을 적어 보세요.</p><h5>요소 참고</h5>' +
+      '<div class="reference-picker"><label for="reference-category">참고할 분류</label><select id="reference-category" data-reference-category aria-controls="reference-results"><optgroup label="화면 요소">' +
       Q.uiElementGroups
         .map(
           (group) =>
-            `<details class="insert-group" id="reference-group-${group.id}"><summary>${esc(group.label)}</summary><div class="insert-elements">${Q.uiElements
+            `<option value="${group.id}" ${category === group.id ? 'selected' : ''}>${esc(group.label)}</option>`
+        )
+        .join('') +
+      `</optgroup><optgroup label="기능"><option value="features" ${category === 'features' ? 'selected' : ''}>기능 살펴보기</option></optgroup></select></div><div id="reference-results">` +
+      Q.uiElementGroups
+        .map(
+          (group) =>
+            `<div class="reference-category insert-elements" data-reference-group="${group.id}" ${category === group.id ? '' : 'hidden'}>${Q.uiElements
               .filter((el) => el.group === group.id)
               .map(
                 (el) =>
-                  `<div class="insert-element"><button type="button" data-element-help="${el.id}" aria-label="${esc(el.label)} 예시와 설명">${V.elementExample(el.id)}<span>${esc(el.label)}</span><small>예시와 설명 보기</small></button></div>`
+                  `<div class="insert-element"><button type="button" data-element-help="${el.id}" aria-label="${esc(el.label)} 예시와 설명">${V.elementExample(el.id)}<span>${esc(el.label)}</span></button></div>`
               )
-              .join('')}</div></details>`
+              .join('')}</div>`
         )
         .join('') +
-      '<h5>기능 참고</h5><div class="reference-features">' +
+      `<div class="reference-category reference-features" data-reference-group="features" ${category === 'features' ? '' : 'hidden'}>` +
       Q.featureTypes
         .filter((f) => f.id !== 'custom')
         .map(
           (f) =>
-            `<button type="button" class="reference-feature" data-feature-help="${f.id}"><strong>${esc(f.label)}</strong><span>${esc(f.description)}</span></button>`
+            `<button type="button" class="reference-feature" data-feature-help="${f.id}" aria-label="${esc(f.label)} 설명">${esc(f.label)}</button>`
         )
         .join('') +
-      '</div>'
+      '</div></div>'
     );
   }
   function applySizes(container = document) {
@@ -103,7 +112,7 @@
         </div></div><p class="designer-hint">박스 모서리로 크기를 조절해요. ?에서 요소와 기능 예시를 볼 수 있어요.</p>${reason}
       </section><aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
         <div class="inspector-heading"><h4 tabindex="-1" id="inspector-title">${state.referenceOpen ? '참고 자료' : '설정'}</h4>${state.referenceOpen ? '<button type="button" class="button secondary small" data-close-reference>← 설정으로</button>' : '<button type="button" class="option-help" data-open-reference aria-label="요소·기능 참고 자료 보기" title="요소·기능 참고 자료">?</button>'}</div>
-        <div class="inspector-body" id="designer-inspector-body">${state.referenceOpen ? references() : `<button type="button" class="button secondary inspector-add" data-add-element data-screen="${index}">+ 요소 추가</button>${inspector}`}</div>
+        <div class="inspector-body" id="designer-inspector-body">${state.referenceOpen ? references(state.referenceCategory) : `<button type="button" class="button secondary inspector-add" data-add-element data-screen="${index}">+ 요소 추가</button>${inspector}`}</div>
       </aside></div></div>`;
   }
   const api = { selection, elementName, preview, references, applySizes, render };

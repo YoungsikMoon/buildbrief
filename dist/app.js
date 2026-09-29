@@ -10,7 +10,7 @@
   const { steps, featureTypes, uiElements } = Q;
   const $ = (selector) => document.querySelector(selector);
   const esc = V.escapeHtml;
-  const questions = new Map(A.allQuestions.map((q) => [q.id, q]));
+  const questions = new Map([...A.allQuestions, ...Q.retiredQuestions].map((q) => [q.id, q]));
   const storage = S.load();
   let answers, drafts, notes, recommendations, currentStep;
   let designerState = {},
@@ -284,28 +284,20 @@
     renderNavigation();
     $('#question-groups').innerHTML = A.activeGroups(step, answers, notes)
       .map(
-        (g, groupIndex) =>
-          /* HTML */ `${step.id === 'screens' && !g.questions.some((q) => q.id === 'screens')
-              ? '<details class="designer-related" id="designer-topic-' +
-                groupIndex +
-                '"><summary>' +
-                esc(g.title || '추가 기획') +
-                '</summary>'
-              : ''}<section class="question-group"
-              >${g.title
-                ? /* HTML */ `<div class="group-heading"
-                    ><h2>${esc(g.title)}</h2>${g.description
-                      ? /* HTML */ `<p>${esc(g.description)}</p>`
-                      : ''}</div
-                  >`
-                : ''}<div class="group-body"
-                >${g.questions
-                  .map((q) => V.question(q, answers, notes, recommendations, designerState))
-                  .join('')}</div
-              ></section
-            >${step.id === 'screens' && !g.questions.some((q) => q.id === 'screens')
-              ? '</details>'
-              : ''}`
+        (g) =>
+          /* HTML */ `<section class="question-group"
+            >${g.title
+              ? /* HTML */ `<div class="group-heading"
+                  ><h2>${esc(g.title)}</h2>${g.description
+                    ? /* HTML */ `<p>${esc(g.description)}</p>`
+                    : ''}</div
+                >`
+              : ''}<div class="group-body"
+              >${g.questions
+                .map((q) => V.question(q, answers, notes, recommendations, designerState))
+                .join('')}</div
+            ></section
+          >`
       )
       .join('');
     D.applySizes();
@@ -487,6 +479,13 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-reference-category]')) {
+      designerState.referenceCategory = el.value;
+      document.querySelectorAll('[data-reference-group]').forEach((group) => {
+        group.hidden = group.dataset.referenceGroup !== el.value;
+      });
+      return;
+    }
     if (el.matches('[data-feature-choice]')) {
       const picker = el.closest('.feature-picker');
       const type = featureTypes.find((f) => 'type:' + f.id === el.value);
