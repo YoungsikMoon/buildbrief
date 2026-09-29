@@ -799,22 +799,91 @@
       ]
     },
     {
-      id: 'features',
-      title: '필요한 기능',
-      short: '기능',
-      description: '기능 후보를 출발점으로 실제로 할 일을 적어요.',
+      id: 'references',
+      title: '참고 서비스와 디자인 방향',
+      short: '참고·분위기',
+      description: '참고할 주소와 실제로 바라는 화면 분위기를 남겨요.',
       groups: [
         {
-          title: '누가 무엇을 할 수 있나요?',
+          title: '참고할 부분이 있나요?',
           description:
-            '필요한 후보만 고르거나 직접 추가해요. 같은 유형으로 여러 기능을 만들어도 돼요.',
+            '자료가 없어도 괜찮아요. URL을 적는 것만으로 내용을 열람하거나 분석한 것은 아니에요.',
+          questions: [
+            {
+              id: 'references',
+              label: '화면·디자인을 참고하고 싶은 주소가 있나요?',
+              type: 'references',
+              help: '화면 배치·색상·사용 흐름 등 참고할 부분을 남겨요. 경쟁 서비스의 장단점은 ‘해결할 문제’에서 비교해요. URL은 한 줄에 하나씩 붙여 넣을 수 있어요.'
+            },
+            {
+              id: 'visual_style',
+              allowRecommend: true,
+              label: '어떤 분위기를 바라나요?',
+              type: 'multi',
+              options: [
+                '간결하고 실용적인',
+                '차분하고 전문적인',
+                '밝고 친근한',
+                '사진·이미지가 중심인',
+                '개성이 뚜렷한',
+                '다른 분위기',
+                '아직 미정'
+              ],
+              optionLabels: { '다른 분위기': '직접 입력' },
+              help: '가까운 방향을 함께 골라도 돼요. 정답이 있는 분류가 아니며 실제 참고 화면이 더 도움이 될 수 있어요.'
+            },
+            {
+              id: 'visual_style_other',
+              label: '원하는 다른 분위기를 적어 주세요.',
+              type: 'text',
+              help: '',
+              placeholder: '예: 오래된 공책처럼 편안한 느낌',
+              when: { id: 'visual_style', includes: '다른 분위기' }
+            },
+            {
+              id: 'brand_notes',
+              label: '정해진 색상·로고나 지키고 싶은 표현이 있나요?',
+              type: 'textarea',
+              help: '이미 있는 자료나 확실한 희망만 적어요. 피하고 싶은 표현도 남길 수 있고 없으면 비워 두어요.',
+              placeholder: '예: 동네 로고의 초록색 사용. 작은 글씨와 과한 움직임은 피하고 싶어요.'
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'screens',
+      title: '화면과 기능',
+      short: '화면·기능',
+      description: '화면을 떠올리고, 그 안에서 보여 줄 정보와 할 수 있는 일을 함께 정리해요.',
+      groups: [
+        {
+          title: '어떤 화면이 필요한가요?',
+          description:
+            '화면 안에서 기능을 바로 추가할 수 있어요. 이름과 목적만 적거나 필요한 부분의 추천을 요청해도 돼요.',
+          questions: [
+            {
+              id: 'screens',
+              allowRecommend: true,
+              recommendationLabel: '필요한 화면 목록을 AI에 추천 요청',
+              recommendationScope: '필요한 화면의 이름·역할·화면 간 이동 흐름',
+              label: '화면마다 무엇을 보여 주고 어떤 일을 하나요?',
+              type: 'screens',
+              help: '어떤 화면이 필요할지 모르겠다면 화면 목록을 추천받으세요. 떠오르는 화면이 있다면 추가한 뒤, 그 화면의 구성만 따로 추천받을 수 있어요.'
+            }
+          ]
+        },
+        {
+          title: '화면 밖에서 필요한 기능도 있나요?',
+          description:
+            '알림 발송처럼 화면 없이 실행하는 기능이나 아직 화면을 정하지 않은 기능을 남겨요.',
           questions: [
             {
               id: 'features',
               allowRecommend: true,
-              label: '이 서비스에서 할 수 있어야 하는 일은 무엇인가요?',
+              label: '서비스에 필요한 기능은 무엇인가요?',
               type: 'features',
-              help: '기능 이름, 사용하는 사람, 기대하는 결과를 적어요. 첫 버전에 필요한지 모르겠다면 미정으로 남겨요. 후보를 고른 것만으로 기능이 완성된 것은 아니에요.'
+              help: '화면에서 만든 기능은 다시 적지 않아요. 여기서 추가한 기능도 나중에 화면에 연결할 수 있어요.'
             }
           ]
         },
@@ -1727,7 +1796,7 @@
         {
           title: '시작부터 목적 달성까지',
           description:
-            '모든 기능의 과정을 만들 필요는 없어요. 앞의 기능을 연결하거나 내 말로 적어요.',
+            '앞에서 만든 화면과 기능을 순서대로 연결하거나 내 말로 적어요. 대표 과정 하나면 충분해요.',
           questions: [
             {
               id: 'main_flow',
@@ -1758,8 +1827,8 @@
     },
     {
       id: 'accounts',
-      title: '로그인과 사용자 구분',
-      short: '로그인·역할',
+      title: '로그인과 권한',
+      short: '로그인·권한',
       description: '로그인이 필요한 범위와 사람마다 할 수 있는 일을 정해요.',
       groups: [
         {
@@ -1784,7 +1853,7 @@
               label: '어떤 기능을 사용할 때 로그인하나요?',
               type: 'multi',
               source: 'features',
-              help: '앞에서 만든 기능 중 로그인이 필요한 대상을 골라요. 목록에 없으면 기능 단계에서 추가할 수 있어요.',
+              help: '앞에서 만든 기능 중 로그인이 필요한 대상을 골라요. 목록에 없으면 ‘화면·기능’ 단계에서 추가할 수 있어요.',
               when: { id: 'login_need', value: '일부 기능에서만 로그인' }
             },
             {
@@ -1942,10 +2011,11 @@
           questions: [
             {
               id: 'roles',
+              allowRecommend: true,
               label: '역할별로 무엇을 보거나 할 수 있나요?',
               type: 'rows',
               rowLabel: '역할',
-              help: '모두 같은 일을 한다면 한 역할만 적거나 비워 두어도 돼요. 사용자 설명을 반복하기보다 권한 차이를 적어요.',
+              help: '화면에서 정한 기능별 권한을 먼저 확인해요. 역할 전체에 공통으로 적용할 설명만 추가하세요. 버튼을 숨기는 것만으로 접근 권한이 제한되지는 않아요.',
               fields: [
                 { id: 'role', label: '역할 이름', placeholder: '예: 신청자 / 작업실 담당자' },
                 {
@@ -1959,83 +2029,6 @@
                   placeholder: '예: 본인 예약 / 담당 작업실 예약'
                 }
               ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'references',
-      title: '참고 서비스와 디자인 방향',
-      short: '참고·분위기',
-      description: '참고할 주소와 실제로 바라는 화면 분위기를 남겨요.',
-      groups: [
-        {
-          title: '참고할 부분이 있나요?',
-          description:
-            '자료가 없어도 괜찮아요. URL을 적는 것만으로 내용을 열람하거나 분석한 것은 아니에요.',
-          questions: [
-            {
-              id: 'references',
-              label: '화면·디자인을 참고하고 싶은 주소가 있나요?',
-              type: 'references',
-              help: '화면 배치·색상·사용 흐름 등 참고할 부분을 남겨요. 경쟁 서비스의 장단점은 ‘해결할 문제’에서 비교해요. URL은 한 줄에 하나씩 붙여 넣을 수 있어요.'
-            },
-            {
-              id: 'visual_style',
-              allowRecommend: true,
-              label: '어떤 분위기를 바라나요?',
-              type: 'multi',
-              options: [
-                '간결하고 실용적인',
-                '차분하고 전문적인',
-                '밝고 친근한',
-                '사진·이미지가 중심인',
-                '개성이 뚜렷한',
-                '다른 분위기',
-                '아직 미정'
-              ],
-              optionLabels: { '다른 분위기': '직접 입력' },
-              help: '가까운 방향을 함께 골라도 돼요. 정답이 있는 분류가 아니며 실제 참고 화면이 더 도움이 될 수 있어요.'
-            },
-            {
-              id: 'visual_style_other',
-              label: '원하는 다른 분위기를 적어 주세요.',
-              type: 'text',
-              help: '',
-              placeholder: '예: 오래된 공책처럼 편안한 느낌',
-              when: { id: 'visual_style', includes: '다른 분위기' }
-            },
-            {
-              id: 'brand_notes',
-              label: '정해진 색상·로고나 지키고 싶은 표현이 있나요?',
-              type: 'textarea',
-              help: '이미 있는 자료나 확실한 희망만 적어요. 피하고 싶은 표현도 남길 수 있고 없으면 비워 두어요.',
-              placeholder: '예: 동네 로고의 초록색 사용. 작은 글씨와 과한 움직임은 피하고 싶어요.'
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'screens',
-      title: '화면 구성',
-      short: '화면',
-      description: '화면에서 할 일을 적고, 구성을 직접 정하거나 AI에 추천을 요청해요.',
-      groups: [
-        {
-          title: '어떤 화면이 필요한가요?',
-          description:
-            '앞의 기능과 화면을 연결해요. 구성요소를 모르겠다면 화면 이름과 목적만 적어도 돼요.',
-          questions: [
-            {
-              id: 'screens',
-              allowRecommend: true,
-              recommendationLabel: '필요한 화면 목록을 AI에 추천 요청',
-              recommendationScope: '필요한 화면의 이름·역할·화면 간 이동 흐름',
-              label: '화면마다 무엇을 보여 주고 어떤 일을 하나요?',
-              type: 'screens',
-              help: '어떤 화면이 필요할지 모르겠다면 화면 목록을 추천받으세요. 떠오르는 화면이 있다면 추가한 뒤, 그 화면의 구성만 따로 추천받을 수 있어요.'
             }
           ]
         }
@@ -2063,6 +2056,7 @@
       ]
     }
   ];
+
   // Retained only to validate and preserve earlier answers and backups, not as form questions.
   const retiredQuestions = [
     { id: 'scope', label: '기능별 첫 버전 우선순위 검토', type: 'scope', allowRecommend: true },
@@ -2074,7 +2068,23 @@
       allowRecommend: true
     }
   ];
+  const formInputTypes = [
+    '짧은 글',
+    '긴 글',
+    '숫자',
+    '날짜',
+    '시간',
+    '하나 선택',
+    '여러 개 선택',
+    '이메일',
+    '전화번호',
+    '파일 첨부',
+    '직접 설명'
+  ];
+  const elementContentTypes = ['form', 'table', 'list', 'cards', 'button'];
   const api = {
+    formInputTypes,
+    elementContentTypes,
     steps,
     retiredQuestions,
     featureTypes,

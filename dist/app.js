@@ -298,6 +298,14 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('select[data-link-feature]')) {
+      const screen = rowsOf('screens')[Number(el.dataset.screen)];
+      if (screen && rowsOf('features').some((f) => f.id === el.value)) {
+        screen.featureIds = [...new Set([...(screen.featureIds || []), el.value])];
+        changed(true);
+      }
+      return;
+    }
     if (
       el.matches('input[data-recommend]') &&
       questions.get(el.dataset.recommend)?.allowRecommend
@@ -313,11 +321,26 @@
     if (el.dataset.q && el.matches('select,input[type="checkbox"],input[type="radio"]')) edit(el);
   });
   function edit(el) {
-    const { q: qid, row, field, element, custom, property } = el.dataset;
+    const { q: qid, row, field, element, custom, property, item } = el.dataset;
     const object = row === undefined ? answers : rowsOf(qid)[Number(row)];
     if (!object) return;
     const key = field || qid;
-    if (field === 'customElements') {
+    if (field === 'elementContents') {
+      if (!Q.elementContentTypes.includes(element)) return;
+      object.elementContents ||= {};
+      const plan = (object.elementContents[element] ||= { items: [], featureIds: [] });
+      const target = item === undefined ? plan : plan.items[Number(item)];
+      if (!target) return;
+      if (property === 'featureIds') {
+        const values = plan.featureIds || [];
+        plan.featureIds = el.checked
+          ? [...new Set([...values, el.value])]
+          : values.filter((id) => id !== el.value);
+        if (el.checked) object.featureIds = [...new Set([...(object.featureIds || []), el.value])];
+      } else target[property] = el.type === 'checkbox' ? el.checked : el.value;
+    } else if (qid === 'features' && field === 'recommendPermission') {
+      object.recommendPermission = el.checked;
+    } else if (field === 'customElements') {
       const item = object.customElements?.[Number(custom)];
       if (!item || !['name', 'purpose'].includes(property)) return;
       item[property] = el.value;
@@ -348,9 +371,25 @@
       else if (el.checked) values = values.filter((v) => !A.EXCLUSIVE.includes(v));
       object[key] = values;
     } else object[key] = el.value;
+    if (el.type === 'checkbox' && el.closest('.recommendation-request')) {
+      const hint = el.closest('.recommendation-request').querySelector('.field-help');
+      if (hint && !hint.id) hint.hidden = !el.checked;
+    }
+    if (qid === 'features') {
+      document.querySelectorAll('[data-q="features"]').forEach((control) => {
+        if (control !== el && control.dataset.row === row && control.dataset.field === field) {
+          if (control.type === 'checkbox') {
+            control.checked = el.checked;
+            const hint = control.closest('.recommendation-request')?.querySelector('.field-help');
+            if (hint) hint.hidden = !el.checked;
+          } else control.value = el.value;
+        }
+      });
+    }
     const rerender =
       (row === undefined && el.matches('select,input[type="checkbox"],input[type="radio"]')) ||
-      field === 'elements';
+      field === 'elements' ||
+      (field === 'elementContents' && ['type', 'featureIds'].includes(property));
     changed(rerender);
     if (rerender)
       [...document.querySelectorAll('[data-q]')]
@@ -359,6 +398,9 @@
             c.dataset.q === qid &&
             c.dataset.row === row &&
             c.dataset.field === field &&
+            c.dataset.element === element &&
+            c.dataset.item === item &&
+            c.dataset.property === property &&
             c.value === el.value
         )
         ?.focus({ preventScroll: true });
@@ -423,6 +465,59 @@
       if (guide) showHelp(guide.label, guide, d.elementChoice ? '' : el.id);
       return;
     }
+    if (d.unlinkFeature) {
+      const screen = rowsOf('screens')[Number(d.screen)];
+      if (!screen) return;
+      screen.featureIds = (screen.featureIds || []).filter((id) => id !== d.unlinkFeature);
+      for (const plan of Object.values(screen.elementContents || {}))
+        plan.featureIds = (plan.featureIds || []).filter((id) => id !== d.unlinkFeature);
+      changed(true);
+      toast('이 화면에서 연결을 해제했어요. 기능 내용은 그대로 남아 있어요.');
+      return;
+    }
+    if (
+      d.contentAdd !== undefined ||
+      d.contentRemove !== undefined ||
+      d.contentMove !== undefined
+    ) {
+      const screen = rowsOf('screens')[Number(d.screen)];
+      if (!screen || !Q.elementContentTypes.includes(d.element) || d.element === 'button') return;
+      screen.elementContents ||= {};
+      const plan = (screen.elementContents[d.element] ||= { items: [], featureIds: [] });
+      const items = (plan.items ||= []);
+      let focusId = '';
+      if (d.contentAdd !== undefined) {
+        if (items.length >= A.MAX_ROWS)
+          return toast(`요소마다 최대 ${A.MAX_ROWS}개 항목을 기록할 수 있어요.`);
+        const item = { id: P.newId(), name: '', notes: '' };
+        items.push(item);
+        focusId = item.id;
+      } else if (d.contentRemove !== undefined) {
+        if (
+          !items[Number(d.contentRemove)] ||
+          !window.confirm('이 항목과 작성한 내용을 삭제할까요?')
+        )
+          return;
+        items.splice(Number(d.contentRemove), 1);
+      } else {
+        const from = Number(d.contentMove),
+          to = from + Number(d.direction);
+        if (!items[from] || !items[to]) return;
+        [items[from], items[to]] = [items[to], items[from]];
+        focusId = items[to].id;
+      }
+      changed(true);
+      const target = focusId
+        ? document
+            .getElementById(`content-${screen.id}-${d.element}-${focusId}`)
+            ?.querySelector('input')
+        : document.querySelector(
+            `[data-content-add][data-screen="${d.screen}"][data-element="${d.element}"]`
+          );
+      target?.focus({ preventScroll: true });
+      if (focusId) target?.scrollIntoView({ block: 'center' });
+      return;
+    }
     if (d.addElement !== undefined || d.removeElement !== undefined) {
       const index = Number(d.screen),
         screen = rowsOf('screens')[index];
@@ -482,8 +577,17 @@
           mobile: ''
         };
       answers[qid] = [...rows, row];
+      const screen =
+        qid === 'features' && d.screen !== undefined && d.screen !== ''
+          ? rowsOf('screens')[Number(d.screen)]
+          : null;
+      if (screen) screen.featureIds = [...new Set([...(screen.featureIds || []), row.id])];
       changed(true);
-      const card = document.getElementById(`row-${qid}-${rows.length}`);
+      const card = document.getElementById(
+        qid === 'features'
+          ? `feature-${screen ? d.screen : 'shared'}-${row.id}`
+          : `row-${qid}-${rows.length}`
+      );
       card?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       card?.querySelector('input,textarea,select')?.focus({ preventScroll: true });
       return;
@@ -491,7 +595,13 @@
     if (d.remove) {
       const rows = rowsOf(d.remove),
         index = Number(d.index);
-      if (rows[index] && window.confirm('이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.')) {
+      const message =
+        d.remove === 'features'
+          ? '이 기능을 삭제할까요? 모든 화면·이용 과정의 연결에 영향을 줘요. 한 화면에서만 빼려면 연결 해제를 사용하세요.'
+          : d.remove === 'screens'
+            ? '이 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.'
+            : '이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.';
+      if (rows[index] && window.confirm(message)) {
         answers[d.remove] = rows.filter((_, i) => i !== index);
         changed(true);
         document.querySelector(`[data-add="${d.remove}"]`)?.focus({ preventScroll: true });

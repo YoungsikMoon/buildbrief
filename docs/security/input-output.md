@@ -41,3 +41,5 @@
 
 - [XSS 예방](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) · [DOM XSS 예방](https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html)
 - [입력 검증](https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Input_Validation_Cheat_Sheet.md) · [SSRF 예방](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
+
+화면·기능 통합에서 추가한 `elementContents`는 허용한 요소 종류만 받으며, 항목 ID·중복·행 수·문자 길이, 입력 방식·필수 여부, 추천 boolean, 연결 ID를 검증합니다. 새 입력은 기존 HTML·Markdown 인코딩을 거칩니다. 요소 선택 해제 시 숨긴 내용과 추천은 초안에서 제외하지만 백업에 보존합니다. 화면과 기능은 ID로 연결하며, 삭제된 연결은 미정 사항으로 알립니다.

@@ -702,6 +702,54 @@ main {
 .editor-list {
   margin-top: 24px;
 }
+.screen-functions {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  margin: 24px 0;
+}
+.screen-functions > h4 {
+  font-size: var(--type-question);
+  margin-bottom: 10px;
+}
+.screen-functions > .input-field {
+  margin-top: 16px;
+}
+.feature-card,
+.content-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 14px 0;
+  background: var(--surface);
+  min-width: 0;
+}
+.feature-card > summary {
+  padding: 16px;
+  font-size: var(--type-body);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.feature-card-body,
+.content-item {
+  padding: 16px;
+}
+.feature-card-body {
+  border-top: 1px solid var(--line);
+}
+.content-item h5 {
+  font-size: var(--type-body);
+  margin: 0;
+}
+.content-item .text-button {
+  min-width: 32px;
+  min-height: 32px;
+}
+.feature-card .inline-actions {
+  margin-top: 16px;
+}
+.feature-card .recommendation-request,
+.element-settings .recommendation-request {
+  margin: 16px 0;
+}
 .empty-note {
   padding: 20px;
   background: var(--surface);
@@ -1484,6 +1532,15 @@ dialog p {
   padding: 14px 16px;
   background: var(--surface);
   border-radius: 8px;
+}
+.report-element {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 16px 0;
+}
+.report-element > h6 {
+  margin-top: 0;
 }
 .report-rationale > h5 {
   margin: 0 0 8px;

@@ -98,7 +98,7 @@
             answers[q.id] === UNKNOWN ||
             features.some(
               (row) =>
-                ['name', 'actor', 'outcome', 'notes', 'savedInfo'].some((key) =>
+                ['name', 'actor', 'outcome', 'notes', 'savedInfo', 'permission'].some((key) =>
                   isAnswered(row?.[key])
                 ) || hasPriority(row)
             )
@@ -155,6 +155,10 @@
     Object.fromEntries(
       fields.map((key) => [key, text(row[key] === undefined ? '' : row[key], `${label} ${key}`)])
     );
+  function boolean(value, label) {
+    if (value !== undefined && typeof value !== 'boolean') fail(label);
+    return value === true;
+  }
   function ids(value, label, allowed) {
     if (!Array.isArray(value) || value.length > MAX_ROWS) fail(label);
     const result = value.map((item) => rowId(item, label));
@@ -200,11 +204,16 @@
         const category = text(row.category === undefined ? 'custom' : row.category, label, 80);
         if (!(Q.featureTypes || []).some((item) => item.id === category))
           fail(`${label}의 기능 유형`);
-        const result = stringFields(row, ['name', 'actor', 'outcome', 'priority', 'notes'], label);
+        const result = stringFields(
+          row,
+          ['name', 'actor', 'outcome', 'priority', 'notes', 'permission', 'reason'],
+          label
+        );
         if (result.priority && !priorities.includes(result.priority)) fail(`${label}의 우선순위`);
         return {
           category,
           ...result,
+          recommendPermission: boolean(row.recommendPermission, label + ' 권한 추천'),
           ...(Object.hasOwn(row, 'savedInfo')
             ? { savedInfo: text(row.savedInfo, label + ' 남길 정보') }
             : {})
@@ -240,10 +249,45 @@
           );
           if (!detail.multiple && value.length > 1) fail(`${label}의 단일 선택`);
         }
+        // ponytail: One plan per element type; add instance IDs when separate forms/tables need independent editing.
+        const contents = row.elementContents === undefined ? {} : row.elementContents;
+        if (!plain(contents)) fail(`${label}의 요소별 내용`);
+        const elementContents = {};
+        for (const [key, content] of Object.entries(contents)) {
+          if (!Q.elementContentTypes.includes(key) || !plain(content))
+            fail(`${label}의 요소별 내용`);
+          elementContents[key] = {
+            reason: text(content.reason === undefined ? '' : content.reason, label),
+            recommend: boolean(content.recommend, label + ' 요소 추천'),
+            featureIds: ids(content.featureIds === undefined ? [] : content.featureIds, label),
+            items: list(
+              content.items === undefined ? [] : content.items,
+              label + ' 항목',
+              (item, itemLabel) => {
+                if (key === 'button') fail(itemLabel);
+                const result = stringFields(item, ['name', 'notes'], itemLabel);
+                if (key === 'form') {
+                  result.type = selected(
+                    item.type === undefined ? '' : item.type,
+                    { options: Q.formInputTypes },
+                    itemLabel
+                  );
+                  result.required = selected(
+                    item.required === undefined ? '' : item.required,
+                    { options: ['필수', '선택'] },
+                    itemLabel
+                  );
+                  result.options = text(item.options === undefined ? '' : item.options, itemLabel);
+                }
+                return result;
+              }
+            )
+          };
+        }
         return {
           ...stringFields(
             row,
-            ['name', 'purpose', 'roles', 'content', 'empty', 'error', 'mobile'],
+            ['name', 'purpose', 'roles', 'content', 'empty', 'error', 'mobile', 'reason'],
             label
           ),
           featureIds: ids(row.featureIds === undefined ? [] : row.featureIds, label),
@@ -251,6 +295,7 @@
           elements,
           elementNotes,
           elementOptions,
+          elementContents,
           customElements: list(
             row.customElements === undefined ? [] : row.customElements,
             `${label}의 직접 추가한 요소`,
@@ -265,6 +310,8 @@
       }));
     if (q.type === 'flow')
       return list(value, q.label, (row, label) => ({
+        screenId:
+          row.screenId === undefined || row.screenId === '' ? '' : rowId(row.screenId, label),
         featureId:
           row.featureId === undefined || row.featureId === '' ? '' : rowId(row.featureId, label),
         note: text(row.note === undefined ? '' : row.note, label)

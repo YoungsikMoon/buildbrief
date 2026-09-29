@@ -29,6 +29,17 @@
     const requestedIds = normalizeRecommendations(recommendations);
     const requests = activeQuestions(answers).filter((q) => requestedIds.includes(q.id));
     const screenRequests = screens.filter((screen) => screen.recommendLayout === true);
+    const elementRequests = screens.flatMap((screen) =>
+      (screen.elements || [])
+        .filter((id) => screen.elementContents?.[id]?.recommend)
+        .map((id) => ({ screen, id }))
+    );
+    const permissionRequests = features.filter((f) => f.recommendPermission);
+    const hasRequests =
+      requests.length ||
+      screenRequests.length ||
+      elementRequests.length ||
+      permissionRequests.length;
     const featureLabels = new Map(
       features.map((item, index) => [item.id, `F${String(index + 1).padStart(2, '0')}`])
     );
@@ -41,6 +52,12 @@
         ? `${feature.name || '이름 미정'} [${featureLabels.get(id)}]`
         : `연결할 기능 확인 필요 [${id}]`;
     };
+    const screenName = (id) => {
+      const screen = screens.find((item) => item.id === id);
+      return screen
+        ? `${screen.name || '화면 이름 미정'} [${screenLabels.get(id)}]`
+        : `연결할 화면 확인 필요 [${id}]`;
+    };
     const lines = [];
     if (prompt)
       lines.push(
@@ -51,10 +68,12 @@
         '- 각 질문 제목 아래의 답변과 선택 이유·추가 메모는 그 질문에 속합니다. 이유를 다른 질문의 근거로 옮기거나 답변 자체로 간주하지 마세요.',
         '- 사용자·문제·핵심 기능·대표 이용 과정·화면·로그인과 권한·자료를 연결하세요. 서로 맞지 않는 입력과 빠진 조건부터 질문하세요.',
         '- 화면 요소는 화면별 목적·역할·기기에 맞춰 조합하세요. 이 문서의 기능 번호로 연결하고 삭제된 기능 연결은 확인하세요.',
+        '- 화면·요소·기능 아래의 설명과 선택 이유는 해당 대상에만 적용하세요. 폼 항목·표의 열·연결한 동작은 소속 화면과 요소를 유지하세요. 자연어 설명도 요구사항이며 항목별 재작성을 강요하지 마세요. 같은 기능 번호는 여러 화면에서 함께 쓰는 하나의 기능입니다.',
+        '- 로그인 수단과 기능별 권한을 구분하세요. 사용하는 사람과 다룰 수 있는 자료 범위를 확인하고, 버튼 숨기기를 권한 검사로 간주하지 마세요. 전역 역할 설명과 기능별 입력이 다르면 확인할 질문으로 남기세요.',
         '- 참고 URL은 아직 열람하지 않은 자료입니다. 실제로 확인한 경우에만 확인한 범위와 근거를 밝혀 주세요.',
         '- 먼저 사용자가 검토할 기획 문서와 남은 질문을 제공하세요. 별도의 구현 요청 전에는 코딩·배포를 시작하거나 기술 스택을 확정하지 마세요.',
         '- 초안을 먼저 정리한 뒤, 처음 만들 기능 범위와 아이디어의 쓸모를 간단히 확인할 방법을 제안하세요. 사용자가 정하지 않은 범위·대상·횟수는 확정하지 말고, 제안한 이유와 함께 확인하세요.',
-        ...(requests.length || screenRequests.length
+        ...(hasRequests
           ? [
               '- 명시한 비교·추천 요청에는 기존 답변과 이유를 유지한 채 이 서비스에 맞는 선택지·장단점·추천 근거를 비교해 주세요. 부족한 사실은 지어내지 말고 질문하고, 제안과 확정된 선택을 구분하세요.'
             ]
@@ -93,7 +112,8 @@
             (q) =>
               isAnswered(notes[q.id]) ||
               isAnswered(answers[q.id]) ||
-              (q.type === 'screens' && screenRequests.length)
+              (q.type === 'screens' && (screenRequests.length || elementRequests.length)) ||
+              (q.type === 'features' && permissionRequests.length)
           )
         }))
         .filter((group) => group.questions.length);
@@ -121,10 +141,18 @@
                 );
                 field('사용하는 사람', row.actor);
                 field('할 수 있는 일과 결과', row.outcome);
+                if (isAnswered(row.permission))
+                  field('다룰 수 있는 자료·이용 범위', row.permission);
+                if (row.recommendPermission)
+                  field(
+                    '권한 추천 요청 · 미확정',
+                    '이 기능을 사용할 사람과 다룰 수 있는 자료 범위'
+                  );
                 if (isAnswered(row.priority) && row.priority !== UNKNOWN)
                   field('첫 버전 우선순위', row.priority);
                 if (isAnswered(row.savedInfo)) field('나중에 다시 확인할 정보', row.savedInfo);
                 if (isAnswered(row.notes)) field('세부 규칙·메모', row.notes);
+                if (isAnswered(row.reason)) field('이 기능의 선택 이유·메모', row.reason);
               } else if (q.type === 'screens') {
                 lines.push(
                   `##### ${md(row.name || '화면 이름 미정')} [${screenLabels.get(row.id)}]`,
@@ -136,6 +164,10 @@
                 if (row.recommendLayout)
                   field('이 화면의 구성 추천 요청 · 미확정', Q.screenRecommendationScope);
                 field('보여 줄 정보', row.content);
+                if (isAnswered(row.empty)) field('자료가 없을 때', row.empty);
+                if (isAnswered(row.error)) field('실패했을 때', row.error);
+                if (isAnswered(row.mobile)) field('휴대폰에서의 사용', row.mobile);
+                if (isAnswered(row.reason)) field('이 화면의 선택 이유·메모', row.reason);
                 lines.push('**화면 구성요소와 용도**');
                 const customElements = (row.customElements || []).filter(isAnswered);
                 if (!(row.elements || []).length && !customElements.length)
@@ -143,7 +175,7 @@
                 for (const id of row.elements || []) {
                   const element = Q.uiElements.find((item) => item.id === id);
                   lines.push(
-                    `**${md(element?.label || id)}**`,
+                    `###### ${md(element?.label || id)} · ${screenLabels.get(row.id)}`,
                     quote(row.elementNotes?.[id] || '이 화면에서의 용도 미정')
                   );
                   const options = element?.detail?.options.filter((option) =>
@@ -155,18 +187,48 @@
                         `${element.detail.label} ${options.map((option) => option.label).join(', ')}`
                       )
                     );
+                  const plan = row.elementContents?.[id];
+                  if (plan) {
+                    for (const [index, item] of (plan.items || []).entries()) {
+                      field(
+                        `${id === 'form' ? '입력 항목' : id === 'table' ? '표의 열' : '표시할 정보'} ${index + 1}`,
+                        item.name
+                      );
+                      if (id === 'form') {
+                        field('입력 방식', item.type);
+                        field('필수 여부', item.required);
+                        if (isAnswered(item.options)) field('선택지로 적어 둔 내용', item.options);
+                      }
+                      if (isAnswered(item.notes))
+                        field(
+                          id === 'form' ? '이 항목의 설명·제한' : '보여 줄 내용·표시 방법',
+                          item.notes
+                        );
+                    }
+                    if (plan.featureIds?.length)
+                      field('이 요소에서 실행할 기능', plan.featureIds.map(featureName));
+                    if (plan.recommend)
+                      field(
+                        '이 요소의 추천 요청 · 미확정',
+                        id === 'form'
+                          ? '입력 항목·입력 방식·필수 여부·선택지'
+                          : id === 'table'
+                            ? '표의 열·표시할 정보·행에서 할 수 있는 행동'
+                            : id === 'button'
+                              ? '버튼의 이름·동작·결과'
+                              : '항목마다 보여 줄 정보와 가능한 행동'
+                      );
+                    if (isAnswered(plan.reason)) field('이 요소의 선택 이유·메모', plan.reason);
+                  }
                   lines.push('');
                 }
                 for (const item of customElements)
                   lines.push(
-                    `**${md(item.name || '이름 미정')} · 직접 추가**`,
+                    `###### ${md(item.name || '이름 미정')} · 직접 추가 · ${screenLabels.get(row.id)}`,
                     quote(item.purpose || '이 화면에서의 용도 미정'),
                     ''
                   );
                 lines.push('');
-                if (isAnswered(row.empty)) field('자료가 없을 때', row.empty);
-                if (isAnswered(row.error)) field('실패했을 때', row.error);
-                if (isAnswered(row.mobile)) field('휴대폰에서의 사용', row.mobile);
               } else if (q.type === 'references') {
                 urlField(`참고 ${index + 1}`, row.url);
                 if (row.note) field('참고할 부분', row.note);
@@ -176,6 +238,7 @@
                   quote(row.featureId ? featureName(row.featureId) : '직접 적은 행동'),
                   ''
                 );
+                if (row.screenId) field('이때 사용하는 화면', screenName(row.screenId));
                 if (row.note || !row.featureId) field('이용 과정 설명', row.note);
               } else {
                 lines.push(`**항목 ${index + 1}**`, '');
@@ -227,7 +290,7 @@
           lines.push('#### 선택 이유·추가 메모', '', quote(notes[q.id]), '');
       }
     }
-    if (requests.length || screenRequests.length)
+    if (hasRequests)
       lines.push(
         '## AI에게 비교·추천을 요청할 항목',
         '',
@@ -242,6 +305,20 @@
           (screen) =>
             `- 화면 구성 추천 — ${md(screen.name || '화면 이름 미정')} [${screenLabels.get(screen.id)}]: ${Q.screenRecommendationScope}.`
         ),
+        ...elementRequests.map(
+          ({ screen, id }) =>
+            `- 요소별 추천 — ${md(screenName(screen.id))} / ${Q.uiElements.find((el) => el.id === id)?.label || id}: ${id === 'form' ? '입력 항목·방식·필수 여부·선택지' : id === 'table' ? '표의 열·표시 내용·행의 행동' : id === 'button' ? '버튼 이름·동작·결과' : '표시할 정보·가능한 행동'}. 이 요소의 설명·기존 항목·선택 이유와 연결 기능을 조건으로 삼으세요.`
+        ),
+        ...permissionRequests.map(
+          (feature) =>
+            `- 기능별 권한 추천 — ${md(featureName(feature.id))}: 사용자 종류와 다룰 수 있는 자료 범위를 제안하세요. 기존 사용자·권한·로그인 답변은 유지하고 충돌은 질문하세요.`
+        ),
+        ...(elementRequests.length || permissionRequests.length
+          ? [
+              '',
+              '요소·권한 추천은 위에 명시한 대상과 범위에만 적용하세요. 이미 적은 항목·순서·필수 여부·자연어 설명·이유는 유지할 조건입니다. 빈칸만 제안하고 변경 제안은 근거와 함께 별도로 구분하세요. 추천 요청은 확정된 요구가 아닙니다.'
+            ]
+          : []),
         ...(screenRequests.length
           ? [
               '',
@@ -273,11 +350,29 @@
       for (const id of screen.featureIds || [])
         if (!features.some((item) => item.id === id))
           unfinished.push(`화면 [${screenLabels.get(screen.id)}]에서 ${featureName(id)}`);
+      for (const element of screen.elements || [])
+        for (const id of screen.elementContents?.[element]?.featureIds || [])
+          if (!features.some((item) => item.id === id))
+            unfinished.push(
+              `${screenName(screen.id)}의 ${Q.uiElements.find((el) => el.id === element)?.label}: ${featureName(id)}`
+            );
     }
     for (const q of activeQuestions(answers).filter((item) => item.type === 'flow'))
       for (const [index, row] of (Array.isArray(answers[q.id]) ? answers[q.id] : []).entries()) {
         if (row.featureId && !features.some((item) => item.id === row.featureId))
           unfinished.push(`이용 과정 ${index + 1}번째 행동에서 ${featureName(row.featureId)}`);
+        if (row.screenId && !screens.some((item) => item.id === row.screenId))
+          unfinished.push(`이용 과정 ${index + 1}번째 행동에서 ${screenName(row.screenId)}`);
+        const screen = screens.find((item) => item.id === row.screenId);
+        if (
+          screen &&
+          row.featureId &&
+          features.some((f) => f.id === row.featureId) &&
+          !(screen.featureIds || []).includes(row.featureId)
+        )
+          unfinished.push(
+            `이용 과정 ${index + 1}번째 행동: ${screenName(screen.id)}에서 ${featureName(row.featureId)}을 사용할 수 있는지 확인`
+          );
       }
     lines.push(
       '## 확인해 볼 질문',

@@ -56,6 +56,7 @@
       createdAt: now,
       updatedAt: now,
       started: started !== false,
+      navigationVersion: 2,
       step: clampStep(step),
       topic: topicAt(step, topic),
       ...data
@@ -89,13 +90,34 @@
       if (project.started !== undefined && typeof project.started !== 'boolean')
         throw new Error('프로젝트 시작 상태가 올바르지 않아요.');
       ids.add(project.id);
+      if (project.navigationVersion !== undefined && project.navigationVersion !== 2)
+        throw new Error('지원하지 않는 단계 저장 형식이에요. 원본 백업을 보관해 주세요.');
+      const previousOrder = [
+        'idea',
+        'problem',
+        'users',
+        'screens',
+        'flow',
+        'accounts',
+        'references',
+        'screens',
+        'review'
+      ];
+      const step =
+        project.navigationVersion === 2
+          ? clampStep(project.step)
+          : Math.max(
+              0,
+              steps.findIndex((s) => s.id === previousOrder[project.step])
+            );
       return {
         id: project.id,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
         started: project.started !== false,
-        step: clampStep(project.step),
-        topic: topicAt(project.step, project.topic),
+        navigationVersion: 2,
+        step,
+        topic: topicAt(step, project.topic),
         ...projectData(project)
       };
     });

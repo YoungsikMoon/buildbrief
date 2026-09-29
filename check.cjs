@@ -101,8 +101,8 @@ test('The page references the exact current assets', () => {
   }
 });
 
-test('Nine coherent stages use unique questions, feature types, and UI elements', () => {
-  assert.equal(Q.steps.length, 9);
+test('Eight coherent stages use unique questions, feature types, and UI elements', () => {
+  assert.deepEqual(Q.steps.map(s => s.id), ['idea','problem','users','references','screens','flow','accounts','review']);
   for (const items of [Q.steps, A.allQuestions, Q.featureTypes, Q.uiElements]) assert.equal(new Set(items.map(item => item.id)).size, items.length);
   for (const element of Q.uiElements) {
     assert(Q.uiElementGroups.some(group => group.id === element.group));
@@ -342,7 +342,7 @@ test('Closing memo is optional while retired review answers survive reload, back
     answers: {open_questions:'남겨 둔 궁금증',scope:'',excluded_work:'예전에 정한 제외 범위 <script>alert(1)</script>',success_check:'예전 확인 방법'},
     drafts: {success_check:'추천 전에 적은 초안'},
     notes: {scope:'범위를 고른 이유',excluded_work:'제외한 이유',success_check:'확인하려던 이유',open_questions:'추가 메모 이유'},
-    recommendations: ['scope','success_check'], step:8
+    recommendations: ['scope','success_check'], step:7
   };
   const project = P.createProject(input);
   const workspace = P.normalizeWorkspace(JSON.parse(JSON.stringify({version:1,activeId:project.id,projects:[project]})));
@@ -418,7 +418,7 @@ test('Question progress sums active stage counts and handles blank cards, priori
   assert.equal(empty.total, A.activeQuestions({}).filter(q => !q.optional).length);
   assert.equal(empty.percent, 0);
   assert.equal(empty.steps.length, Q.steps.length);
-  const featureIndex = Q.steps.findIndex(step => step.id === 'features');
+  const featureIndex = Q.steps.findIndex(step => step.id === 'screens');
   const reviewIndex = Q.steps.findIndex(step => step.id === 'review');
   const blank = { features: [{ id: 'empty', category: 'custom', name: '', actor: '', outcome: '', notes: '', priority: A.UNKNOWN }], references: [{ id: 'ref-1', url: ' ', note: '' }], audience: [{ id: 'person-1', person: '', goal: '', context: '' }] };
   assert.equal(A.progress(blank).answered, 0, 'An added card and its automatic unknown priority are not an answer');
@@ -727,9 +727,9 @@ test('alternative comparison survives normalization and both exports', () => {
   }
 });
 test('feature questions relocate without losing old answers or notes', () => {
- const step = Q.steps.find(s => s.id === 'features');
+ const step = Q.steps.find(s => s.id === 'screens');
  assert(!Q.steps.some(s => s.id === 'data'));
- assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['features']);
+ assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['screens','features']);
  const answers = { features: [{ ...feature(), savedInfo: '예약 날짜와 확정 상태' }], booking_rules: '하루 전까지 취소', data_items: [{id:'record-1', name:'예약 기록', purpose:'신청 확인', access:'본인', change:'담당자', deletion:'기간 미정'}], general_rules: '예전 메모' };
  const project = P.createProject({answers, notes:{data_items:'기존 이유'}});
  const restored = P.importBackup({format:'buildbrief-ideas', version:1, activeId:project.id, projects:[project]}).projects[0];
@@ -764,4 +764,5 @@ test('situation choices reveal only their own custom answer and keep hidden text
  assert(!V.question(question('features'), base).includes('나중에 다시 확인할 정보 (선택)'));
 });
 require('./scripts/check-runtime.cjs');
+require('./scripts/check-planning.cjs');
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);
