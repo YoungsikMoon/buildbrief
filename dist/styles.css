@@ -370,13 +370,7 @@ a.app-version:focus-visible {
   grid-template-columns: 18.75rem minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-height));
 }
-/* Screen planning is a visual workspace; the other steps keep their form layout. */
-.designing .workspace {
-  max-width: 1760px;
-}
-.designing main {
-  padding: 28px 24px;
-}
+/* Screen planning keeps the shared page width and outer spacing. */
 .designing #field-screens > legend {
   position: absolute;
   width: 1px;
@@ -841,9 +835,6 @@ a.app-version:focus-visible {
   .designer-stage {
     padding: 14px;
   }
-  .designing main {
-    padding: 24px 16px;
-  }
 }
 @media (max-width: 800px) {
   .designer-workspace {
@@ -870,9 +861,6 @@ a.app-version:focus-visible {
   }
 }
 @media (max-width: 400px) {
-  .designing main {
-    padding: 18px 10px;
-  }
   .designer-stage {
     padding: 12px 8px;
   }
