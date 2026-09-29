@@ -745,6 +745,50 @@ main {
 .screen-section > h4 + .field-help {
   margin-top: -12px;
 }
+.screen-section > summary {
+  font-size: var(--type-control);
+  font-weight: 600;
+}
+.screen-section[open] > summary {
+  margin-bottom: 20px;
+}
+.feature-add-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.feature-add-actions > button {
+  padding: 10px 8px;
+}
+.feature-catalog-panel {
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+}
+.feature-catalog-panel .catalog {
+  margin: 0;
+}
+.element-functions {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.element-functions > h6 {
+  font-size: var(--type-body);
+  margin: 0 0 12px;
+}
+.feature-flow > .action-item {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding: 16px 0 0;
+  margin: 16px 0;
+}
+.feature-unlink {
+  margin-top: 12px;
+}
 .screen-behavior > .local-flow {
   margin-top: 0;
   padding-top: 0;
@@ -873,8 +917,8 @@ main {
   min-width: 32px;
   min-height: 32px;
 }
-.feature-card .inline-actions {
-  margin-top: 16px;
+.feature-flow .inline-actions {
+  margin: 0;
 }
 .feature-card .recommendation-request,
 .element-settings .recommendation-request {

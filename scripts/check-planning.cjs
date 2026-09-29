@@ -72,7 +72,7 @@ const html = V.question(A.allQuestions.find(q=>q.id==='screens'),attack);
 assert(!html.includes('<img src=x'));
 assert(!R.report(attack,true).includes('<img src=x'));
 assert(!V.report(attack).includes('<img src=x'));
-assert(html.includes('기존 기능 연결') || html.includes('이 화면에 기능 추가'));
+assert(html.includes('기능 후보에서 선택') && html.includes('만들어 둔 기능 연결'));
 for (const contents of [null,[],{form:null},{nope:{}},JSON.parse('{"__proto__":{}}'),{form:{recommend:'yes'}},{form:{featureIds:['bad id']}},{form:{items:[{id:'a',type:'SQL'}]}},{form:{items:[{id:'a',required:true}]}},{form:{items:[{id:'a'},{id:'a'}]}},{table:{items:[{id:'a',notes:'x'.repeat(A.MAX_TEXT+1)}]}},{button:{items:[{id:'a'}]}},{table:{items:Array.from({length:A.MAX_ROWS+1},(_,i)=>({id:'i'+i}))}}]) {
   const input = {screens:[{id:'s',elementContents:contents}]}; const before=clone(input);
   assert.throws(()=>A.normalizeAnswers(input)); assert.deepEqual(input,before);
@@ -177,4 +177,27 @@ for(const q of A.allQuestions.filter(q=>q.allowRecommend)) {
 const unsafeRole=clone(local);unsafeRole.roles[0].role=unsafe;
 assert(!V.question(A.allQuestions.find(q=>q.id==='screens'),unsafeRole).includes('<img src=x'));
 
-console.log('Connected planning checks passed: two stage migrations, login, stable roles, shared features, nested flow/content, scoped reports and backup validation.');
+// Element → feature → action preserves old links and scopes each exception request.
+const elementFirst=A.normalizeAnswers({features:[{id:'f',category:'custom',name:'저장'}],screens:[{id:'s',name:'입력 화면',elements:['form'],featureIds:['f'],elementContents:{form:{featureIds:['f'],flow:[{id:'a',featureId:'f',event:'제출',result:'저장 완료',exceptions:unsafe,recommendExceptions:true}]}},customElements:[{id:'map',name:'좌석 지도',featureIds:['f'],flow:[{id:'b',featureId:'f',event:'선택',result:'선택 완료'}]}]}]});
+assert.deepEqual(A.linkedFeatureIds(elementFirst.screens[0].elementContents.form),['f']);
+const elementProject=P.createProject({answers:elementFirst,drafts:elementFirst});
+for(const backup of [{format:'buildbrief-idea',version:1,...elementProject},{format:'buildbrief-ideas',version:1,activeId:elementProject.id,projects:[elementProject]}]) assert.deepEqual(P.importBackup(backup).projects[0].answers,elementFirst);
+for(const prompt of [true,false]) {
+  const text=R.report(elementFirst,prompt);
+  assert(text.includes('오류·예외 추천 — 입력 화면 \\[S01\\] / 입력 양식 / 저장 \\[F01\\] / 동작 1'));
+  assert(!text.includes('오류·예외 추천 — 입력 화면 \\[S01\\] / 좌석 지도'));
+  assert(!text.includes('<img src=x'));
+  assert(!text.includes('이름·결과 중 미정인 내용을 확인'));
+}
+assert(!V.report(elementFirst).includes('<img src=x'));
+assert(!V.question(A.allQuestions.find(q=>q.id==='screens'),elementFirst).includes('<img src=x'));
+const hiddenExceptions=clone(elementFirst);hiddenExceptions.screens[0].elements=[];
+assert(!R.report(hiddenExceptions).includes('오류·예외 추천 —'));
+assert.deepEqual(P.createProject({answers:hiddenExceptions}).answers.screens[0].elementContents,elementFirst.screens[0].elementContents);
+const exceptionOnly=A.normalizeAnswers({screens:[{id:'s',flow:[{id:'a',recommendExceptions:true}]}]});
+assert.equal(A.progress(exceptionOnly).answered,0);assert(R.report(exceptionOnly).includes('오류·예외 추천 —'));
+for(const bad of [{recommendExceptions:'yes'},{exceptions:[]},{exceptions:'x'.repeat(A.MAX_TEXT+1)}]) {
+  for(const screen of [{id:'s',flow:[{id:'a',...bad}]},{id:'s',elementContents:{button:{flow:[{id:'a',...bad}]}}},{id:'s',customElements:[{id:'el',flow:[{id:'a',...bad}]}]}]) assert.throws(()=>A.normalizeAnswers({screens:[screen]}));
+}
+assert.throws(()=>A.normalizeAnswers({screens:[{id:'s',customElements:[{id:'el',featureIds:['bad id']}]}]}));
+console.log('Connected planning checks passed: migration, roles, element features, scoped actions/exceptions, exports and backup validation.');

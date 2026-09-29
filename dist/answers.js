@@ -182,7 +182,8 @@
         row.flow === undefined ? [] : row.flow,
         label + ' 이용 흐름',
         (item, itemLabel) => ({
-          ...stringFields(item, ['event', 'result'], itemLabel),
+          ...stringFields(item, ['event', 'result', 'exceptions'], itemLabel),
+          recommendExceptions: boolean(item.recommendExceptions, itemLabel + ' 오류·예외 추천'),
           featureId:
             item.featureId === undefined || item.featureId === ''
               ? ''
@@ -197,6 +198,12 @@
       )
     };
   }
+  const linkedFeatureIds = (plan = {}) => [
+    ...new Set([
+      ...(plan.featureIds || []),
+      ...(plan.flow || []).map((action) => action.featureId).filter(Boolean)
+    ])
+  ];
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
   // For reference text only: this does not check DNS, redirects or private networks.
@@ -332,6 +339,7 @@
             `${label}의 직접 추가한 요소`,
             (item, itemLabel) => ({
               ...stringFields(item, ['name', 'purpose'], itemLabel),
+              featureIds: ids(item.featureIds === undefined ? [] : item.featureIds, itemLabel),
               ...flowPlan(item, itemLabel)
             })
           )
@@ -430,7 +438,8 @@
     normalizeProject,
     progress,
     normalizeHttpUrl,
-    priorities
+    priorities,
+    linkedFeatureIds
   };
   root.BriefAnswers = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

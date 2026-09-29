@@ -35,12 +35,26 @@ const server = http.createServer((req,res)=>{
       };
       const openRoles=async(row=0)=>{const picker=page.locator(`#row-screens-${row} .role-picker`);if(!await picker.evaluate(n=>n.open)) await picker.locator('summary').click();await picker.locator('[data-role-search]').fill('');return picker;};
       const action=(screen,scope,row,property)=>page.locator(`[data-q="screens"][data-row="${screen}"][data-field="flow"][data-flow-scope="${scope}"][data-flow-row="${row}"][data-property="${property}"]`);
-      const openFlow=async(screen,scope='')=>{
-        const state=await stored(),id=state.answers.screens[screen].id;
-        const panel=page.locator(`[id="flow-${id}-${scope}"]`);
-        if(!await panel.evaluate(n=>n.open)) await panel.locator(':scope > summary').click();
+      const reveal=async locator=>{
+        const parents=locator.locator('xpath=ancestor::details');
+        for(let i=0;i<await parents.count();i++){const p=parents.nth(i);if(!await p.evaluate(n=>n.open)) await p.locator(':scope > summary').click();}
       };
-      const addFlow=async(screen,scope='')=>{await openFlow(screen,scope);await page.locator(`[data-flow-add][data-screen="${screen}"][data-flow-scope="${scope}"]`).click();};
+      const addFeature=async(screen,scope,kind='custom')=>{
+        const trigger=page.locator('[data-feature-catalog-target="feature-catalog-'+screen+'-'+scope+'"]');
+        const direct=page.locator('[data-feature="custom"][data-screen="'+screen+'"][data-flow-scope="'+scope+'"]');
+        const boxes=await trigger.evaluate(n=>[...n.parentElement.children].map(b=>{const r=b.getBoundingClientRect();return {y:r.y,height:r.height};}));
+        assert(Math.abs(boxes[0].y-boxes[1].y)<1 && Math.abs(boxes[0].height-boxes[1].height)<1,'Feature entry buttons share one row and height: '+JSON.stringify(boxes));
+        if(kind!=='custom') await page.locator('[data-feature-catalog-target="feature-catalog-'+screen+'-'+scope+'"]').click();
+        await page.locator('[data-feature="'+kind+'"][data-screen="'+screen+'"][data-flow-scope="'+scope+'"]').click();
+        return (await stored()).answers.features.at(-1);
+      };
+      const openFlow=async(screen,scope='',feature='')=>{
+        const state=await stored(),id=state.answers.screens[screen].id;
+        const panel=page.locator(`[id="flow-${id}-${scope}${feature?'-'+feature:''}"]`);
+        await reveal(panel);
+        if(await panel.evaluate(n=>n.tagName==='DETAILS'&&!n.open)) await panel.locator(':scope > summary').click();
+      };
+      const addFlow=async(screen,scope='',feature='')=>{await openFlow(screen,scope,feature);await page.locator(`[data-flow-add][data-screen="${screen}"][data-flow-scope="${scope}"][data-flow-feature="${feature}"]`).click();};
       await go(2);
       assert.equal(await page.locator('#question-form [value="아직 미정"]').count(),0);
       assert.equal(await page.locator('[data-q="login_need"]').count(),2);
@@ -59,6 +73,8 @@ const server = http.createServer((req,res)=>{
       await page.locator('[data-add="screens"]').click();
       await edit('screens',0,'name').fill('예약 신청');await edit('screens',0,'purpose').fill('시간을 골라 예약');
       await selectElement(0,'form');
+      if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.locator('.element-settings').first().evaluate(n=>n.scrollIntoView({block:'start'}));await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`element-start-${width}.png`)});}
+      await reveal(page.locator('[data-content-add][data-screen="0"][data-element="form"]'));
       await page.locator('[data-content-add][data-screen="0"][data-element="form"]').click();
       await nested(0,'form',0,'name').fill('수업');await nested(0,'form',0,'type').selectOption('하나 선택');
       await nested(0,'form',0,'required').selectOption('필수');await nested(0,'form',0,'options').fill('기초\n심화');
@@ -70,11 +86,11 @@ const server = http.createServer((req,res)=>{
       await page.locator('[data-content-remove="0"][data-element="form"]').click();
       assert.equal(await nested(0,'form',0,'options').inputValue(),'기초\n심화');
       await edit('screens',0,'elementNotes').filter({visible:true}).first().fill('선택지가 어려우면 설명을 보게 해요.');
-      await page.locator('[data-feature="custom"][data-screen="0"]').click();
-      await edit('features',0,'name').fill('예약하기');await edit('features',0,'outcome').fill('예약 번호 확인');
+      const f=await addFeature(0,'form','browse');
+      await edit('features',0,'name').fill('예약하기');
+      await reveal(edit('features',0,'outcome'));await edit('features',0,'outcome').fill('예약 번호 확인');
       assert.equal(await edit('features',0,'priority').inputValue(),'');
       assert.equal(await edit('features',0,'priority').locator('option').filter({hasText:'아직 미정'}).count(),0);
-      const f=(await stored()).answers.features[0];
       assert.equal(await page.locator('[data-feature-title="0"]').textContent(),'예약하기');
       assert.equal(await page.locator('[data-screen-title="0"]').textContent(),'예약 신청');
       await page.locator('[data-recommend="screens"]').check();
@@ -100,15 +116,16 @@ const server = http.createServer((req,res)=>{
       await page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[1].id}"]`).check();
       assert((await picker.locator('[data-role-summary]').textContent()).includes('로그인 사용자'));
       await page.locator('#page-title').click();assert(!await picker.evaluate(n=>n.open));
-      await addFlow(0,'form');
       await action(0,'form',0,'event').fill('신청서 제출');
-      await action(0,'form',0,'featureId').selectOption(f.id);
+      assert.equal((await stored()).answers.screens[0].elementContents.form.flow[0].featureId,f.id);
       await action(0,'form',0,'result').fill('실패하면 입력을 유지하고 다시 시도');
+      await action(0,'form',0,'recommendExceptions').check();
       await page.locator('[data-q="screens"][data-row="0"][data-field="recommendFlow"][data-flow-scope="form"]').check();
-      await page.locator(`[id="reason-feature-0-${f.id}"] > summary`).click();
+      await reveal(action(0,'form',0,'exceptions'));await action(0,'form',0,'exceptions').fill('중복 신청이면 기존 예약 안내');
+      await page.locator(`[id="reason-feature-0-form-${f.id}"] > summary`).click();
       await edit('features',0,'reason').fill('개인 예약 보호');
       await page.locator('[data-add="screens"]').click();await edit('screens',1,'name').fill('내 예약');
-      await selectElement(1,'table');await page.locator('[data-content-add][data-screen="1"][data-element="table"]').click();
+      await selectElement(1,'table');await reveal(page.locator('[data-content-add][data-screen="1"][data-element="table"]'));await page.locator('[data-content-add][data-screen="1"][data-element="table"]').click();
       await nested(1,'table',0,'name').fill('예약일');await nested(1,'table',0,'notes').fill('가까운 날짜순');
       await nested(1,'table',null,'recommend').check();
       const tableOption=page.locator('[data-row="1"][data-field="elementOptions"][data-element="table"][value="pages"]');
@@ -119,7 +136,8 @@ const server = http.createServer((req,res)=>{
       assert(!await tableOption.isChecked());
       assert.deepEqual((await stored()).answers.screens[1].elementOptions.table,[]);
       await tableOption.check();
-      await page.locator('[data-link-feature][data-screen="1"]').selectOption(f.id);
+      await page.locator('[data-feature-catalog-target="feature-catalog-1-table"]').click();
+      await page.locator('[data-link-feature][data-screen="1"][data-flow-scope="table"]').selectOption(f.id);
       assert.equal(await edit('features',0,'name').count(),2);
       await edit('features',0,'name').last().fill('예약 신청하기');
       assert.equal(await edit('features',0,'name').first().inputValue(),'예약 신청하기');
@@ -129,9 +147,10 @@ const server = http.createServer((req,res)=>{
       await action(0,'form',0,'nextScreenId').selectOption(state.answers.screens[1].id);
       await addFlow(0);
       await action(0,'',0,'event').fill('이 화면에 들어오면');await action(0,'',0,'nextScreenId').selectOption('@stay');
-      await selectElement(0,'sidebar');await addFlow(0,'sidebar');
+      await selectElement(0,'sidebar');const sidebarFeature=await addFeature(0,'sidebar');
+      await edit('features',1,'name').fill('뒤로 가기');
       await action(0,'sidebar',0,'event').fill('뒤로가기 누르기');await action(0,'sidebar',0,'nextScreenId').selectOption('@back');
-      await addFlow(0,'sidebar');await action(0,'sidebar',1,'event').fill('삭제할 동작');
+      await addFlow(0,'sidebar',sidebarFeature.id);await action(0,'sidebar',1,'event').fill('삭제할 동작');
       await page.locator('[data-flow-move="1"][data-flow-scope="sidebar"][data-direction="-1"]').click();
       assert.equal(await action(0,'sidebar',0,'event').inputValue(),'삭제할 동작');
       await page.locator('[data-flow-remove="0"][data-flow-scope="sidebar"]').click();
@@ -139,7 +158,8 @@ const server = http.createServer((req,res)=>{
       await page.locator('[data-add-element][data-screen="0"]').click();
       await page.locator('[data-row="0"][data-field="customElements"][data-property="name"]').fill('좌석 배치도');
       const custom=(await stored()).answers.screens[0].customElements[0];
-      await addFlow(0,'custom:'+custom.id);await action(0,'custom:'+custom.id,0,'event').fill('좌석 선택');
+      const customFeature=await addFeature(0,'custom:'+custom.id);await edit('features',2,'name').fill('좌석 고르기');
+      await action(0,'custom:'+custom.id,0,'event').fill('좌석 선택');
       await action(0,'custom:'+custom.id,0,'nextScreenId').selectOption('@stay');
       await openRoles();
       await page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[3].id}"]`).check();
@@ -153,21 +173,25 @@ const server = http.createServer((req,res)=>{
       assert(await selectedRole.isChecked());assert((await selectedRole.locator('..').innerText()).includes('예약 회원'));
       const deletedRole=page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[3].id}"]`);
       assert((await deletedRole.locator('..').innerText()).includes('삭제된 역할'));await deletedRole.uncheck();
-      await page.locator('[data-feature="custom"][data-screen="0"]').click();
-      const extra=(await stored()).answers.features[1];await edit('features',1,'name').fill('삭제할 기능');
-      const extraDetails=page.locator(`#feature-0-${extra.id}`);
+      const extra=await addFeature(0,'form');await edit('features',3,'name').fill('삭제할 기능');
+      const extraDetails=page.locator(`[id="feature-0-form-${extra.id}"]`);
       await extraDetails.locator(':scope > summary').click();
-      const remove=page.locator('[data-remove="features"][data-index="1"]');assert(await remove.isVisible());
+      const remove=page.locator('[data-remove="features"][data-index="3"]');assert(await remove.isVisible());
       if(process.env.PLANNING_SCREENSHOTS){await extraDetails.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`feature-delete-${width}.png`)});}
-      acceptDialog=false;await remove.click();assert.equal((await stored()).answers.features.length,2);assert(!await extraDetails.evaluate(n=>n.open));
-      acceptDialog=true;await remove.focus();await page.keyboard.press('Enter');assert.equal((await stored()).answers.features.length,1);
+      acceptDialog=false;await remove.click();assert.equal((await stored()).answers.features.length,4);assert(!await extraDetails.evaluate(n=>n.open));
+      acceptDialog=true;await remove.focus();await page.keyboard.press('Enter');assert.equal((await stored()).answers.features.length,3);
+      assert(await page.locator('[data-feature-catalog-target="feature-catalog-0-form"]').evaluate(n=>n===document.activeElement));
       await page.locator('[data-unlink-feature][data-screen="1"]').click();
-      state=await stored();assert.equal(state.answers.features.length,1);assert.deepEqual(state.answers.screens[1].featureIds,[]);
+      state=await stored();assert.equal(state.answers.features.length,3);assert.deepEqual(state.answers.screens[1].elementContents.table.featureIds,[]);
+      assert.equal(state.answers.screens[1].elementContents.table.flow[0].featureId,'');
+      await page.locator('[data-flow-remove="0"][data-screen="1"][data-flow-scope="table"][data-flow-feature=""]').click();
+      assert.equal((await stored()).answers.screens[1].elementContents.table.flow.length,0);
+      assert(await page.locator('[data-feature-catalog-target="feature-catalog-1-table"]').evaluate(n=>n===document.activeElement));
       assert.equal(state.answers.screens[0].elementContents.form.flow[0].featureId,f.id);
-      if(process.env.PLANNING_SCREENSHOTS){await openFlow(0,'form');await action(0,'form',0,'event').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`flow-${width}.png`)});}
+      if(process.env.PLANNING_SCREENSHOTS){await openFlow(0,'form',f.id);await action(0,'form',0,'event').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`flow-${width}.png`)});}
       await go(5);await page.locator('#next-button').click();
       const report=await page.locator('#report-view').innerText();
-      for(const text of ['예약 신청하기','입력 항목 1','표의 열 1','기초','심화','개인 예약 보호','신청서 제출','좌석 선택','예약 회원','이전 화면으로 돌아가기','현재 화면 유지','요소별 추천','동작·이동 추천']) assert(report.includes(text),text);
+      for(const text of ['예약 신청하기','입력 항목 1','표의 열 1','기초','심화','개인 예약 보호','신청서 제출','좌석 선택','예약 회원','이전 화면으로 돌아가기','현재 화면 유지','요소별 추천','오류·예외 추천','중복 신청이면 기존 예약 안내']) assert(report.includes(text),text);
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Report overflow ${width}`);
       await page.locator('#back-to-form').click();await go(4);
       const before=await stored();await page.reload();assert(await page.locator('#guide-view').isVisible());
@@ -179,6 +203,34 @@ const server = http.createServer((req,res)=>{
       await page.locator('#import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
       const restored=await stored();assert.notEqual(restored.id,before.id);assert.deepEqual(restored.answers,before.answers);
       assert.equal(await page.locator('[id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length-new Set(ids).size;}),0,'Duplicate DOM ids');
+      // Old screen-level links remain editable; moving within one feature preserves other actions.
+      await page.evaluate(()=>{
+        const project=BriefProjects.createProject({answers:{features:[{id:'f1',name:'저장'},{id:'f2',name:'검색'},{id:'f3',name:'기존 기능'}],screens:[{id:'s',name:'이전 화면',elements:['form'],featureIds:['f1','f2','f3'],flow:[{id:'load',featureId:'f1',event:'화면 진입'}],elementContents:{form:{flow:[{id:'a',featureId:'f1',event:'첫 동작',recommendExceptions:true},{id:'b',featureId:'f2',event:'검색 동작'},{id:'c',featureId:'f1',event:'다른 동작'}]}}}]}});
+        localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:project.id,projects:[project]}));
+      });await page.reload();await go(4);
+      assert.equal(await action(0,'',0,'event').inputValue(),'화면 진입');
+      await page.locator('[data-flow-move="2"][data-flow-scope="form"][data-flow-feature="f1"][data-direction="-1"]').click();
+      assert.deepEqual((await stored()).answers.screens[0].elementContents.form.flow.map(a=>a.id),['c','b','a']);
+      assert((await stored()).answers.screens[0].elementContents.form.flow[2].recommendExceptions);
+      await page.locator('[data-assign-feature="f3"]').selectOption('form');
+      assert((await stored()).answers.screens[0].elementContents.form.featureIds.includes('f3'));
+      assert.equal(await page.locator('[id="feature-0-f3"]').count(),0);
+      assert.equal(await page.locator('[id="feature-0-form-f3"]').count(),1);
+      await reveal(page.locator('[data-q="screens"][data-row="0"][data-field="elements"][value="form"]'));
+      await page.locator('[data-q="screens"][data-row="0"][data-field="elements"][value="form"]').uncheck();
+      assert.equal(await page.locator('[id="feature-0-form-f3"]').count(),0);
+      assert.equal((await stored()).answers.screens[0].elementContents.form.flow.length,4);
+      await selectElement(0,'form');
+      assert.equal(await action(0,'form',2,'event').inputValue(),'첫 동작');
+      assert.equal(await page.locator('[id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length-new Set(ids).size;}),0,'Duplicate shared feature IDs');
+      await page.evaluate(()=>{
+        const project=BriefProjects.createProject({answers:{features:[],screens:[{id:'s',name:'기존 연결 상한',elements:['form'],featureIds:Array.from({length:80},(_,i)=>'old-'+i),elementContents:{form:{}}}]}});
+        localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:project.id,projects:[project]}));
+      });await page.reload();await go(4);
+      const atLimit=(await stored()).answers;
+      await page.locator('[data-feature="custom"][data-screen="0"][data-flow-scope="form"]').click();
+      assert.deepEqual((await stored()).answers,atLimit,'A failed link must not create a feature or exceed backup limits');
+      assert.equal(await page.locator('[data-feature-title]').count(),0);
       await page.evaluate(()=>{
         const project=BriefProjects.createProject({answers:{roles:Array.from({length:80},(_,i)=>({id:'role-'+i,role:'운영 담당 '+(i+1)})),screens:[{id:'s',name:'긴 역할 목록',roleIds:['role-79']}]}});
         localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:project.id,projects:[project]}));

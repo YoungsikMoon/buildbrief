@@ -43,6 +43,11 @@
       }))
     ]);
     const flowRequests = flowContexts.filter((context) => context.plan.recommendFlow);
+    const exceptionRequests = flowContexts.flatMap((context) =>
+      (context.plan.flow || []).flatMap((action, index) =>
+        action.recommendExceptions ? [{ ...context, action, index }] : []
+      )
+    );
     const requestedIds = normalizeRecommendations(recommendations);
     const requests = activeQuestions(answers).filter((q) => requestedIds.includes(q.id));
     const screenRequests = screens.filter((screen) => screen.recommendLayout === true);
@@ -57,6 +62,7 @@
       screenRequests.length ||
       elementRequests.length ||
       flowRequests.length ||
+      exceptionRequests.length ||
       permissionRequests.length;
     const featureLabels = new Map(
       features.map((item, index) => [item.id, `F${String(index + 1).padStart(2, '0')}`])
@@ -115,12 +121,25 @@
     };
     function flowFields(plan) {
       for (const [index, action] of (plan.flow || []).entries()) {
-        if (!isAnswered(action)) continue;
-        lines.push(`**동작 ${index + 1}**`, '');
+        if (!isAnswered(action) && !action.recommendExceptions) continue;
+        const number = action.featureId
+          ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId)
+              .length
+          : index + 1;
+        lines.push(
+          `**${action.featureId ? md(featureName(action.featureId)) + ' · ' : ''}동작 ${number}**`,
+          ''
+        );
         field('행동이나 상황', action.event);
         if (action.featureId) field('실행할 기능', featureName(action.featureId));
         if (action.nextScreenId) field('다음 화면', screenName(action.nextScreenId));
         if (isAnswered(action.result)) field('처리 결과·다른 경우', action.result);
+        field('오류·예외 대응', action.exceptions);
+        if (action.recommendExceptions)
+          field(
+            '오류·예외 추천 요청 · 미확정',
+            '이 동작에서 발생할 수 있는 실패·예외와 사용자 안내·재시도 방법'
+          );
       }
       if (plan.recommendFlow)
         field('동작 추천 요청 · 미확정', '이 대상의 행동·상황, 실행할 기능, 처리 결과와 다음 화면');
@@ -189,7 +208,10 @@
             if (isAnswered(row.reason)) field('이 화면의 선택 이유·메모', row.reason);
             flowFields(row);
             const customElements = (row.customElements || []).filter(
-              (item) => isAnswered(item) || item.recommendFlow
+              (item) =>
+                isAnswered(item) ||
+                item.recommendFlow ||
+                (item.flow || []).some((action) => action.recommendExceptions)
             );
             if ((row.elements || []).length || customElements.length)
               lines.push('**화면 구성요소와 용도**');
@@ -253,6 +275,8 @@
                 ''
               );
               flowFields(item);
+              if (item.featureIds?.length)
+                field('이 요소에서 실행할 기능', item.featureIds.map(featureName));
             }
             lines.push('');
           } else if (q.type === 'references') {
@@ -305,7 +329,10 @@
               isAnswered(notes[q.id]) ||
               isAnswered(answers[q.id]) ||
               (q.type === 'screens' &&
-                (screenRequests.length || elementRequests.length || flowRequests.length)) ||
+                (screenRequests.length ||
+                  elementRequests.length ||
+                  flowRequests.length ||
+                  exceptionRequests.length)) ||
               (q.type === 'features' && permissionRequests.length)
           )
         }))
@@ -353,6 +380,10 @@
           ({ screen, scope }) =>
             `- 동작·이동 추천 — ${md(screenName(screen.id))} / ${md(scope)}: 이 대상의 행동·상황, 처리 결과, 실행할 기능과 다음 화면만 제안하세요. 작성한 동작과 역할·선택 이유를 유지하고, 누락된 역할이나 화면은 임의 확정하지 마세요.`
         ),
+        ...exceptionRequests.map(
+          ({ screen, scope, plan, action, index }) =>
+            `- 오류·예외 추천 — ${md(screenName(screen.id))} / ${md(scope)} / ${action.featureId ? md(featureName(action.featureId)) + ' / ' : ''}동작 ${action.featureId ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId).length : index + 1}: 이 동작의 행동·입력·처리 결과를 바탕으로 가능한 실패·예외, 사용자 안내, 입력 보존과 재시도 방법을 제안하세요. 작성한 대응은 유지하고 미확정 제안으로 구분하세요.`
+        ),
         ...(elementRequests.length || permissionRequests.length
           ? [
               '',
@@ -380,7 +411,15 @@
     );
     const unfinished = [];
     for (const feature of features)
-      if (!feature.name || !feature.outcome)
+      if (
+        !feature.name ||
+        (!feature.outcome &&
+          !flowContexts.some(({ plan }) =>
+            (plan.flow || []).some(
+              (action) => action.featureId === feature.id && isAnswered(action.result)
+            )
+          ))
+      )
         unfinished.push(
           `기능 [${featureLabels.get(feature.id)}] ${feature.name || '이름 미정'}: 이름·결과 중 미정인 내용을 확인`
         );
@@ -402,6 +441,12 @@
               `${screenName(screen.id)}의 ${Q.uiElements.find((el) => el.id === element)?.label}: ${featureName(id)}`
             );
     }
+    for (const { screen, scope, plan } of flowContexts)
+      for (const id of plan.featureIds || [])
+        if (!features.some((feature) => feature.id === id)) {
+          const message = `${screenName(screen.id)} / ${scope}: ${featureName(id)}`;
+          if (!unfinished.includes(message)) unfinished.push(message);
+        }
     for (const { screen, scope, plan } of flowContexts)
       for (const [index, action] of (plan.flow || []).entries()) {
         if (!isAnswered(action)) continue;

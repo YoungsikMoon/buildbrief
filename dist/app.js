@@ -106,6 +106,44 @@
     screen.elementContents ||= {};
     return (screen.elementContents[scope] ||= { items: [], featureIds: [] });
   }
+  function connectFeature(screen, scope, id) {
+    const plan = scope ? flowTarget(screen, scope) : null;
+    if (scope && !plan) return false;
+    if (
+      [screen, ...(plan ? [plan] : [])].some(
+        (target) =>
+          (target.featureIds || []).length >= A.MAX_ROWS && !target.featureIds.includes(id)
+      )
+    ) {
+      toast(`한곳에 최대 ${A.MAX_ROWS}개 기능을 연결할 수 있어요.`);
+      return false;
+    }
+    if (plan) {
+      const hasAction = (plan.flow || []).some((action) => action.featureId === id);
+      if (!hasAction && (plan.flow || []).length >= A.MAX_ROWS) {
+        toast(`한 요소에 최대 ${A.MAX_ROWS}개 동작을 기록할 수 있어요.`);
+        return false;
+      }
+      plan.featureIds = [...new Set([...(plan.featureIds || []), id])];
+      if (!hasAction)
+        (plan.flow ||= []).push({
+          id: P.newId(),
+          featureId: id,
+          event: '',
+          result: '',
+          nextScreenId: ''
+        });
+    }
+    screen.featureIds = [...new Set([...(screen.featureIds || []), id])];
+    return true;
+  }
+  function focusFeature(screenIndex, scope, id) {
+    const card = document.getElementById(`feature-${screenIndex}${scope ? '-' + scope : ''}-${id}`);
+    if (!card) return;
+    card.open = true;
+    card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    card.querySelector('input,textarea,select')?.focus({ preventScroll: true });
+  }
   function renderNavigation(guide = false) {
     $('#guide-button').classList.toggle('active', guide);
     if (guide) $('#guide-button').setAttribute('aria-current', 'page');
@@ -327,8 +365,17 @@
     if (el.matches('select[data-link-feature]')) {
       const screen = rowsOf('screens')[Number(el.dataset.screen)];
       if (screen && rowsOf('features').some((f) => f.id === el.value)) {
-        screen.featureIds = [...new Set([...(screen.featureIds || []), el.value])];
+        if (!connectFeature(screen, el.dataset.flowScope, el.value)) return;
         changed(true);
+        focusFeature(el.dataset.screen, el.dataset.flowScope, el.value);
+      }
+      return;
+    }
+    if (el.matches('select[data-assign-feature]')) {
+      const screen = rowsOf('screens')[Number(el.dataset.screen)];
+      if (el.value && screen && connectFeature(screen, el.value, el.dataset.assignFeature)) {
+        changed(true);
+        focusFeature(el.dataset.screen, el.value, el.dataset.assignFeature);
       }
       return;
     }
@@ -356,8 +403,19 @@
       if (field === 'recommendFlow') plan.recommendFlow = el.checked;
       else {
         const action = plan.flow?.[Number(flowRow)];
-        if (!action || !['event', 'featureId', 'nextScreenId', 'result'].includes(property)) return;
-        action[property] = el.value;
+        if (
+          !action ||
+          ![
+            'event',
+            'featureId',
+            'nextScreenId',
+            'result',
+            'exceptions',
+            'recommendExceptions'
+          ].includes(property)
+        )
+          return;
+        action[property] = el.type === 'checkbox' ? el.checked : el.value;
         if (property === 'featureId' && el.value)
           object.featureIds = [...new Set([...(object.featureIds || []), el.value])];
       }
@@ -505,6 +563,12 @@
     const b = event.target.closest('button');
     if (!b) return;
     const d = b.dataset;
+    if (d.featureCatalogTarget) {
+      const panel = document.getElementById(d.featureCatalogTarget);
+      panel.hidden = !panel.hidden;
+      b.setAttribute('aria-expanded', String(!panel.hidden));
+      return;
+    }
     if (d.editRoles !== undefined) {
       renderStep(
         steps.findIndex((s) => s.id === 'users'),
@@ -535,8 +599,21 @@
     if (d.unlinkFeature) {
       const screen = rowsOf('screens')[Number(d.screen)];
       if (!screen) return;
+      if (d.flowScope) {
+        const plan = flowTarget(screen, d.flowScope);
+        if (!plan) return;
+        plan.featureIds = (plan.featureIds || []).filter((id) => id !== d.unlinkFeature);
+        for (const action of plan.flow || [])
+          if (action.featureId === d.unlinkFeature) action.featureId = '';
+        changed(true);
+        toast('요소에서 연결을 해제했어요. 작성한 동작은 남겨 두었어요.');
+        return;
+      }
       screen.featureIds = (screen.featureIds || []).filter((id) => id !== d.unlinkFeature);
-      for (const plan of Object.values(screen.elementContents || {}))
+      for (const plan of [
+        ...Object.values(screen.elementContents || {}),
+        ...(screen.customElements || [])
+      ])
         plan.featureIds = (plan.featureIds || []).filter((id) => id !== d.unlinkFeature);
       for (const plan of [
         screen,
@@ -558,7 +635,13 @@
       if (d.flowAdd !== undefined) {
         if (rows.length >= A.MAX_ROWS)
           return toast(`한곳에 최대 ${A.MAX_ROWS}개 동작을 기록할 수 있어요.`);
-        const action = { id: P.newId(), event: '', featureId: '', nextScreenId: '', result: '' };
+        const action = {
+          id: P.newId(),
+          event: '',
+          featureId: d.flowFeature || '',
+          nextScreenId: '',
+          result: ''
+        };
         rows.push(action);
         focusId = action.id;
       } else if (d.flowRemove !== undefined) {
@@ -566,15 +649,33 @@
           return;
         rows.splice(Number(d.flowRemove), 1);
       } else {
-        const from = Number(d.flowMove),
-          to = from + Number(d.direction);
+        const from = Number(d.flowMove);
+        const indices = rows
+          .map((action, index) => ({ action, index }))
+          .filter(({ action }) =>
+            d.flowFeature
+              ? action.featureId === d.flowFeature
+              : !action.featureId || !rowsOf('features').some((f) => f.id === action.featureId)
+          )
+          .map(({ index }) => index);
+        const to = indices[indices.indexOf(from) + Number(d.direction)];
         if (!rows[from] || !rows[to]) return;
         [rows[from], rows[to]] = [rows[to], rows[from]];
         focusId = rows[to].id;
       }
       changed(true);
-      const panel = document.getElementById(`flow-${screen.id}-${d.flowScope || ''}`);
-      panel.open = true;
+      const panel = document.getElementById(
+        `flow-${screen.id}-${d.flowScope || ''}${d.flowFeature ? '-' + d.flowFeature : ''}`
+      );
+      if (!panel) {
+        document
+          .querySelector(
+            `[data-feature-catalog-target="feature-catalog-${d.screen}-${d.flowScope}"]`
+          )
+          ?.focus({ preventScroll: true });
+        return;
+      }
+      if (panel.tagName === 'DETAILS') panel.open = true;
       const target = focusId
         ? document
             .getElementById(`flow-row-${screen.id}-${d.flowScope || ''}-${focusId}`)
@@ -668,7 +769,8 @@
         row = {
           ...row,
           category: d.feature || 'custom',
-          name: featureTypes.find((f) => f.id === d.feature)?.label || '',
+          name:
+            d.feature === 'custom' ? '' : featureTypes.find((f) => f.id === d.feature)?.label || '',
           actor: '',
           outcome: '',
           priority: '',
@@ -690,13 +792,17 @@
           error: '',
           mobile: ''
         };
-      answers[qid] = [...rows, row];
       const screen =
         qid === 'features' && d.screen !== undefined && d.screen !== ''
           ? rowsOf('screens')[Number(d.screen)]
           : null;
-      if (screen) screen.featureIds = [...new Set([...(screen.featureIds || []), row.id])];
+      if (screen && !connectFeature(screen, d.flowScope, row.id)) return;
+      answers[qid] = [...rows, row];
       changed(true);
+      if (screen) {
+        focusFeature(d.screen, d.flowScope, row.id);
+        return;
+      }
       const card = document.getElementById(
         qid === 'features'
           ? `feature-${screen ? d.screen : 'shared'}-${row.id}`
@@ -713,14 +819,18 @@
         d.remove === 'roles'
           ? '이 역할을 삭제할까요? 이 역할을 선택한 화면은 다시 확인해야 해요.'
           : d.remove === 'features'
-            ? '이 기능을 삭제할까요? 모든 화면·이용 과정의 연결에 영향을 줘요. 한 화면에서만 빼려면 연결 해제를 사용하세요.'
+            ? '이 기능을 삭제할까요? 모든 화면·요소의 연결에 영향을 줘요. 한 곳에서만 빼려면 연결 해제를 사용하세요.'
             : d.remove === 'screens'
               ? '이 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.'
               : '이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.';
       if (rows[index] && window.confirm(message)) {
+        const returnTo =
+          d.remove === 'features'
+            ? `[data-feature-catalog-target="${b.closest('.element-functions')?.querySelector('[data-feature-catalog-target]')?.dataset.featureCatalogTarget || 'feature-catalog-shared'}"]`
+            : `[data-add="${d.remove}"]`;
         answers[d.remove] = rows.filter((_, i) => i !== index);
         changed(true);
-        document.querySelector(`[data-add="${d.remove}"]`)?.focus({ preventScroll: true });
+        document.querySelector(returnTo)?.focus({ preventScroll: true });
       }
       return;
     }
