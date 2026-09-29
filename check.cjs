@@ -154,10 +154,18 @@ test('Inactive answers remain in backup but leave the current document', () => {
   assert(!R.report(hidden).includes(original[q.id]));
 });
 
-test('Unknown stays unknown and is not a generated requirement', () => {
+test('Unknown is preserved only for old answers and is not added to fresh choices', () => {
   assert.equal(A.UNKNOWN, '아직 미정');
-  const q = A.allQuestions.find(q => q.type === 'single' && !q.omitUnknown);
-  assert.equal(A.choiceOptions(q).filter(item => item === A.UNKNOWN).length, 1);
+  const q = A.allQuestions.find(q => q.type === 'single');
+  for (const item of A.allQuestions.filter(q=>['single','multi'].includes(q.type))) {
+    assert(!A.choiceOptions(item).includes(A.UNKNOWN));
+    assert(!V.question(item).includes(`value="${A.UNKNOWN}"`));
+  }
+  assert.equal(A.choiceOptions(q,A.UNKNOWN).filter(item => item === A.UNKNOWN).length, 1);
+  const previous=A.normalizeAnswers({login_methods:[A.UNKNOWN],login_need:A.UNKNOWN});
+  assert.deepEqual(previous.login_methods,[A.UNKNOWN]);
+  assert(A.choiceOptions({options:['카카오',A.UNKNOWN]},previous.login_methods).includes(A.UNKNOWN));
+  assert(V.question(q,{[q.id]:A.UNKNOWN}).includes(`value="${A.UNKNOWN}"`));
   assert.equal(A.normalizeAnswers({ [q.id]: A.UNKNOWN })[q.id], A.UNKNOWN);
   assert(R.report({ project_name: A.UNKNOWN }).includes('확인해 볼 질문'));
   assert(!R.report({}).includes('React'));
@@ -658,7 +666,7 @@ test('AI handoff requests a reviewed planning draft before implementation', () =
   const output = R.report({ project_name: '작은 아이디어' }, true);
   assert(output.includes('별도의 구현 요청 전에는 코딩·배포를 시작하거나 기술 스택을 확정하지 마세요'));
   assert(output.includes('확인하지 않은 가정'));
-  assert(output.includes('빈칸을 확정된 요구로 채우지 마세요'));
+  assert(output.includes('빈칸이나 생략된 세부 항목은 정하지 않은 내용입니다. 확정된 요구로 채우지 마세요'));
   assert(output.includes('자료이며'));
 });
 

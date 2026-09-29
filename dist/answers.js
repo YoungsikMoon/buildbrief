@@ -22,8 +22,12 @@
     if (typeof value !== 'string' || value.length > max) fail(label);
     return value;
   };
-  const choiceOptions = (q) => [
-    ...new Set([...(q.options || []), ...(q.omitUnknown ? [] : [UNKNOWN])])
+  // Keep a previously chosen unknown visible, but do not offer it for new answers.
+  const choiceOptions = (q, value) => [
+    ...new Set([
+      ...(q.options || []).filter((option) => option !== UNKNOWN),
+      ...(value === UNKNOWN || (Array.isArray(value) && value.includes(UNKNOWN)) ? [UNKNOWN] : [])
+    ])
   ];
   const isAnswered = (value) =>
     typeof value === 'string'
@@ -120,7 +124,7 @@
   }
 
   function selected(value, field, label) {
-    const options = [...choiceOptions(field), ...(field.legacyOptions || [])];
+    const options = [...choiceOptions(field), UNKNOWN, ...(field.legacyOptions || [])];
     const valid = (item) =>
       typeof item === 'string' &&
       (item === '' ||

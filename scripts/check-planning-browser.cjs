@@ -41,6 +41,7 @@ const server = http.createServer((req,res)=>{
       };
       const addFlow=async(screen,scope='')=>{await openFlow(screen,scope);await page.locator(`[data-flow-add][data-screen="${screen}"][data-flow-scope="${scope}"]`).click();};
       await go(2);
+      assert.equal(await page.locator('#question-form [value="아직 미정"]').count(),0);
       assert.equal(await page.locator('[data-q="login_need"]').count(),2);
       await page.locator('[data-q="login_need"][value="로그인 필요"]').check();
       for(const value of ['이메일·비밀번호','카카오','네이버','Google']) await page.locator(`[data-q="login_methods"][value="${value}"]`).check();
@@ -70,6 +71,8 @@ const server = http.createServer((req,res)=>{
       await edit('screens',0,'elementNotes').filter({visible:true}).first().fill('선택지가 어려우면 설명을 보게 해요.');
       await page.locator('[data-feature="custom"][data-screen="0"]').click();
       await edit('features',0,'name').fill('예약하기');await edit('features',0,'outcome').fill('예약 번호 확인');
+      assert.equal(await edit('features',0,'priority').inputValue(),'');
+      assert.equal(await edit('features',0,'priority').locator('option').filter({hasText:'아직 미정'}).count(),0);
       const f=(await stored()).answers.features[0];
       assert.equal(await edit('features',0,'actor').count(),0);
       await page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[1].id}"]`).check();
@@ -84,6 +87,14 @@ const server = http.createServer((req,res)=>{
       await selectElement(1,'table');await page.locator('[data-content-add][data-screen="1"][data-element="table"]').click();
       await nested(1,'table',0,'name').fill('예약일');await nested(1,'table',0,'notes').fill('가까운 날짜순');
       await nested(1,'table',null,'recommend').check();
+      const tableOption=page.locator('[data-row="1"][data-field="elementOptions"][data-element="table"][value="pages"]');
+      assert.equal(await page.locator('[data-row="1"][data-field="elementOptions"][value=""]').count(),0);
+      await tableOption.check();
+      assert.deepEqual((await stored()).answers.screens[1].elementOptions.table,['pages']);
+      await page.locator('[data-clear-element="table"][data-screen="1"]').click();
+      assert(!await tableOption.isChecked());
+      assert.deepEqual((await stored()).answers.screens[1].elementOptions.table,[]);
+      await tableOption.check();
       await page.locator('[data-link-feature][data-screen="1"]').selectOption(f.id);
       assert.equal(await edit('features',0,'name').count(),2);
       await edit('features',0,'name').last().fill('예약 신청하기');

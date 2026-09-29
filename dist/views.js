@@ -27,7 +27,7 @@
     if (type === 'single')
       control = /* HTML */ `<select id="${id}" ${attributes}
         ><option value="">선택해 주세요</option
-        >${options
+        >${A.choiceOptions({ options }, value)
           .map((o) => /* HTML */ `<option ${o === value ? 'selected' : ''}>${esc(o)}</option>`)
           .join('')}</select
       >`;
@@ -251,7 +251,7 @@ ${esc(value)}</textarea
               row.nextScreenId,
               destinations,
               field('nextScreenId'),
-              '아직 정하지 않음'
+              '이동할 화면 선택'
             )}${input('처리 결과·다른 경우 (선택)', row.result, field('result'), {
               type: 'textarea',
               help: '예: 성공하면 완료 안내, 실패하면 입력을 유지하고 다시 시도. 갈 곳이 다르면 동작을 하나 더 추가하세요.'
@@ -317,9 +317,7 @@ ${esc(value)}</textarea
     if (!el.detail) return '';
     const selected = row.elementOptions?.[el.id] || [];
     if (el.id === 'form' && !selected.length) return '';
-    const options = el.detail.multiple
-      ? el.detail.options
-      : [...el.detail.options, { id: '', label: '아직 정하지 않음' }];
+    const options = el.detail.options;
     return /* HTML */ `<fieldset class="sub-field element-detail"
       ><legend>${esc(el.id === 'form' ? '이전에 선택한 입력 방식' : el.detail.label)}</legend
       ><div class="choices"
@@ -351,7 +349,9 @@ ${esc(value)}</textarea
               >`
           )
           .join('')}</div
-      ></fieldset
+      >${!el.detail.multiple && selected.length
+        ? `<button type="button" class="text-button clear-answer" data-clear-element="${el.id}" data-screen="${i}">선택 지우기</button>`
+        : ''}</fieldset
     >`;
   }
   function elementContent(el, row, i, answers) {
@@ -618,7 +618,7 @@ ${esc(value)}</textarea
               value: f.id,
               label: f.name || '이름 없는 기능'
             }))
-          : A.choiceOptions(q).map((o) => ({ value: o, label: q.optionLabels?.[o] || o }));
+          : A.choiceOptions(q, value).map((o) => ({ value: o, label: q.optionLabels?.[o] || o }));
       control = options.length
         ? /* HTML */ `<div class="choices"
             >${options

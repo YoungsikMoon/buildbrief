@@ -409,6 +409,7 @@
     const rerender =
       (row === undefined && el.matches('select,input[type="checkbox"],input[type="radio"]')) ||
       field === 'elements' ||
+      field === 'elementOptions' ||
       (field === 'flow' && property === 'featureId') ||
       (field === 'elementContents' && ['type', 'featureIds'].includes(property));
     changed(rerender);
@@ -482,7 +483,7 @@
     if (d.step !== undefined) return renderStep(Number(d.step), true);
     if (d.help) {
       const q = questions.get(d.help),
-        option = A.choiceOptions(q)[Number(d.option)];
+        option = A.choiceOptions(q, answers[q.id])[Number(d.option)];
       return showHelp(option, window.BriefGuides.get(q, option));
     }
     if (d.featureHelp) {
@@ -636,7 +637,7 @@
           name: featureTypes.find((f) => f.id === d.feature)?.label || '',
           actor: '',
           outcome: '',
-          priority: '아직 미정',
+          priority: '',
           notes: ''
         };
       if (qid === 'screens')
@@ -687,6 +688,19 @@
         changed(true);
         document.querySelector(`[data-add="${d.remove}"]`)?.focus({ preventScroll: true });
       }
+      return;
+    }
+    if (d.clearElement) {
+      const screen = rowsOf('screens')[Number(d.screen)];
+      if (!screen || !uiElements.some((el) => el.id === d.clearElement)) return;
+      screen.elementOptions ||= {};
+      screen.elementOptions[d.clearElement] = [];
+      changed(true);
+      document
+        .querySelector(
+          `[data-row="${d.screen}"][data-field="elementOptions"][data-element="${d.clearElement}"]`
+        )
+        ?.focus({ preventScroll: true });
       return;
     }
     if (d.clear) {

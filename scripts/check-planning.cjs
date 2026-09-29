@@ -149,4 +149,19 @@ for (const flow of [null,{},[{id:'x',nextScreenId:'javascript:alert(1)'}],[{id:'
   }
 }
 for (const screen of [{id:'s',recommendFlow:'yes'},{id:'s',roleIds:['bad id']},{id:'s',roleIds:['r','r']},{id:'s',elementContents:{sidebar:{recommendFlow:1}}}]) assert.throws(()=>A.normalizeAnswers({screens:[screen]}));
+
+// Omitted details must not turn into repetitive placeholder answers or lose their parent record.
+const partial=A.normalizeAnswers({screens:[{id:'s',name:'내 기록',purpose:'기록 확인',elements:['form','table'],flow:[{id:'a',result:'안내 표시'}],elementContents:{form:{items:[{id:'field',type:'짧은 글'},{id:'empty'}]},table:{}}}]});
+for(const prompt of [false,true]) {
+  const text=R.report(partial,prompt),body=text.split('## 확인해 볼 질문')[0];
+  assert(!body.includes('> 아직 미정'));
+  assert(!body.includes('역할 미정') && !body.includes('용도 미정'));
+  assert(!body.includes('**다음 화면**') && !body.includes('**보여 줄 정보**'));
+  assert(body.includes('**동작 1**') && body.includes('안내 표시'));
+  assert(body.includes('**입력 항목 1**') && !body.includes('**입력 항목 2**'));
+  assert(text.includes('사용할 역할 확인') && text.includes('다음 화면 또는 현재 화면 유지'));
+}
+const preserved=P.createProject({answers:{login_methods:[A.UNKNOWN],features:[{id:'f',priority:A.UNKNOWN}]}});
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...preserved}).projects[0].answers,preserved.answers);
+
 console.log('Connected planning checks passed: two stage migrations, login, stable roles, shared features, nested flow/content, scoped reports and backup validation.');
