@@ -7,7 +7,7 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231d4ed8'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=0f1747319952">
+  <link rel="stylesheet" href="styles.css?v=0c222ce74ae5">
   <script src="questions.js?v=a03ed7f2d9f7" defer></script>
   <script src="answers.js?v=6fefc5642cc0" defer></script>
   <script src="report.js?v=a25941ba6e87" defer></script>
@@ -15,7 +15,7 @@
   <script src="guides.js?v=1d70fd493705" defer></script>
   <script src="storage.js?v=40fe4282c410" defer></script>
   <script src="views.js?v=741bb17db176" defer></script>
-  <script src="app.js?v=c4148cbc7681" defer></script>
+  <script src="app.js?v=ac4f42cfcfa5" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -81,63 +81,62 @@
           </div>
         </div>
         <section class="guide-transformation" aria-labelledby="guide-transformation-title">
-          <h2 id="guide-transformation-title">한 줄의 생각, 이런 서비스의 시작.</h2>
-          <p class="guide-transformation-lead">문제와 기능을 정리하면 만들고 싶은 모습도 선명해져요. 옆으로 넘겨 다른 아이디어도 만나 보세요.</p>
-          <div class="guide-gallery" role="region" aria-roledescription="캐러셀" aria-label="아이디어가 구체화되는 가상 예시">
+          <div class="guide-transformation-header">
+            <h2 id="guide-transformation-title">한 줄에서 서비스로.</h2>
             <div class="guide-gallery-controls">
               <button type="button" class="button secondary" id="guide-example-previous" aria-label="이전 아이디어 예시" aria-controls="guide-examples" disabled><span aria-hidden="true">←</span></button>
-              <p id="guide-example-status" role="status" aria-atomic="true">1 / 3 · 동네 산책 모임</p>
+              <p id="guide-example-status" role="status" aria-atomic="true">1 / 3</p>
               <button type="button" class="button secondary" id="guide-example-next" aria-label="다음 아이디어 예시" aria-controls="guide-examples"><span aria-hidden="true">→</span></button>
             </div>
+            <p class="guide-transformation-lead">한 줄 아이디어가 기능과 화면으로 정리되는 과정을 살펴보세요.</p>
+          </div>
+          <div class="guide-gallery" role="region" aria-roledescription="캐러셀" aria-label="아이디어가 구체화되는 가상 예시">
             <div class="guide-gallery-window">
               <div class="guide-examples" id="guide-examples" tabindex="0" aria-label="아이디어 예시 목록 · 좌우 방향키로 이동" aria-describedby="guide-example-caption">
-              <article class="guide-example is-current" role="group" aria-roledescription="슬라이드" aria-label="1 / 3 · 동네 산책 모임" data-example-name="동네 산책 모임">
+              <article class="guide-example is-current" role="group" aria-roledescription="슬라이드" aria-label="1 / 3 · 동네 산책 모임">
                 <div class="guide-seed">
-                  <p class="guide-state">BEFORE <span>한 줄 아이디어</span></p>
+                  <p class="guide-state">BEFORE</p>
                   <blockquote>“이웃들과 산책 약속을 쉽게 잡고 싶어요.”</blockquote>
                 </div>
                 <div class="guide-paper">
-                  <div class="guide-paper-top"><p class="guide-state">AFTER <span>기획을 구체화하면</span></p><span class="guide-example-tag">가상 예시</span></div>
-                  <h3>동네 산책 모임</h3>
+                  <div class="guide-paper-top"><p class="guide-state">AFTER</p><h3>동네 산책 모임</h3></div>
                   <img class="guide-service-image" src="idea-examples/neighborhood-walk.webp" alt="공원 사진이 있는 산책 목록과 시간·장소·참여 인원을 확인하고 참여하는 화면의 가상 디자인" width="1200" height="800" loading="lazy" decoding="async">
                   <dl>
                     <div><dt>해결할 문제</dt><dd>대화방에 흩어진 약속을 찾기 어려워요.</dd></div>
                     <div><dt>사용할 사람</dt><dd>같은 동네에서 함께 걷고 싶은 이웃</dd></div>
-                    <div><dt>첫 버전의 기능</dt><dd><span class="guide-feature-tag">일정 등록</span><span class="guide-feature-tag">참여 신청</span><span class="guide-feature-tag">신청 내역 확인</span></dd></div>
+                    <div><dt>첫 기능</dt><dd><span class="guide-feature-tag">일정 등록</span><span class="guide-feature-tag">참여 신청</span><span class="guide-feature-tag">신청 내역 확인</span></dd></div>
                   </dl>
                   <div class="guide-paper-note"><strong>선택 이유</strong><p>약속 잡기에 집중하고, 채팅은 나중에.</p></div>
                 </div>
               </article>
-              <article class="guide-example" role="group" aria-roledescription="슬라이드" aria-label="2 / 3 · 공방 클래스 예약" data-example-name="공방 클래스 예약">
+              <article class="guide-example" role="group" aria-roledescription="슬라이드" aria-label="2 / 3 · 공방 클래스 예약">
                 <div class="guide-seed">
-                  <p class="guide-state">BEFORE <span>한 줄 아이디어</span></p>
+                  <p class="guide-state">BEFORE</p>
                   <blockquote>“공방 수업 예약을 메시지로 주고받지 않으면 좋겠어요.”</blockquote>
                 </div>
                 <div class="guide-paper">
-                  <div class="guide-paper-top"><p class="guide-state">AFTER <span>기획을 구체화하면</span></p><span class="guide-example-tag">가상 예시</span></div>
-                  <h3>공방 클래스 예약</h3>
+                  <div class="guide-paper-top"><p class="guide-state">AFTER</p><h3>공방 클래스 예약</h3></div>
                   <img class="guide-service-image" src="idea-examples/pottery-booking.webp" alt="도자기 수업 사진 옆에서 날짜·시간·인원을 고르고 예약하는 화면의 가상 디자인" width="1200" height="800" loading="lazy" decoding="async">
                   <dl>
                     <div><dt>해결할 문제</dt><dd>예약 문의와 시간 조율을 매번 반복해요.</dd></div>
                     <div><dt>사용할 사람</dt><dd>수업을 여는 공방과 참여하려는 손님</dd></div>
-                    <div><dt>첫 버전의 기능</dt><dd><span class="guide-feature-tag">수업 안내</span><span class="guide-feature-tag">날짜·인원 선택</span><span class="guide-feature-tag">예약 확인</span></dd></div>
+                    <div><dt>첫 기능</dt><dd><span class="guide-feature-tag">수업 안내</span><span class="guide-feature-tag">날짜·인원 선택</span><span class="guide-feature-tag">예약 확인</span></dd></div>
                   </dl>
                   <div class="guide-paper-note"><strong>선택 이유</strong><p>예약부터 간편하게. 온라인 결제는 다음에.</p></div>
                 </div>
               </article>
-              <article class="guide-example" role="group" aria-roledescription="슬라이드" aria-label="3 / 3 · 냉장고 재료로 한 끼" data-example-name="냉장고 재료로 한 끼">
+              <article class="guide-example" role="group" aria-roledescription="슬라이드" aria-label="3 / 3 · 냉장고 재료로 한 끼">
                 <div class="guide-seed">
-                  <p class="guide-state">BEFORE <span>한 줄 아이디어</span></p>
+                  <p class="guide-state">BEFORE</p>
                   <blockquote>“집에 있는 재료로 뭘 해 먹을 수 있을까요?”</blockquote>
                 </div>
                 <div class="guide-paper">
-                  <div class="guide-paper-top"><p class="guide-state">AFTER <span>기획을 구체화하면</span></p><span class="guide-example-tag">가상 예시</span></div>
-                  <h3>냉장고 재료로 한 끼</h3>
+                  <div class="guide-paper-top"><p class="guide-state">AFTER</p><h3>냉장고 재료로 한 끼</h3></div>
                   <img class="guide-service-image" src="idea-examples/pantry-recipes.webp" alt="달걀·토마토·대파를 선택하면 만들 수 있는 요리와 조리 시간을 보여 주는 화면의 가상 디자인" width="1200" height="800" loading="lazy" decoding="async">
                   <dl>
                     <div><dt>해결할 문제</dt><dd>재료는 있는데 무슨 요리를 할지 막막해요.</dd></div>
                     <div><dt>사용할 사람</dt><dd>장을 더 보지 않고 한 끼를 만들고 싶은 사람</dd></div>
-                    <div><dt>첫 버전의 기능</dt><dd><span class="guide-feature-tag">재료 선택</span><span class="guide-feature-tag">레시피 찾기</span><span class="guide-feature-tag">요리 저장</span></dd></div>
+                    <div><dt>첫 기능</dt><dd><span class="guide-feature-tag">재료 선택</span><span class="guide-feature-tag">레시피 찾기</span><span class="guide-feature-tag">요리 저장</span></dd></div>
                   </dl>
                   <div class="guide-paper-note"><strong>선택 이유</strong><p>있는 재료로 만들 요리에 집중. 장보기는 나중에.</p></div>
                 </div>

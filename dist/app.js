@@ -680,8 +680,7 @@
       examples.forEach((example, i) => example.classList.toggle('is-current', i === index));
       $('#guide-example-previous').disabled = index === 0;
       $('#guide-example-next').disabled = index === examples.length - 1;
-      $('#guide-example-status').textContent =
-        `${index + 1} / ${examples.length} · ${examples[index].dataset.exampleName}`;
+      $('#guide-example-status').textContent = `${index + 1} / ${examples.length}`;
     },
     { passive: true }
   );
