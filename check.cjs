@@ -54,10 +54,10 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','element-examples','guides.js','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','element-examples','guides.js','idea-examples','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
-    assert(file === 'element-examples' ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and the image directory may be published');
+    assert(['element-examples', 'idea-examples'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and the image directories may be published');
   }
   assert.deepEqual(fs.readdirSync('dist/element-examples').sort(), Q.uiElements.map(el => el.id + '.webp').sort());
   for (const el of Q.uiElements) {
@@ -71,6 +71,16 @@ test('The public bundle contains only reviewed static files and local scripts', 
   }
   assert(!fs.existsSync('functions'), 'A server request handler needs a separate security review');
   const html = fs.readFileSync('dist/index.html', 'utf8');
+  const ideaImages = ['neighborhood-walk.webp', 'pantry-recipes.webp', 'pottery-booking.webp'];
+  assert.deepEqual(fs.readdirSync('dist/idea-examples').sort(), ideaImages);
+  for (const file of ideaImages) {
+    assert(fs.lstatSync(`dist/idea-examples/${file}`).isFile());
+    const bytes = fs.readFileSync(`dist/idea-examples/${file}`);
+    assert(bytes.length > 0 && bytes.length <= 250000);
+    assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');
+    assert(html.includes(`src="idea-examples/${file}"`));
+  }
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
   assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','report.js','projects.js','guides.js','storage.js','views.js','app.js']);
   for (const [, attributes, body] of scripts) {

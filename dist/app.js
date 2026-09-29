@@ -654,6 +654,54 @@
   $('#guide-details-link').addEventListener('click', () => {
     $('#guide-walkthrough').open = true;
   });
+  const exampleTrack = $('#guide-examples');
+  const examples = [...exampleTrack.children];
+  let exampleIndex = 0;
+  function showExample(index) {
+    const target = examples[Math.max(0, Math.min(examples.length - 1, index))];
+    const track = exampleTrack.getBoundingClientRect();
+    const card = target.getBoundingClientRect();
+    exampleTrack.scrollTo({
+      left: exampleTrack.scrollLeft + card.left + card.width / 2 - track.left - track.width / 2,
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+    });
+  }
+  exampleTrack.addEventListener(
+    'scroll',
+    () => {
+      const track = exampleTrack.getBoundingClientRect();
+      const distances = examples.map((example) => {
+        const card = example.getBoundingClientRect();
+        return Math.abs(card.left + card.width / 2 - track.left - track.width / 2);
+      });
+      const index = distances.indexOf(Math.min(...distances));
+      if (index === exampleIndex) return;
+      exampleIndex = index;
+      examples.forEach((example, i) => example.classList.toggle('is-current', i === index));
+      $('#guide-example-previous').disabled = index === 0;
+      $('#guide-example-next').disabled = index === examples.length - 1;
+      $('#guide-example-status').textContent =
+        `${index + 1} / ${examples.length} · ${examples[index].dataset.exampleName}`;
+    },
+    { passive: true }
+  );
+  $('#guide-example-previous').addEventListener('click', () => showExample(exampleIndex - 1));
+  $('#guide-example-next').addEventListener('click', () => showExample(exampleIndex + 1));
+  exampleTrack.addEventListener('keydown', (event) => {
+    const index = {
+      ArrowLeft: exampleIndex - 1,
+      ArrowRight: exampleIndex + 1,
+      Home: 0,
+      End: examples.length - 1
+    }[event.key];
+    if (index === undefined) return;
+    event.preventDefault();
+    showExample(index);
+  });
+  exampleTrack.addEventListener('click', (event) => {
+    const index = examples.indexOf(event.target.closest('.guide-example'));
+    if (index !== -1 && index !== exampleIndex) showExample(index);
+  });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && $('#sidebar').dataset.open === 'true') {
       setNavigation(false);
