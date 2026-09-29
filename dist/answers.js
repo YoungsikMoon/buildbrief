@@ -3,7 +3,7 @@
   const Q = root.BriefQuestions || require('./questions.js');
   const UNKNOWN = '아직 미정';
   const allQuestions = Q.steps.flatMap((step) => step.groups.flatMap((group) => group.questions));
-  const questions = new Map(allQuestions.map((q) => [q.id, q]));
+  const questions = new Map([...allQuestions, ...Q.retiredQuestions].map((q) => [q.id, q]));
   const MAX_ROWS = 80,
     MAX_TEXT = 6000;
   const EXCLUSIVE = [UNKNOWN, '특별한 방법 없음', '추가 정보 없음', '기기 기능이 필요하지 않음'];
@@ -89,9 +89,10 @@
     const features = Array.isArray(answers.features) ? answers.features : [];
     const hasPriority = (row) => isAnswered(row?.priority) && row.priority !== UNKNOWN;
     const stepProgress = Q.steps.map((step) => {
-      const active = activeGroups(step, answers).flatMap((group) => group.questions);
+      const active = activeGroups(step, answers)
+        .flatMap((group) => group.questions)
+        .filter((q) => !q.optional);
       const answered = active.filter((q) => {
-        if (q.type === 'scope') return features.length > 0 && features.every(hasPriority);
         if (q.type === 'features')
           return (
             answers[q.id] === UNKNOWN ||
@@ -307,7 +308,7 @@
   function normalizeRecommendations(input = []) {
     if (
       !Array.isArray(input) ||
-      input.length > allQuestions.filter((q) => q.allowRecommend).length ||
+      input.length > [...questions.values()].filter((q) => q.allowRecommend).length ||
       new Set(input).size !== input.length ||
       input.some((id) => typeof id !== 'string' || questions.get(id)?.allowRecommend !== true)
     )

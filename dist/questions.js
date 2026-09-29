@@ -2043,59 +2043,45 @@
     },
     {
       id: 'review',
-      title: '첫 버전 정리',
-      short: '첫 버전·검토',
-      description: '이미 적은 기능을 검토하고 확인할 일을 남겨요.',
+      title: '마무리 메모',
+      short: '마무리 메모',
+      description: '남기고 싶은 내용이 있으면 적고, 기획 초안을 확인해 보세요.',
       groups: [
         {
-          title: '처음에는 어디까지 만들까요?',
-          description: '처음 사용할 사람이 핵심 일을 끝낼 수 있는 범위로 생각해요.',
+          title: '',
           questions: [
-            {
-              id: 'scope',
-              allowRecommend: true,
-              label: '기능별 첫 버전 우선순위를 확인해 주세요.',
-              type: 'scope',
-              help: '기능 단계의 같은 목록을 검토해요. 여기서 바꾸면 원래 기능에도 반영돼요. 미정인 기능을 억지로 확정하지 않아도 돼요.'
-            },
-            {
-              id: 'excluded_work',
-              label: '추가로 이번에는 하지 않을 일이 있나요?',
-              type: 'textarea',
-              help: '이미 ‘나중에’로 정한 기능은 다시 쓰지 않아요. 오해하기 쉬운 제외 범위나 나중에 검토할 조건만 적어요.',
-              placeholder:
-                '예: 첫 버전은 한 작업실만 대상. 여러 지점 운영은 실제 사용을 확인한 뒤 검토.'
-            }
-          ]
-        },
-        {
-          title: '무엇을 확인하면 다음으로 갈 수 있나요?',
-          description:
-            '이 자료는 검토할 서비스 기획 초안이에요. 빈칸이 없다고 기획 검증이나 개발 준비가 끝난 것은 아니에요.',
-          questions: [
-            {
-              id: 'success_check',
-              allowRecommend: true,
-              label: '이 아이디어가 쓸모 있는지 어떻게 확인할까요?',
-              type: 'textarea',
-              help: '처음 사용할 사람과 확인할 행동·반응을 적어요. 복잡한 수치가 없어도 돼요.',
-              placeholder:
-                '예: 주민 3명과 담당자에게 화면 초안을 보여 주고 도움 없이 예약 과정을 이해하는지 확인.'
-            },
             {
               id: 'open_questions',
-              label: '아직 모르거나 다른 사람과 확인할 점은 무엇인가요?',
+              label: '추가로 남기고 싶은 생각이나 궁금한 점이 있나요? (선택)',
               type: 'textarea',
-              help: '궁금한 점, 확인할 사람·자료, 다음에 결정할 일을 남겨요. 다른 단계의 미정 답도 초안에 함께 표시돼요.',
-              placeholder:
-                '예: 담당자에게 실제 취소 기준 확인. 주민이 회원가입 없는 예약을 원하는지 물어보기.'
+              optional: true,
+              allowReason: false,
+              help: '비워 두어도 괜찮아요. 적은 내용은 기획 초안에 함께 담겨요.'
             }
           ]
         }
       ]
     }
   ];
-  const api = { steps, featureTypes, uiElements, uiElementGroups, screenRecommendationScope };
+  // Retained only to validate and preserve earlier answers and backups, not as form questions.
+  const retiredQuestions = [
+    { id: 'scope', label: '기능별 첫 버전 우선순위 검토', type: 'scope', allowRecommend: true },
+    { id: 'excluded_work', label: '추가로 이번에는 하지 않을 일', type: 'textarea' },
+    {
+      id: 'success_check',
+      label: '아이디어가 쓸모 있는지 확인하는 방법',
+      type: 'textarea',
+      allowRecommend: true
+    }
+  ];
+  const api = {
+    steps,
+    retiredQuestions,
+    featureTypes,
+    uiElements,
+    uiElementGroups,
+    screenRecommendationScope
+  };
   root.BriefQuestions = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -310,14 +310,61 @@ test('Reports use readable local numbers and omit untouched sections and optiona
   assert.deepEqual(answers, before, 'Display numbering must not replace persistent IDs');
 });
 
-test('First-release scope comes from the original feature cards', () => {
+test('Feature priorities stay with their original cards instead of a second review question', () => {
   const a = { features: [feature(), feature('later', 'search', '나중에'), feature('unsure', 'custom', A.UNKNOWN)] };
   const output = R.report(a);
-  assert(output.includes('첫 버전에 필요한 기능'));
-  assert(output.includes('나중에 만들 기능'));
-  assert(output.includes('시기 미정인 기능'));
+  assert(output.includes('첫 버전에 필요'));
+  assert(output.includes('나중에'));
+  assert.equal((output.match(/\*\*첫 버전 우선순위\*\*/g) || []).length, 2);
+  assert(!output.includes('시기 미정인 기능'));
+  assert(!output.includes('기능별 첫 버전 우선순위'));
+  assert(!output.includes('결과·우선순위 중 미정'));
   assert(output.includes('예약하기 later'));
   assert(output.includes('예약하기 unsure'));
+});
+
+test('Closing memo is optional while retired review answers survive reload, backups and safe reports', () => {
+  const last = Q.steps.at(-1);
+  assert.equal(last.title, '마무리 메모');
+  assert.deepEqual(last.groups.flatMap(g => g.questions.map(q => q.id)), ['open_questions']);
+  const q = question('open_questions');
+  assert.equal(q.optional, true);
+  assert(!q.allowRecommend);
+  assert.equal((V.question(q).match(/<textarea/g) || []).length, 1);
+  assert(!V.question(q).includes('답변·선택 이유 남기기'));
+  assert(V.question(q, {}, { open_questions: '기존 이유 보존' }).includes('기존 이유 보존'));
+  assert.deepEqual(A.progress({open_questions:'선택 메모'}), A.progress({}));
+  assert(!R.report({}).includes(q.label), 'Blank optional memo must not become an unanswered question');
+  assert(R.report({open_questions:'나중에 떠오른 아이디어'}).includes('나중에 떠오른 아이디어'));
+  assert(R.report({},true).includes('초안을 먼저 정리한 뒤, 처음 만들 기능 범위와 아이디어의 쓸모를 간단히 확인할 방법을 제안'));
+
+  const input = {
+    answers: {open_questions:'남겨 둔 궁금증',scope:'',excluded_work:'예전에 정한 제외 범위 <script>alert(1)</script>',success_check:'예전 확인 방법'},
+    drafts: {success_check:'추천 전에 적은 초안'},
+    notes: {scope:'범위를 고른 이유',excluded_work:'제외한 이유',success_check:'확인하려던 이유',open_questions:'추가 메모 이유'},
+    recommendations: ['scope','success_check'], step:8
+  };
+  const project = P.createProject(input);
+  const workspace = P.normalizeWorkspace(JSON.parse(JSON.stringify({version:1,activeId:project.id,projects:[project]})));
+  for (const backup of [{format:'buildbrief-idea',version:1,...workspace.projects[0]}, {format:'buildbrief-ideas',...workspace}]) {
+    const restored = P.importBackup(backup).projects[0];
+    for (const key of ['answers','drafts','notes','recommendations','step']) assert.deepEqual(restored[key], input[key]);
+    assert.deepEqual(A.progress(restored.answers), A.progress({}));
+    assert(!A.activeQuestions(restored.answers).some(q=>['scope','excluded_work','success_check'].includes(q.id)));
+    for (const prompt of [false,true]) {
+      const report = R.report(restored.answers,prompt,restored.notes,restored.recommendations);
+      assert(report.includes('## 이전에 작성한 내용'));
+      assert(report.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+      assert(report.includes('범위를 고른 이유'));
+      assert(report.includes('예전 확인 방법'));
+      const pending = report.split('## 확인해 볼 질문')[1];
+      assert(!pending.includes(q.label));
+      assert(!pending.includes('기능별 첫 버전 우선순위'));
+      assert(!report.includes('## AI에게 비교·추천을 요청할 항목'));
+    }
+    assert(!V.report(restored.answers, restored.notes, restored.recommendations).includes('<script>'));
+  }
+  for (const invalid of [{scope:'임의의 값'}, {success_check:{}}, {excluded_work:'x'.repeat(A.MAX_TEXT+1)}]) assert.throws(()=>A.normalizeAnswers(invalid));
 });
 
 test('One reference row per URL keeps notes and normalizes HTTP links', () => {
@@ -368,7 +415,7 @@ test('Unfinished and unsafe URL text survives autosave without becoming a link',
 test('Question progress sums active stage counts and handles blank cards, priorities, unknowns, and hidden answers', () => {
   const empty = A.progress({});
   assert.equal(empty.answered, 0);
-  assert.equal(empty.total, A.activeQuestions({}).length);
+  assert.equal(empty.total, A.activeQuestions({}).filter(q => !q.optional).length);
   assert.equal(empty.percent, 0);
   assert.equal(empty.steps.length, Q.steps.length);
   const featureIndex = Q.steps.findIndex(step => step.id === 'features');
@@ -378,14 +425,14 @@ test('Question progress sums active stage counts and handles blank cards, priori
   assert.equal(A.progress({ features: A.UNKNOWN }).steps[featureIndex].answered, 1, 'An explicit unknown response is recorded');
   assert.equal(A.progress({ login_need: A.UNKNOWN }).answered, 1);
   assert.equal(A.progress({ features: [feature('feature-1', 'custom', A.UNKNOWN)] }).steps[reviewIndex].answered, 0);
-  assert.equal(A.progress({ features: [feature('feature-1', 'custom', '나중에')] }).steps[reviewIndex].answered, 1);
-  assert.equal(A.progress({ features: [feature(), feature('feature-2', 'custom', '')] }).steps[reviewIndex].answered, 0, 'Every feature needs a reviewed priority');
+  assert.equal(A.progress({ features: [feature('feature-1', 'custom', '나중에')] }).steps[reviewIndex].answered, 0);
+  assert.equal(A.progress({ features: [feature(), feature('feature-2', 'custom', '')] }).steps[reviewIndex].total, 0, 'Optional closing memo is outside progress');
   const answers = { project_name: '예시', summary: A.UNKNOWN, features: [feature()], booking_rules: '정원 안에서 신청', references: [] };
   const counted = A.progress(answers);
-  assert.equal(counted.answered, 5, 'Name, summary, features, booking rules, and shared scope are recorded');
+  assert.equal(counted.answered, 4, 'Name, summary, features and booking rules are recorded once');
   assert.equal(counted.steps[0].answered, 2);
   assert.equal(counted.steps[featureIndex].answered, 2);
-  assert.equal(counted.steps[reviewIndex].answered, 1);
+  assert.equal(counted.steps[reviewIndex].answered, 0);
   assert.equal(counted.answered, counted.steps.reduce((sum, step) => sum + step.answered, 0));
   assert.equal(counted.total, counted.steps.reduce((sum, step) => sum + step.total, 0));
   assert.equal(counted.percent, Math.round(counted.answered / counted.total * 100));

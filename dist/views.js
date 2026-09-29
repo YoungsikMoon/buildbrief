@@ -503,24 +503,6 @@ ${esc(value)}</textarea
         )) + addButton(q.id, '화면 추가')
     );
   }
-  function scopeEditor(answers) {
-    return (
-      rowsOf(answers, 'features')
-        .map(
-          (f, i) =>
-            /* HTML */ `<div class="scope-row"
-              ><div
-                ><strong>${esc(f.name || '이름 없는 기능')}</strong
-                ><p>${esc(f.outcome || '제공할 결과를 아직 적지 않았어요.')}</p></div
-              >${input('출시 범위', f.priority, attrs('features', i, 'priority'), {
-                type: 'single',
-                options: priorities
-              })}</div
-            >`
-        )
-        .join('') || empty('‘필요한 기능’에서 추가하면 이곳에 모여요.')
-    );
-  }
   function reasonEditor(q, notes) {
     const value = notes[q.id] || '';
     return /* HTML */ `<details
@@ -565,7 +547,6 @@ ${esc(value)}</textarea
     else if (q.type === 'screens') control = screenEditor(q, answers);
     else if (q.type === 'references') control = referenceEditor(q, answers);
     else if (q.type === 'flow') control = flowEditor(q, answers);
-    else if (q.type === 'scope') control = scopeEditor(answers);
     else if (q.type === 'rows')
       control =
         rowsOf(answers, q.id)
@@ -663,7 +644,10 @@ ${esc(value)}</textarea
         ? recommendationEditor(q, recommendations)
         : ''}${control}${q.type === 'screens'
         ? ''
-        : recommendationEditor(q, recommendations)}${reasonEditor(q, notes)}</fieldset
+        : recommendationEditor(q, recommendations)}${q.allowReason !== false ||
+      A.isAnswered(notes[q.id])
+        ? reasonEditor(q, notes)
+        : ''}</fieldset
     >`;
   }
   function renderReport(answers = {}, notes = {}, recommendations = []) {

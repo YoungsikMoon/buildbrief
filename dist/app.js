@@ -84,10 +84,14 @@
     $('#mobile-progress').textContent = `작성 ${p.percent}% · ${p.answered}/${p.total}`;
     document.querySelectorAll('#step-nav .step-link').forEach((button, i) => {
       const count = p.steps[i];
-      button.querySelector('.step-count').textContent = `${count.answered}/${count.total}`;
+      const optional =
+        !count.total && steps[i].groups.some((g) => g.questions.some((q) => q.optional));
+      button.querySelector('.step-count').textContent = optional
+        ? '선택'
+        : `${count.answered}/${count.total}`;
       button.setAttribute(
         'aria-label',
-        `${steps[i].short || steps[i].title}, 질문 ${count.total}개 중 ${count.answered}개 작성`
+        `${steps[i].short || steps[i].title}, ${optional ? '선택 작성' : `질문 ${count.total}개 중 ${count.answered}개 작성`}`
       );
     });
     picker();
@@ -140,11 +144,13 @@
       .map(
         (g) =>
           /* HTML */ `<section class="question-group"
-            ><div class="group-heading"
-              ><h2>${esc(g.title)}</h2>${g.description
-                ? /* HTML */ `<p>${esc(g.description)}</p>`
-                : ''}</div
-            ><div class="group-body"
+            >${g.title
+              ? /* HTML */ `<div class="group-heading"
+                  ><h2>${esc(g.title)}</h2>${g.description
+                    ? /* HTML */ `<p>${esc(g.description)}</p>`
+                    : ''}</div
+                >`
+              : ''}<div class="group-body"
               >${g.questions
                 .map((q) => V.question(q, answers, notes, recommendations))
                 .join('')}</div

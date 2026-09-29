@@ -913,28 +913,6 @@ main {
   margin-top: 20px;
   padding-top: 6px;
 }
-.scope-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px;
-  gap: 20px;
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  padding: 16px 0;
-}
-.scope-row:first-child {
-  padding-top: 0;
-}
-.scope-row:last-child {
-  border: 0;
-}
-.scope-row p {
-  color: var(--muted);
-  font-size: var(--type-body);
-  margin: 5px 0 0;
-}
-.scope-row .input-field {
-  margin: 0;
-}
 .bottom-nav {
   display: flex;
   justify-content: space-between;
@@ -1297,10 +1275,6 @@ dialog p {
   }
   .question-group {
     border-radius: 10px;
-  }
-  .scope-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
   }
   .start-note {
     font-size: var(--type-body);
