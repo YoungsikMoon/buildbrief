@@ -93,7 +93,6 @@
         .join(
           ''
         )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>
-      <div class="designer-toolbar"><span>구역에 요소를 추가하고, 이름과 동작을 적어 보세요.</span><button type="button" class="button secondary small" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="${!state.panelCollapsed}">${state.panelCollapsed ? '설정 열기' : '설정 접기'}</button></div>
       <div class="designer-workspace${state.panelCollapsed ? ' inspector-collapsed' : ''}"><section class="designer-stage" aria-label="화면 배치">
         <div class="designer-stage-heading"><div><span class="designer-eyebrow">${screen.isCommon ? '서비스 공통 레이아웃' : '화면 구성'}</span><h3 data-screen-title="${index}">${esc(label(screen))}</h3></div><button type="button" class="button secondary small" data-designer-settings>화면 설정</button></div>
         <p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p>
@@ -110,10 +109,10 @@
           )
           .join('')}
         </div></div><p class="designer-hint">박스 모서리로 크기를 조절해요. ?에서 요소와 기능 예시를 볼 수 있어요.</p>${reason}
-      </section><aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
+      </section><div class="designer-panel"><button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="${!state.panelCollapsed}" aria-label="${state.panelCollapsed ? '설정 패널 펼치기' : '설정 패널 접기'}" title="${state.panelCollapsed ? '설정 패널 펼치기' : '설정 패널 접기'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><span class="inspector-toggle-label">${state.panelCollapsed ? '설정 펼치기' : '설정 접기'}</span></button><aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
         <div class="inspector-heading"><h4 tabindex="-1" id="inspector-title">${state.referenceOpen ? '참고 자료' : '설정'}</h4>${state.referenceOpen ? '<button type="button" class="button secondary small" data-close-reference>← 설정으로</button>' : '<button type="button" class="option-help" data-open-reference aria-label="요소·기능 참고 자료 보기" title="요소·기능 참고 자료">?</button>'}</div>
         <div class="inspector-body" id="designer-inspector-body">${state.referenceOpen ? references(state.referenceCategory) : `<button type="button" class="button secondary inspector-add" data-add-element data-screen="${index}">+ 요소 추가</button>${inspector}`}</div>
-      </aside></div></div>`;
+      </aside></div></div></div>`;
   }
   const api = { selection, elementName, preview, references, applySizes, render };
   root.BriefDesigner = api;

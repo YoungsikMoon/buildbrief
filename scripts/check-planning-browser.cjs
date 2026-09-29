@@ -36,7 +36,14 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         const wider=await page.locator('.designer-stage').boundingBox(), main=await page.locator('main').boundingBox();
         assert(wider.width>original.width+400,'Extra desktop width goes to the canvas');
         assert(main.x+main.width>=1919,'The editor uses the available right edge');
+        const title=await page.locator('#page-title').boundingBox();
+        assert(wider.y-title.y<210,'The canvas follows the heading and screen controls without an extra toolbar');
         if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,'wide-editor-1920.png')});}
+        for(const viewport of [1200,1001,1000,801,800]){
+          await page.setViewportSize({width:viewport,height:1000});await validate();
+          await page.locator('[data-toggle-inspector]').click();await validate();
+          await page.locator('[data-toggle-inspector]').click();
+        }
         await page.setViewportSize({width,height:1000});
       }
       await page.locator('[data-add-element][data-target="region:top"]').click();
@@ -70,6 +77,18 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('[data-feature-help="booking"]').click();assert((await page.locator('#help-content').innerText()).includes('무엇인가요?'));await page.locator('#close-option-help').click();
       const lastFeature=page.locator('[data-reference-group="features"] button').last();await lastFeature.click();await page.locator('#close-option-help').click();
       assert((await page.locator('#designer-inspector-body').boundingBox()).height<1000);
+      const toggle=page.locator('[data-toggle-inspector]');
+      const toggleBox=await toggle.boundingBox(),panelBox=await page.locator('#designer-inspector').boundingBox();
+      assert(toggleBox.width>=44&&toggleBox.height>=44,'Panel control has a usable touch target');
+      if(width>800)assert(Math.abs(toggleBox.x+toggleBox.width-panelBox.x)<1,'The arrow sits on the panel left edge');
+      await toggle.focus();await page.keyboard.press('Enter');
+      assert.equal(await toggle.getAttribute('aria-expanded'),'false');assert(await page.locator('#designer-inspector').isHidden());
+      assert(await toggle.evaluate(n=>n===document.activeElement),'Collapse preserves keyboard focus');
+      await validate();await shot('collapsed-panel');
+      await page.keyboard.press('Space');
+      assert.equal(await toggle.getAttribute('aria-expanded'),'true');assert(await toggle.evaluate(n=>n===document.activeElement));
+      assert.equal(await category.inputValue(),'features','Reopening retains the reference category');
+      assert(await page.locator('[data-reference-group="features"]').isVisible());
       await category.scrollIntoViewIfNeeded();
       if(width<800)assert((await page.locator('#designer-inspector-body').boundingBox()).height<=650,'Mobile references stay within a bounded panel');
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();await page.evaluate(()=>document.documentElement.style.fontSize='');
