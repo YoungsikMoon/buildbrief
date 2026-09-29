@@ -126,11 +126,22 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       const previous=(await stored()).answers.screens[1].elementContents.form;
       await name().fill('수업 신청서');await page.locator('[data-field="elementNotes"][data-element="form"]').fill('수업과 연락처를 받아요. 오류가 생기면 입력값을 유지해요.');
       const after=(await stored()).answers.screens[1].elementContents.form;assert.deepEqual(after,{...previous,name:'수업 신청서'});
+      const legacyBeforeExport=(await stored()).answers;
       await go(5);await page.locator('#next-button').click();
       const entry=page.locator('.report-entry').filter({has:page.locator(':scope > h6').filter({hasText:'신청 화면 [S01]'})});
       const form=entry.locator('.report-element').filter({has:page.locator(':scope > h6').filter({hasText:'[S01-E03]'})});
       assert((await form.innerText()).includes('수업 신청서'));assert.equal(await form.locator('.report-input').count(),3);assert.equal(await form.locator('.report-action').count(),3);
       assert((await form.innerText()).includes('기초\n심화'));assert((await form.innerText()).includes('중복이면 기존 신청 안내'));assert.equal(await page.locator('.report-document img,.report-document script').count(),0);
+      const legacyReport=await page.locator('.report-document').innerText();
+      await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
+      await page.locator('#copy-prompt').click();const legacyPrompt=await page.evaluate(()=>window.testCopiedPrompt);
+      const legacyDownload=page.waitForEvent('download');await page.locator('#download-report').click();const legacyMarkdown=fs.readFileSync(await (await legacyDownload).path(),'utf8');
+      assert(legacyPrompt.endsWith(legacyMarkdown));
+      for(const output of [legacyReport,legacyPrompt,legacyMarkdown]){
+        for(const text of ['연결할 기능 확인 필요','이름 미정','deadbeef-','empty-feature-card'])assert(!output.includes(text),text);
+        for(const text of ['작성한 기록을 그대로 보여 줘요.','원본을 유지해요.','신청 결과를 확인하고 돌아와요.'])assert(output.includes(text),text);
+      }
+      assert.deepEqual((await stored()).answers,legacyBeforeExport,'Filtering obsolete links is display-only');
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
       console.log(`Natural-language designer browser checks passed: ${width}px`);

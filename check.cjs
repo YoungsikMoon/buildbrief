@@ -292,10 +292,11 @@ test('Flow preserves sequence, linked names, and manually described actions', ()
   assert(output.includes('예약하기 feature-1'));
 });
 
-test('Removed feature links are preserved and surfaced for review', () => {
+test('Removed feature links remain in storage without leaking into the planning document', () => {
   const a = A.normalizeAnswers({ screens: [screen('screen-1', [])] });
   assert.deepEqual(a.screens[0].featureIds, ['feature-1']);
-  assert(R.report(a).includes('연결할 기능 확인 필요'));
+  assert(!R.report(a).includes('연결할 기능 확인 필요'));
+  assert(!R.report(a).includes('연결한 기능'));
 });
 
 test('Reports use readable local numbers and omit untouched sections and optional blanks', () => {

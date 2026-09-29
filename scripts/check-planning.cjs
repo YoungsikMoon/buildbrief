@@ -62,7 +62,7 @@ assert.equal(A.progress(requestOnly).answered,0);
 assert(R.report(requestOnly).includes('기능별 권한 추천'));
 const dangling = clone(answers); dangling.features=[]; dangling.main_flow[0].screenId='deleted';
 assert(R.report(dangling).includes('연결할 화면 확인 필요'));
-assert(R.report(dangling).includes('연결할 기능 확인 필요'));
+assert(!R.report(dangling).includes('연결할 기능 확인 필요'));
 const different = clone(answers); different.screens[0].featureIds=[];
 assert(R.report(different).includes('을 사용할 수 있는지 확인'));
 const unsafe = '<img src=x onerror=alert(1)>\n### 다른 질문';
@@ -133,7 +133,7 @@ assert.deepEqual(renamed.screens[0].roleIds,['member']);
 renamed.roles=[]; renamed.screens.pop(); renamed.features=[];
 assert(R.report(renamed).includes('연결할 역할 확인 필요'));
 assert(R.report(renamed).includes('연결할 화면 확인 필요'));
-assert(R.report(renamed).includes('연결할 기능 확인 필요'));
+assert(!R.report(renamed).includes('연결할 기능 확인 필요'));
 assert(V.question(A.allQuestions.find(q=>q.id==='screens'),renamed,{},[],{panel:'settings'}).includes('삭제된 역할'));
 const hiddenFlow = clone(local); hiddenFlow.screens[0].elements=[];
 assert(!R.report(hiddenFlow).includes('신청 버튼 누르기'));
@@ -399,6 +399,30 @@ for(const bad of [{width:19},{width:101},{width:'65%'},{width:NaN},{width:50.5},
   assert.throws(()=>A.normalizeAnswers(raw));assert.deepEqual(clone(raw),before);
 }
 assert.throws(()=>A.normalizeAnswers({screens:[{id:'s',elementContents:{button:{name:'x'.repeat(A.MAX_TEXT+1)}}}]}));
+// Old deleted links and untouched cards must not become requirements in any export.
+const missingIds=['deadbeef-0000-4000-8000-000000000001','deadbeef-0000-4000-8000-000000000002'];
+const emptyFeature={id:'empty-feature-card',category:'custom',name:'  ',priority:A.UNKNOWN};
+const stale=clone(handoff);
+stale.features.unshift(emptyFeature);
+stale.login_features=[...missingIds,emptyFeature.id,'book'];
+stale.screens[1].featureIds.push(...missingIds,emptyFeature.id);
+stale.screens[1].elementContents.form.featureIds.push(...missingIds,emptyFeature.id);
+stale.screens[1].elementContents.form.flow.push({id:'unused-old-action',featureId:missingIds[0]});
+stale.screens[0].flow.push({id:'old-action-with-text',featureId:missingIds[1],event:'처음 방문하면',result:'작성한 기록을 그대로 보여 줘요.',exceptions:'기록을 읽지 못하면 원본을 유지해요.',recommendExceptions:true});
+stale.screens[1].customElements[0].featureIds=[...missingIds,emptyFeature.id];
+stale.main_flow=[{id:'old-empty-flow',featureId:missingIds[0]},{id:'old-flow-with-text',featureId:missingIds[1],note:'신청 결과를 확인하고 돌아와요.'}];
+const staleAnswers=A.normalizeAnswers(stale),staleBefore=clone(staleAnswers);
+for(const output of [R.report(staleAnswers),R.report(staleAnswers,true),V.report(staleAnswers)]) {
+  for(const text of [...missingIds,emptyFeature.id,'연결할 기능 확인 필요','이름 미정','[undefined]'])assert(!output.includes(text),text);
+  for(const text of ['작성한 기록을 그대로 보여 줘요.','원본을 유지해요.','신청 결과를 확인하고 돌아와요.','로그아웃','선택한 수업 예약','연락처는 선택으로 받기'])assert(output.includes(text),text);
+}
+assert.deepEqual(staleAnswers,staleBefore);
+const staleProject=P.createProject({answers:staleAnswers});
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...staleProject}).projects[0].answers,staleAnswers);
+const onlyStale=A.normalizeAnswers({features:[emptyFeature],screens:[{id:'only',name:'화면',featureIds:[...missingIds,emptyFeature.id],flow:[{id:'unused',featureId:missingIds[0]}]}],main_flow:[{id:'unused-flow',featureId:missingIds[1]}]});
+for(const output of [R.report(onlyStale),R.report(onlyStale,true),V.report(onlyStale)])for(const text of ['연결한 기능','실행할 기능','이름 미정','F01','서비스에 필요한 기능은 무엇인가요?','사용자는 어떤 순서로 목적을 달성하나요?','동작 번호'])assert(!output.includes(text),text);
+const unnamed=A.normalizeAnswers({features:[{id:'note',category:'custom',notes:'이름 없이 적은 설명은 보존'},{id:'request',category:'custom',recommendPermission:true}]});
+for(const output of [R.report(unnamed),R.report(unnamed,true),V.report(unnamed)])for(const text of ['이름 없이 적은 설명은 보존','이전에 작성한 기능','기능별 권한 추천'])assert(output.includes(text),text);
 console.log('Connected planning checks passed: migration, visual layouts, roles, scoped actions, safe exports and backup validation.');
 
-module.exports = handoff;
+module.exports = staleAnswers;

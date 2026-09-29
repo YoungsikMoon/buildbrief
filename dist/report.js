@@ -29,7 +29,15 @@
       .map((line) => `> ${line}`)
       .join('\n');
   function report(answers = {}, prompt = false, notes = {}, recommendations = []) {
-    const features = Array.isArray(answers.features) ? answers.features : [];
+    // Old empty cards and dangling links are storage history, not requirements.
+    const features = (Array.isArray(answers.features) ? answers.features : []).filter(
+      (feature) =>
+        ['name', 'actor', 'outcome', 'notes', 'permission', 'reason', 'savedInfo'].some((key) =>
+          isAnswered(feature[key])
+        ) ||
+        (isAnswered(feature.priority) && feature.priority !== UNKNOWN) ||
+        feature.recommendPermission
+    );
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
     const roles = Array.isArray(answers.roles) ? answers.roles : [];
     const roleName = (id) =>
@@ -84,11 +92,28 @@
         item.isCommon ? '공통' : `S${String(++screenNumber).padStart(2, '0')}`
       ])
     );
+    const featureTitle = (feature) =>
+      feature.name?.trim() ||
+      Q.featureTypes.find((item) => item.id === feature.category && item.id !== 'custom')?.label ||
+      '이전에 작성한 기능';
     const featureName = (id) => {
       const feature = features.find((item) => item.id === id);
-      return feature
-        ? `${feature.name || '이름 미정'} [${featureLabels.get(id)}]`
-        : `연결할 기능 확인 필요 [${id}]`;
+      return feature ? `${featureTitle(feature)} [${featureLabels.get(id)}]` : '';
+    };
+    const hasAction = (action) =>
+      ['event', 'result', 'exceptions', 'nextScreenId'].some((key) => isAnswered(action[key])) ||
+      !!featureName(action.featureId) ||
+      action.recommendExceptions;
+    const questionValue = (q) => {
+      const value = answers[q.id];
+      if (!Array.isArray(value)) return value;
+      if (q.type === 'features') return features;
+      if (q.type === 'flow')
+        return value.filter(
+          (row) => isAnswered(row.note) || row.screenId || featureName(row.featureId)
+        );
+      if (q.source === 'features') return value.filter((id) => id === UNKNOWN || featureName(id));
+      return value;
     };
     const screenName = (id) => {
       if (id === '@stay') return '현재 화면 유지';
@@ -166,19 +191,16 @@
     };
     function flowFields(plan, screen, key = '') {
       for (const [index, action] of (plan.flow || []).entries()) {
-        if (!isAnswered(action) && !action.recommendExceptions) continue;
-        const number = action.featureId
+        if (!hasAction(action)) continue;
+        const feature = featureName(action.featureId);
+        const number = feature
           ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId)
               .length
           : index + 1;
-        lines.push(
-          '---',
-          `**${action.featureId ? md(featureName(action.featureId)) + ' · ' : ''}동작 ${number}**`,
-          ''
-        );
+        lines.push('---', `**${feature ? md(feature) + ' · ' : ''}동작 ${number}**`, '');
         field('동작 번호', actionRef(screen, key, index));
         field('행동이나 상황', action.event);
-        if (action.featureId) field('실행할 기능', featureName(action.featureId));
+        field('실행할 기능', feature);
         if (action.nextScreenId) field('다음 화면', screenName(action.nextScreenId));
         if (isAnswered(action.result)) field('처리 결과·다른 경우', action.result);
         field('오류·예외 대응', action.exceptions);
@@ -407,7 +429,7 @@
       }
     }
     function writeQuestion(q) {
-      const value = answers[q.id];
+      const value = questionValue(q);
       lines.push(`### ${md(q.label)}`, '', '#### 답변', '');
       if (
         ['features', 'screens', 'references', 'flow', 'rows', 'roles'].includes(q.type) &&
@@ -416,7 +438,7 @@
       ) {
         value.forEach((row, index) => {
           if (q.type === 'features') {
-            lines.push(`##### ${md(row.name || '이름 미정')} [${featureLabels.get(row.id)}]`, '');
+            lines.push(`##### ${md(featureTitle(row))} [${featureLabels.get(row.id)}]`, '');
             field(
               '기능 유형',
               (Q.featureTypes || []).find((item) => item.id === row.category)?.label || row.category
@@ -445,7 +467,7 @@
           } else if (q.type === 'flow') {
             lines.push(
               `**${index + 1}번째 행동**`,
-              quote(row.featureId ? featureName(row.featureId) : '직접 적은 행동'),
+              quote(featureName(row.featureId) || '직접 적은 행동'),
               ''
             );
             if (row.screenId) field('이때 사용하는 화면', screenName(row.screenId));
@@ -487,7 +509,7 @@
           questions: group.questions.filter(
             (q) =>
               isAnswered(notes[q.id]) ||
-              isAnswered(answers[q.id]) ||
+              isAnswered(questionValue(q)) ||
               (q.type === 'screens' &&
                 (screens.some((screen) => elementKeys(screen).length) ||
                   screenRequests.length ||
@@ -503,7 +525,10 @@
       for (const group of groups) for (const q of group.questions) writeQuestion(q);
     }
     const retired = Q.retiredQuestions.filter(
-      (q) => isAnswered(answers[q.id]) || isAnswered(notes[q.id])
+      (q) =>
+        isAnswered(questionValue(q)) ||
+        isAnswered(notes[q.id]) ||
+        (q.type === 'features' && permissionRequests.length)
     );
     if (retired.length) {
       lines.push(
@@ -543,7 +568,7 @@
         ),
         ...exceptionRequests.map(
           ({ screen, key, scope, plan, action, index }) =>
-            `- 오류·예외 추천 — ${md(screenName(screen.id))} / ${md(scope)} / ${action.featureId ? md(featureName(action.featureId)) + ' / ' : ''}동작 ${action.featureId ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId).length : index + 1}: 대상 동작 ${md(actionRef(screen, key, index))}. 이 동작의 행동·입력·처리 결과를 바탕으로 가능한 실패·예외, 사용자 안내, 입력 보존과 재시도 방법을 제안하세요. 작성한 대응은 유지하고 미확정 제안으로 구분하세요.`
+            `- 오류·예외 추천 — ${md(screenName(screen.id))} / ${md(scope)} / ${featureName(action.featureId) ? md(featureName(action.featureId)) + ' / ' : ''}동작 ${featureName(action.featureId) ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId).length : index + 1}: 대상 동작 ${md(actionRef(screen, key, index))}. 이 동작의 행동·입력·처리 결과를 바탕으로 가능한 실패·예외, 사용자 안내, 입력 보존과 재시도 방법을 제안하세요. 작성한 대응은 유지하고 미확정 제안으로 구분하세요.`
         ),
         ...(elementRequests.length || permissionRequests.length
           ? [
@@ -581,9 +606,7 @@
             )
           ))
       )
-        unfinished.push(
-          `기능 [${featureLabels.get(feature.id)}] ${feature.name || '이름 미정'}: 이름·결과 중 미정인 내용을 확인`
-        );
+        unfinished.push(`${featureName(feature.id)}: 이름·결과 중 미정인 내용을 확인`);
     for (const screen of screens) {
       if (!screen.isCommon && (!screen.name || !screen.purpose))
         unfinished.push(`화면 [${screenLabels.get(screen.id)}]: 이름·목적 확인`);
@@ -592,33 +615,16 @@
       for (const id of screen.roleIds || [])
         if (!roles.some((role) => role.id === id))
           unfinished.push(`${screenName(screen.id)}: ${roleName(id)}`);
-      for (const id of screen.featureIds || [])
-        if (!features.some((item) => item.id === id))
-          unfinished.push(`화면 [${screenLabels.get(screen.id)}]에서 ${featureName(id)}`);
-      for (const element of screen.elements || [])
-        for (const id of screen.elementContents?.[element]?.featureIds || [])
-          if (!features.some((item) => item.id === id))
-            unfinished.push(
-              `${screenName(screen.id)}의 ${Q.uiElements.find((el) => el.id === element)?.label}: ${featureName(id)}`
-            );
     }
     for (const { screen, scope, plan } of flowContexts)
-      for (const id of plan.featureIds || [])
-        if (!features.some((feature) => feature.id === id)) {
-          const message = `${screenName(screen.id)} / ${scope}: ${featureName(id)}`;
-          if (!unfinished.includes(message)) unfinished.push(message);
-        }
-    for (const { screen, scope, plan } of flowContexts)
       for (const [index, action] of (plan.flow || []).entries()) {
-        if (!isAnswered(action)) continue;
+        if (!hasAction(action)) continue;
         const where = `${screenName(screen.id)} / ${scope} / 동작 ${index + 1}`;
         const missing = [
           !isAnswered(action.event) && '행동·상황',
           !action.nextScreenId && '다음 화면 또는 현재 화면 유지'
         ].filter(Boolean);
         if (missing.length) unfinished.push(`${where}: ${missing.join(', ')} 확인`);
-        if (action.featureId && !features.some((f) => f.id === action.featureId))
-          unfinished.push(`${where}: ${featureName(action.featureId)}`);
         if (
           action.nextScreenId &&
           !['@stay', '@back'].includes(action.nextScreenId) &&
@@ -634,9 +640,10 @@
         '로그인 없이 사용을 선택했지만 로그인 사용자 역할이 있어요. 로그인 여부나 역할 이름을 확인'
       );
     for (const q of Q.retiredQuestions.filter((item) => item.type === 'flow'))
-      for (const [index, row] of (Array.isArray(answers[q.id]) ? answers[q.id] : []).entries()) {
-        if (row.featureId && !features.some((item) => item.id === row.featureId))
-          unfinished.push(`이용 과정 ${index + 1}번째 행동에서 ${featureName(row.featureId)}`);
+      for (const [index, row] of (Array.isArray(questionValue(q))
+        ? questionValue(q)
+        : []
+      ).entries()) {
         if (row.screenId && !screens.some((item) => item.id === row.screenId))
           unfinished.push(`이용 과정 ${index + 1}번째 행동에서 ${screenName(row.screenId)}`);
         const screen = screens.find((item) => item.id === row.screenId);
