@@ -211,6 +211,8 @@
       });
     if (q.type === 'screens')
       return list(value, q.label, (row, label) => {
+        if (row.recommendLayout !== undefined && typeof row.recommendLayout !== 'boolean')
+          fail(`${label}의 구성 추천 요청`);
         const elements = ids(
           row.elements === undefined ? [] : row.elements,
           label,
@@ -244,6 +246,7 @@
             label
           ),
           featureIds: ids(row.featureIds === undefined ? [] : row.featureIds, label),
+          recommendLayout: row.recommendLayout === true,
           elements,
           elementNotes,
           elementOptions,

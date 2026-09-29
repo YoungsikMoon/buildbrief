@@ -1,5 +1,7 @@
 (function (root) {
   'use strict';
+  const screenRecommendationScope =
+    '필요한 요소와 배치, 보여 줄 정보, 빈 화면·오류 안내, 휴대폰에서의 구성';
   const featureTypes = [
     {
       id: 'browse',
@@ -2019,7 +2021,7 @@
       id: 'screens',
       title: '화면 구성',
       short: '화면',
-      description: '화면에서 할 일을 정한 뒤 필요한 요소를 함께 골라요.',
+      description: '화면에서 할 일을 적고, 구성을 직접 정하거나 AI에 추천을 요청해요.',
       groups: [
         {
           title: '어떤 화면이 필요한가요?',
@@ -2029,9 +2031,11 @@
             {
               id: 'screens',
               allowRecommend: true,
+              recommendationLabel: '필요한 화면 목록을 AI에 추천 요청',
+              recommendationScope: '필요한 화면의 이름·역할·화면 간 이동 흐름',
               label: '화면마다 무엇을 보여 주고 어떤 일을 하나요?',
               type: 'screens',
-              help: '표·메뉴·버튼 등을 함께 사용할 수 있어요. 고른 요소의 역할, 빈 내용·실패 상황, 휴대폰에서 달라질 점을 필요한 화면에만 보완해요.'
+              help: '어떤 화면이 필요할지 모르겠다면 화면 목록을 추천받으세요. 떠오르는 화면이 있다면 추가한 뒤, 그 화면의 구성만 따로 추천받을 수 있어요.'
             }
           ]
         }
@@ -2091,7 +2095,7 @@
       ]
     }
   ];
-  const api = { steps, featureTypes, uiElements, uiElementGroups };
+  const api = { steps, featureTypes, uiElements, uiElementGroups, screenRecommendationScope };
   root.BriefQuestions = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

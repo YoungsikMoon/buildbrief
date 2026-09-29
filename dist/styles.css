@@ -1473,6 +1473,16 @@ dialog p {
 .recommendation-request .field-help {
   margin: 6px 0 0;
 }
+.screen-recommendation {
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+}
+.screen-recommendation > label {
+  min-height: 44px;
+}
 
 .report-question {
   border: 1px solid var(--line);

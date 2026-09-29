@@ -517,13 +517,62 @@ test('Only active recommendation requests are exported without clearing answers 
   const hidden = R.report({ ...answers, login_need: '로그인 없이 사용' }, false, notes, recommendations);
   assert(!hidden.includes(question('login_methods').label));
   assert(!hidden.includes(notes.login_methods));
-  assert(hidden.includes(question('screens').label));
+  assert(hidden.includes('화면 목록 추천:'));
   const requestOnly = P.createProject({ recommendations: ['screens'] });
   assert.deepEqual(requestOnly.answers, {});
   assert.deepEqual(A.progress(requestOnly.answers), A.progress({}));
   assert(R.report(requestOnly.answers, false, requestOnly.notes, requestOnly.recommendations).includes('## AI에게 비교·추천을 요청할 항목'));
   assert.deepEqual({ answers, notes, recommendations }, before);
   assert(R.report(answers, false, notes, recommendations).includes(notes.login_methods), 'A hidden request can reappear with its original choice and reason');
+});
+
+test('Screen recommendations retain their scope, answers and identity through backup and export', () => {
+  const original = { ...screen('screen-1', ['table']), name: '<검토>\n### 화면', recommendLayout: true, elementOptions: { table: ['pages'] } };
+  const answers = A.normalizeAnswers({ screens: [original, { ...screen('screen-2', []), name: '직접 구성' }] });
+  const before = clone(answers);
+  const project = P.createProject({ answers, drafts: answers, notes: { screens: '두 화면을 구분' }, recommendations: ['screens'] });
+  const second = P.createProject({ answers: { screens: [{ id: 'screen-1', name: '다른 프로젝트' }] } });
+  for (const backup of [{ format: 'buildbrief-idea', version: 1, ...project }, { format: 'buildbrief-ideas', version: 1, activeId: project.id, projects: [project, second] }]) {
+    const imported = P.importBackup(clone(backup));
+    assert.deepEqual(imported.projects[0].answers, answers);
+    assert.deepEqual(imported.projects[0].drafts, answers);
+    assert.deepEqual(imported.projects[0].recommendations, ['screens']);
+    if (imported.projects[1]) assert.equal(imported.projects[1].answers.screens[0].recommendLayout, false);
+  }
+  for (const value of [null, 1, 'true', [], {}]) {
+    const invalid = { screens: [{ ...original, recommendLayout: value }] };
+    const beforeInvalid = clone(invalid);
+    assert.throws(() => A.normalizeAnswers(invalid));
+    assert.deepEqual(invalid, beforeInvalid);
+  }
+  assert.equal(answers.screens[1].recommendLayout, false, 'Old screens do not opt into a request');
+  const requestOnly = A.normalizeAnswers({ screens: [{ id: 'request-only', recommendLayout: true }] });
+  assert.deepEqual(A.progress(requestOnly), A.progress({}), 'A request alone is not an answer');
+  assert(R.report(requestOnly).includes('이 화면의 구성 추천 요청 · 미확정'));
+  for (const prompt of [false, true]) {
+    const output = R.report(answers, prompt, project.notes, ['screens']);
+    const requested = output.split('## AI에게 비교·추천을 요청할 항목')[1];
+    assert(requested.includes('화면 목록 추천:'));
+    assert(requested.includes('화면 구성 추천 — &lt;검토&gt;'));
+    assert(requested.includes('[S01]'));
+    assert(!requested.includes('화면 구성 추천 — 직접 구성'));
+    assert(!/\n### 화면(?:\n|$)/.test(output));
+    assert(output.includes(Q.screenRecommendationScope));
+    assert(output.includes('**이 화면의 구성 추천 요청 · 미확정**'));
+    assert(output.includes('페이지 번호로 이동'));
+    assert(output.includes('table의 화면 용도'));
+    assert(output.includes('기존 선택을 덮어쓰지 말고'));
+  }
+  const html = V.question(question('screens'), answers, {}, ['screens']);
+  assert.equal((html.match(/data-field="recommendLayout"/g) || []).length, 2);
+  assert(html.indexOf('필요한 화면 목록을 AI에 추천 요청') < html.indexOf('screen-card'));
+  assert(!V.report(answers).includes('<검토>'));
+  assert.deepEqual(answers, before);
+  answers.screens[0].recommendLayout = false;
+  assert(!R.report(answers).includes('## AI에게 비교·추천을 요청할 항목'));
+  assert(R.report(answers).includes('table의 화면 용도'));
+  answers.screens.shift();
+  assert(!R.report(answers).includes('화면 구성 추천 —'));
 });
 
 test('Hostile markup stays data in answers, card fields, notes and both exports', () => {

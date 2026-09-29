@@ -29,6 +29,7 @@
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
     const requestedIds = normalizeRecommendations(recommendations);
     const requests = activeQuestions(answers).filter((q) => requestedIds.includes(q.id));
+    const screenRequests = screens.filter((screen) => screen.recommendLayout === true);
     const featureLabels = new Map(
       features.map((item, index) => [item.id, `F${String(index + 1).padStart(2, '0')}`])
     );
@@ -53,7 +54,7 @@
         '- 화면 요소는 화면별 목적·역할·기기에 맞춰 조합하세요. 이 문서의 기능 번호로 연결하고 삭제된 기능 연결은 확인하세요.',
         '- 참고 URL은 아직 열람하지 않은 자료입니다. 실제로 확인한 경우에만 확인한 범위와 근거를 밝혀 주세요.',
         '- 먼저 사용자가 검토할 기획 문서와 남은 질문을 제공하세요. 별도의 구현 요청 전에는 코딩·배포를 시작하거나 기술 스택을 확정하지 마세요.',
-        ...(requests.length
+        ...(requests.length || screenRequests.length
           ? [
               '- 명시한 비교·추천 요청에는 기존 답변과 이유를 유지한 채 이 서비스에 맞는 선택지·장단점·추천 근거를 비교해 주세요. 부족한 사실은 지어내지 말고 질문하고, 제안과 확정된 선택을 구분하세요.'
             ]
@@ -91,7 +92,8 @@
           questions: group.questions.filter(
             (q) =>
               isAnswered(notes[q.id]) ||
-              (q.type === 'scope' ? features.length : isAnswered(answers[q.id]))
+              (q.type === 'scope' ? features.length : isAnswered(answers[q.id])) ||
+              (q.type === 'screens' && screenRequests.length)
           )
         }))
         .filter((group) => group.questions.length);
@@ -143,6 +145,8 @@
                 field('화면 목적', row.purpose);
                 field('사용하는 사람·역할', row.roles);
                 field('연결한 기능', (row.featureIds || []).map(featureName));
+                if (row.recommendLayout)
+                  field('이 화면의 구성 추천 요청 · 미확정', Q.screenRecommendationScope);
                 field('보여 줄 정보', row.content);
                 lines.push('**화면 구성요소와 용도**');
                 const customElements = (row.customElements || []).filter(isAnswered);
@@ -212,13 +216,29 @@
             lines.push('#### 선택 이유·추가 메모', '', quote(notes[q.id]), '');
         }
     }
-    if (requests.length)
+    if (requests.length || screenRequests.length)
       lines.push(
         '## AI에게 비교·추천을 요청할 항목',
         '',
         '아래는 사용자가 외부 AI에게 비교를 요청하려는 항목입니다. 이 서비스에서 추천 결과를 생성한 것은 아니며, 기존 답변과 메모는 그대로 유지합니다.',
         '',
-        ...requests.map((q) => `- ${md(q.label)}`),
+        ...requests.map((q) =>
+          q.type === 'screens'
+            ? `- 화면 목록 추천: ${q.recommendationScope}. 앞서 적은 사용자·기능·이용 과정을 근거로 기존 화면과 연결하고, 추가·통합할 화면은 이유와 함께 제안해 주세요. 개별 화면의 구성 추천 요청과는 별개입니다.`
+            : `- ${md(q.label)}`
+        ),
+        ...screenRequests.map(
+          (screen) =>
+            `- 화면 구성 추천 — ${md(screen.name || '화면 이름 미정')} [${screenLabels.get(screen.id)}]: ${Q.screenRecommendationScope}.`
+        ),
+        ...(screenRequests.length
+          ? [
+              '',
+              '화면 구성 추천은 위에서 요청한 화면에만 적용합니다. 각 화면의 목적·사용자·연결한 기능과 프로젝트의 이용 환경·참고 자료·디자인 방향을 근거로 삼아 주세요. 직접 선택한 요소·세부 선택·메모·표시 정보는 유지할 조건입니다. 변경이 필요하면 기존 선택을 덮어쓰지 말고 이유와 대안을 별도로 제시하세요. 빈칸은 미정이며, 추천 요청 자체는 화면 구성의 확정이 아닙니다.',
+              '',
+              '각 요청 화면의 번호 아래에 추천 요소와 용도, 위에서 아래로의 배치, 보여 줄 정보, 빈 화면·오류·휴대폰 대응을 정리하고 추천 이유와 확인할 질문을 덧붙여 주세요. 목적이나 기능이 부족하면 먼저 질문하고, 요청하지 않은 화면의 빈칸을 임의로 확정하지 마세요.'
+            ]
+          : []),
         '',
         '기획 초안을 AI에게 전달해 적합한 선택지와 이유를 비교하세요. 추천 요청은 답변이나 확정된 선택을 대신하지 않습니다.',
         ''

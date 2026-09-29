@@ -345,6 +345,23 @@ ${esc(value)}</textarea
                 ).some((id) => !features.some((f) => f.id === id))
                   ? '<p class="field-help">삭제된 기능 연결이 있어요. 기획 초안에서 확인할 수 있어요.</p>'
                   : ''}</fieldset
+              ><div class="recommendation-request screen-recommendation"
+                ><label
+                  ><input
+                    type="checkbox"
+                    ${attrs(q.id, i, 'recommendLayout')}
+                    ${row.recommendLayout ? 'checked' : ''}
+                    aria-describedby="screen-recommendation-scope-${row.id} screen-recommendation-hint-${row.id}"
+                  /><span>이 화면의 구성을 AI에 추천 요청</span></label
+                ><p class="field-help" id="screen-recommendation-scope-${row.id}"
+                  >추천 범위: ${esc(Q.screenRecommendationScope)}</p
+                ><p
+                  class="field-help"
+                  id="screen-recommendation-hint-${row.id}"
+                  ${row.recommendLayout ? '' : 'hidden'}
+                  >직접 정한 내용은 유지하고 나머지를 제안해 달라고 요청해요. 기획 초안에서 ‘AI와
+                  기획 다듬기 · 복사’ 후 외부 AI에 전달하세요.</p
+                ></div
               ><details class="element-picker" id="elements-${row.id}" open
                 ><summary
                   >화면에 넣을 요소 고르기
@@ -532,9 +549,12 @@ ${esc(value)}</textarea
           data-recommend="${q.id}"
           ${selected ? 'checked' : ''}
           aria-describedby="recommendation-hint-${q.id}"
-        /><span>AI에 추천 요청</span></label
+        /><span>${esc(q.recommendationLabel || 'AI에 추천 요청')}</span></label
       ><p id="recommendation-hint-${q.id}" class="field-help" ${selected ? '' : 'hidden'}
-        >기획 초안에 요청을 담아요. ‘AI와 기획 다듬기’에서 복사해 AI에 전달하세요.</p
+        >${q.recommendationScope
+          ? `앞서 적은 사용자·기능·이용 과정을 바탕으로 ${esc(q.recommendationScope)}을 추천받아요. `
+          : ''}기획
+        초안에 요청을 담아요. ‘AI와 기획 다듬기 · 복사’로 복사해 AI에 전달하세요.</p
       ></div
     >`;
   }
@@ -639,10 +659,11 @@ ${esc(value)}</textarea
     return /* HTML */ `<fieldset class="question" id="field-${q.id}"
       ><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help
         ? /* HTML */ `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>`
-        : ''}${control}${recommendationEditor(q, recommendations)}${reasonEditor(
-        q,
-        notes
-      )}</fieldset
+        : ''}${q.type === 'screens'
+        ? recommendationEditor(q, recommendations)
+        : ''}${control}${q.type === 'screens'
+        ? ''
+        : recommendationEditor(q, recommendations)}${reasonEditor(q, notes)}</fieldset
     >`;
   }
   function renderReport(answers = {}, notes = {}, recommendations = []) {

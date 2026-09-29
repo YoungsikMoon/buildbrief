@@ -330,6 +330,9 @@
     } else if (element) {
       object.elementNotes ||= {};
       object.elementNotes[element] = el.value;
+    } else if (qid === 'screens' && field === 'recommendLayout') {
+      object.recommendLayout = el.checked;
+      document.getElementById('screen-recommendation-hint-' + object.id).hidden = !el.checked;
     } else if (el.type === 'checkbox') {
       let values = Array.isArray(object[key]) ? [...object[key]] : [];
       values = el.checked
