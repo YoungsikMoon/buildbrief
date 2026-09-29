@@ -7,7 +7,7 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231d4ed8'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=9314534c7118">
+  <link rel="stylesheet" href="styles.css?v=1f8cc2accc1d">
   <script src="questions.js?v=a03ed7f2d9f7" defer></script>
   <script src="answers.js?v=6fefc5642cc0" defer></script>
   <script src="report.js?v=a25941ba6e87" defer></script>
@@ -66,7 +66,7 @@
         <div class="guide-hero">
           <div class="guide-copy">
             <p class="guide-eyebrow">00 시작 안내</p>
-            <h1 id="guide-title" tabindex="-1">머릿속 아이디어를,<br>함께 만들 수 있는<br><span>기획 초안으로.</span></h1>
+            <h1 id="guide-title" tabindex="-1">머릿속 아이디어를,<br><span>함께 다듬을 기획 초안으로.</span></h1>
             <p class="guide-lead">해결할 문제, 필요한 기능, 화면의 모습까지.<br>아는 것부터 답하면 AI나 동료와 다듬을 첫 문서가 됩니다.</p>
             <div class="guide-actions">
               <button type="button" class="button primary" id="start-planning">바로 시작하기 <span aria-hidden="true">→</span></button>
@@ -79,16 +79,25 @@
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><div><strong>백업으로 이어쓰기</strong><p>파일로 보관하고 다른 기기로 옮겨요.</p></div></li>
             </ul>
           </div>
+        </div>
+        <section class="guide-transformation" aria-labelledby="guide-transformation-title">
+          <h2 id="guide-transformation-title">한 줄의 생각이, 구체적인 기획으로.</h2>
+          <p class="guide-transformation-lead">누구의 문제를 풀지, 무엇을 만들지, 어떤 화면이 필요할지 하나씩 정리해요.</p>
           <figure class="guide-preview" aria-labelledby="guide-example-caption">
-            <div class="guide-seed"><span>한 줄 아이디어</span><p>“이웃들과 산책 약속을 쉽게 잡고 싶어요.”</p></div>
-            <div class="guide-bridge"><span aria-hidden="true">↓</span> 질문에 답하며 연결하면</div>
+            <div class="guide-seed">
+              <p class="guide-state">BEFORE <span>정리 전</span></p>
+              <h3>아직은 한 줄 아이디어</h3>
+              <blockquote>“이웃들과 산책 약속을<br>쉽게 잡고 싶어요.”</blockquote>
+              <ul class="guide-before-questions"><li>누가 사용할까?</li><li>어떤 기능부터 만들까?</li><li>화면은 어떻게 연결할까?</li></ul>
+            </div>
+            <div class="guide-bridge"><span aria-hidden="true">→</span> 질문으로<br> 구체화</div>
             <div class="guide-paper">
-              <div class="guide-paper-top"><span>아이디어가 정리된 모습</span><span class="guide-example-tag">예시</span></div>
-              <h2>동네 산책 모임</h2>
+              <div class="guide-paper-top"><p class="guide-state">AFTER <span>정리 후</span></p><span class="guide-example-tag">예시</span></div>
+              <h3>동네 산책 모임 기획 초안</h3>
               <dl>
-                <div><dt>문제</dt><dd>대화방에 약속이 묻혀요.</dd></div>
-                <div><dt>사용자</dt><dd>함께 산책하고 싶은 이웃</dd></div>
-                <div><dt>기능</dt><dd><span class="guide-feature-tag">일정 등록</span><span class="guide-feature-tag">참여 신청</span></dd></div>
+                <div><dt>문제</dt><dd>대화방에 흩어진 약속 시간·장소를 다시 찾기 어려워요.</dd></div>
+                <div><dt>사용자</dt><dd>같은 동네에서 주말 산책에 참여할 이웃</dd></div>
+                <div><dt>첫 기능</dt><dd><span class="guide-feature-tag">일정 등록</span><span class="guide-feature-tag">참여 신청</span><span class="guide-feature-tag">신청 내역 확인</span></dd></div>
               </dl>
               <div class="guide-screen-plan"><p>필요한 화면과 이용 순서</p><ol>
                 <li><div class="guide-screen-drawing" aria-hidden="true"><svg viewBox="0 0 100 84" fill="none"><rect x="1" y="1" width="98" height="82" rx="7" fill="white" stroke="#cbd5e1"/><path d="M1 19h98" stroke="#cbd5e1"/><circle cx="10" cy="10" r="3" fill="#1d4ed8"/><path d="M20 10h29" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/><rect x="10" y="28" width="18" height="18" rx="4" fill="#dbeafe"/><rect x="10" y="54" width="18" height="18" rx="4" fill="#dbeafe"/><path d="M37 33h42m-42 8h28m-28 18h42m-42 8h28" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/></svg></div><span>일정 목록</span></li>
@@ -99,7 +108,7 @@
             </div>
             <figcaption id="guide-example-caption">가상 기획 예시 · 화면 그림은 이해를 돕는 예시이며 자동 생성되지 않아요.</figcaption>
           </figure>
-        </div>
+        </section>
         <section class="guide-how" id="guide-how" aria-labelledby="guide-how-title">
           <p class="guide-eyebrow">사용 방법</p>
           <h2 id="guide-how-title">아는 것부터, 하나씩 정리하세요.</h2>
