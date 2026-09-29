@@ -80,7 +80,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       const toggle=page.locator('[data-toggle-inspector]');
       const toggleBox=await toggle.boundingBox(),panelBox=await page.locator('#designer-inspector').boundingBox();
       assert(toggleBox.width>=44&&toggleBox.height>=44,'Panel control has a usable touch target');
-      if(width>800)assert(Math.abs(toggleBox.x+toggleBox.width-panelBox.x)<1,'The arrow sits on the panel left edge');
+      if(width>800)assert(toggleBox.x>=panelBox.x&&toggleBox.x<panelBox.x+80,'The open control stays inside the panel');
       await toggle.focus();await page.keyboard.press('Enter');
       assert.equal(await toggle.getAttribute('aria-expanded'),'false');assert(await page.locator('#designer-inspector').isHidden());
       assert(await toggle.evaluate(n=>n===document.activeElement),'Collapse preserves keyboard focus');
