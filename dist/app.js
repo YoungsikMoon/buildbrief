@@ -296,6 +296,19 @@
   }
   document.addEventListener('input', (event) => {
     const el = event.target;
+    if (el.matches('[data-role-search]')) {
+      const picker = el.closest('.role-picker');
+      const query = el.value.trim().toLocaleLowerCase();
+      let count = 0;
+      picker.querySelectorAll('[data-role-option]').forEach((option) => {
+        option.hidden = !option.textContent.toLocaleLowerCase().includes(query);
+        if (!option.hidden) count++;
+      });
+      const result = picker.querySelector('.role-results');
+      result.hidden = !query && count > 0;
+      result.textContent = count ? `검색 결과 ${count}개` : '검색 결과가 없어요.';
+      return;
+    }
     if (el.matches('textarea[data-note]') && questions.has(el.dataset.note)) {
       if (el.value) notes[el.dataset.note] = el.value;
       else delete notes[el.dataset.note];
@@ -304,6 +317,10 @@
     }
     if (el.dataset.q && el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea'))
       edit(el);
+  });
+  document.addEventListener('focusout', (event) => {
+    const picker = event.target.closest('.role-picker[open]');
+    if (picker && event.relatedTarget && !picker.contains(event.relatedTarget)) picker.open = false;
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
@@ -323,7 +340,6 @@
       recommendations = el.checked
         ? [...new Set([...recommendations, id])]
         : recommendations.filter((value) => value !== id);
-      document.getElementById('recommendation-hint-' + id).hidden = !el.checked;
       save();
       return;
     }
@@ -381,7 +397,6 @@
       object.elementNotes[element] = el.value;
     } else if (qid === 'screens' && field === 'recommendLayout') {
       object.recommendLayout = el.checked;
-      document.getElementById('screen-recommendation-hint-' + object.id).hidden = !el.checked;
     } else if (el.type === 'checkbox') {
       let values = Array.isArray(object[key]) ? [...object[key]] : [];
       values = el.checked
@@ -391,17 +406,33 @@
       else if (el.checked) values = values.filter((v) => !A.EXCLUSIVE.includes(v));
       object[key] = values;
     } else object[key] = el.value;
-    if (el.type === 'checkbox' && el.closest('.recommendation-request')) {
-      const hint = el.closest('.recommendation-request').querySelector('.field-help');
-      if (hint && !hint.id) hint.hidden = !el.checked;
+    if (qid === 'screens' && field === 'roleIds') {
+      el.closest('.role-picker').querySelector('[data-role-summary]').textContent =
+        V.roleSelectionLabel(object.roleIds, rowsOf('roles'));
+    }
+    if (field === 'name') {
+      const selector =
+        qid === 'features'
+          ? `[data-feature-title="${row}"]`
+          : qid === 'screens'
+            ? `[data-screen-title="${row}"]`
+            : '';
+      if (selector)
+        document.querySelectorAll(selector).forEach((title) => {
+          title.textContent = el.value || (qid === 'features' ? '새 기능' : '새 화면');
+        });
+      if (qid === 'features')
+        document
+          .querySelectorAll(`[data-remove="features"][data-index="${row}"]`)
+          .forEach((button) =>
+            button.setAttribute('aria-label', `${el.value || '새 기능'} 기능 삭제`)
+          );
     }
     if (qid === 'features') {
       document.querySelectorAll('[data-q="features"]').forEach((control) => {
         if (control !== el && control.dataset.row === row && control.dataset.field === field) {
           if (control.type === 'checkbox') {
             control.checked = el.checked;
-            const hint = control.closest('.recommendation-request')?.querySelector('.field-help');
-            if (hint) hint.hidden = !el.checked;
           } else control.value = el.value;
         }
       });
@@ -468,6 +499,9 @@
     toast(id ? '이름을 변경했어요.' : '새 프로젝트를 만들었어요.');
   });
   document.addEventListener('click', async (event) => {
+    document.querySelectorAll('.role-picker[open]').forEach((picker) => {
+      if (!picker.contains(event.target)) picker.open = false;
+    });
     const b = event.target.closest('button');
     if (!b) return;
     const d = b.dataset;
@@ -899,6 +933,13 @@
     if (index !== -1 && index !== exampleIndex) showExample(index);
   });
   document.addEventListener('keydown', (event) => {
+    const picker = event.target.closest('.role-picker[open]');
+    if (event.key === 'Escape' && picker) {
+      event.preventDefault();
+      picker.open = false;
+      picker.querySelector('summary').focus();
+      return;
+    }
     if (event.key === 'Escape' && $('#sidebar').dataset.open === 'true') {
       setNavigation(false);
       $('#toggle-navigation').focus();

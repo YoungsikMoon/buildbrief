@@ -164,4 +164,17 @@ for(const prompt of [false,true]) {
 const preserved=P.createProject({answers:{login_methods:[A.UNKNOWN],features:[{id:'f',priority:A.UNKNOWN}]}});
 assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...preserved}).projects[0].answers,preserved.answers);
 
+assert.equal(V.roleSelectionLabel([],[]),'역할 선택');
+assert.equal(V.roleSelectionLabel(['missing'],[]),'삭제된 역할');
+assert.equal(V.roleSelectionLabel(['empty'],[{id:'empty',role:''}]),'이름 없는 역할');
+assert.equal(V.roleSelectionLabel(['a','b','c'],[{id:'a',role:'회원'},{id:'b',role:'관리자'},{id:'c',role:'작성자'}]),'회원 · 관리자 외 1개');
+for(const q of A.allQuestions.filter(q=>q.allowRecommend)) {
+  const html=V.question(q,local,{},[q.id]);
+  assert(!html.includes('recommendation-hint-'));
+  assert(!html.includes('초안에 요청을 담아요'));
+  assert(!html.includes('외부 AI에 전달하세요'));
+}
+const unsafeRole=clone(local);unsafeRole.roles[0].role=unsafe;
+assert(!V.question(A.allQuestions.find(q=>q.id==='screens'),unsafeRole).includes('<img src=x'));
+
 console.log('Connected planning checks passed: two stage migrations, login, stable roles, shared features, nested flow/content, scoped reports and backup validation.');

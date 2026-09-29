@@ -21,7 +21,7 @@ const server = http.createServer((req,res)=>{
     for (const width of [1440,390,320]) {
       const context=await browser.newContext({viewport:{width,height:1000},acceptDownloads:true,reducedMotion:'reduce'});
       const page=await context.newPage();const errors=[];
-      page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+      let acceptDialog=true;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>acceptDialog?d.accept():d.dismiss());
       await page.goto(base);
       const stored=()=>page.evaluate(()=>{const w=JSON.parse(localStorage.getItem(BriefProjects.KEY));const p=w.projects.find(p=>p.id===w.activeId);return {...p,...BriefAnswers.normalizeProject(p)};});
       const go=async step=>{const button=page.locator(`[data-step="${step}"]`);if(!await button.isVisible()) await page.locator('#toggle-navigation').click();await button.click();};
@@ -29,10 +29,11 @@ const server = http.createServer((req,res)=>{
       const nested=(row,element,item,property)=>page.locator(`[data-q="screens"][data-row="${row}"][data-field="elementContents"][data-element="${element}"]${item===null?'':`[data-item="${item}"]`}[data-property="${property}"]`);
       const selectElement=async(row,id)=>{
         const target=page.locator(`[data-q="screens"][data-row="${row}"][data-field="elements"][value="${id}"]`);
-        const group=target.locator('xpath=ancestor::details[1]');
-        if(!await target.isVisible()) await group.locator(':scope > summary').click();
+        const groups=target.locator('xpath=ancestor::details');
+        for(let i=0;i<await groups.count();i++){const group=groups.nth(i);if(!await group.evaluate(n=>n.open)) await group.locator(':scope > summary').click();}
         await target.check();
       };
+      const openRoles=async(row=0)=>{const picker=page.locator(`#row-screens-${row} .role-picker`);if(!await picker.evaluate(n=>n.open)) await picker.locator('summary').click();await picker.locator('[data-role-search]').fill('');return picker;};
       const action=(screen,scope,row,property)=>page.locator(`[data-q="screens"][data-row="${screen}"][data-field="flow"][data-flow-scope="${scope}"][data-flow-row="${row}"][data-property="${property}"]`);
       const openFlow=async(screen,scope='')=>{
         const state=await stored(),id=state.answers.screens[screen].id;
@@ -74,8 +75,31 @@ const server = http.createServer((req,res)=>{
       assert.equal(await edit('features',0,'priority').inputValue(),'');
       assert.equal(await edit('features',0,'priority').locator('option').filter({hasText:'아직 미정'}).count(),0);
       const f=(await stored()).answers.features[0];
+      assert.equal(await page.locator('[data-feature-title="0"]').textContent(),'예약하기');
+      assert.equal(await page.locator('[data-screen-title="0"]').textContent(),'예약 신청');
+      await page.locator('[data-recommend="screens"]').check();
+      await edit('screens',0,'recommendLayout').check();
+      assert.equal(await page.locator('[id^="recommendation-hint"],[id^="screen-recommendation-hint"]').count(),0);
+      assert(!(await page.locator('#question-form').textContent()).includes('기획 초안에 요청을 담아요'));
+      const picker=await openRoles();
+      const search=picker.locator('[data-role-search]');
+      const beforeSearch=await stored();
+      await search.fill('강사');assert.equal(await picker.locator('[data-role-option]:visible').count(),1);
+      assert.deepEqual((await stored()).answers,beforeSearch.answers);
+      await search.fill('없는 역할');assert.equal(await picker.locator('[data-role-option]:visible').count(),0);
+      assert((await picker.locator('[role="status"]').textContent()).includes('검색 결과가 없어요'));
+      await search.press('Escape');assert(!await picker.evaluate(n=>n.open));
+      assert(await picker.locator('summary').evaluate(n=>n===document.activeElement));
+      await picker.locator('summary').press('Enter');await search.fill('');
+      await picker.locator('[data-edit-roles]').focus();await page.keyboard.press('Tab');
+      assert(!await picker.evaluate(n=>n.open));await openRoles();
+      if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.locator('#row-screens-0').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`hierarchy-${width}.png`)});}
+
       assert.equal(await edit('features',0,'actor').count(),0);
+      await openRoles();
       await page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[1].id}"]`).check();
+      assert((await picker.locator('[data-role-summary]').textContent()).includes('로그인 사용자'));
+      await page.locator('#page-title').click();assert(!await picker.evaluate(n=>n.open));
       await addFlow(0,'form');
       await action(0,'form',0,'event').fill('신청서 제출');
       await action(0,'form',0,'featureId').selectOption(f.id);
@@ -117,16 +141,26 @@ const server = http.createServer((req,res)=>{
       const custom=(await stored()).answers.screens[0].customElements[0];
       await addFlow(0,'custom:'+custom.id);await action(0,'custom:'+custom.id,0,'event').fill('좌석 선택');
       await action(0,'custom:'+custom.id,0,'nextScreenId').selectOption('@stay');
+      await openRoles();
       await page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[3].id}"]`).check();
       await page.locator('[data-edit-roles]').first().click();
       assert(await page.locator('[data-role-preset="0"]').isVisible());
       await edit('roles',1,'role').fill('예약 회원');
       await page.locator('[data-remove="roles"][data-index="3"]').click();
       await go(4);
+      await openRoles();
       const selectedRole=page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[1].id}"]`);
       assert(await selectedRole.isChecked());assert((await selectedRole.locator('..').innerText()).includes('예약 회원'));
       const deletedRole=page.locator(`[data-q="screens"][data-row="0"][data-field="roleIds"][value="${roles[3].id}"]`);
       assert((await deletedRole.locator('..').innerText()).includes('삭제된 역할'));await deletedRole.uncheck();
+      await page.locator('[data-feature="custom"][data-screen="0"]').click();
+      const extra=(await stored()).answers.features[1];await edit('features',1,'name').fill('삭제할 기능');
+      const extraDetails=page.locator(`#feature-0-${extra.id}`);
+      await extraDetails.locator(':scope > summary').click();
+      const remove=page.locator('[data-remove="features"][data-index="1"]');assert(await remove.isVisible());
+      if(process.env.PLANNING_SCREENSHOTS){await extraDetails.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`feature-delete-${width}.png`)});}
+      acceptDialog=false;await remove.click();assert.equal((await stored()).answers.features.length,2);assert(!await extraDetails.evaluate(n=>n.open));
+      acceptDialog=true;await remove.focus();await page.keyboard.press('Enter');assert.equal((await stored()).answers.features.length,1);
       await page.locator('[data-unlink-feature][data-screen="1"]').click();
       state=await stored();assert.equal(state.answers.features.length,1);assert.deepEqual(state.answers.screens[1].featureIds,[]);
       assert.equal(state.answers.screens[0].elementContents.form.flow[0].featureId,f.id);
@@ -145,6 +179,17 @@ const server = http.createServer((req,res)=>{
       await page.locator('#import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
       const restored=await stored();assert.notEqual(restored.id,before.id);assert.deepEqual(restored.answers,before.answers);
       assert.equal(await page.locator('[id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length-new Set(ids).size;}),0,'Duplicate DOM ids');
+      await page.evaluate(()=>{
+        const project=BriefProjects.createProject({answers:{roles:Array.from({length:80},(_,i)=>({id:'role-'+i,role:'운영 담당 '+(i+1)})),screens:[{id:'s',name:'긴 역할 목록',roleIds:['role-79']}]}});
+        localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:project.id,projects:[project]}));
+      });await page.reload();await go(4);
+      const many=await openRoles();
+      assert.equal(await many.locator('[data-role-option]').count(),80);
+      assert(await many.locator('.role-options').evaluate(n=>n.scrollHeight>n.clientHeight));
+      await many.locator('[data-role-search]').fill('담당 80');
+      assert.equal(await many.locator('[data-role-option]:visible').count(),1);
+      assert(await many.locator('[data-role-option]:visible input').isChecked());
+      assert((await many.locator('[data-role-summary]').textContent()).includes('운영 담당 80'));
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`200% overflow ${width}`);
       assert.deepEqual(errors,[]);await context.close();console.log(`Connected planning browser flow passed: ${width}px`);

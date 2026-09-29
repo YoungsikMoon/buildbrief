@@ -702,31 +702,161 @@ main {
 .editor-list {
   margin-top: 24px;
 }
-.screen-functions {
-  border-top: 1px solid var(--line);
-  padding-top: 20px;
-  margin: 24px 0;
+.question-group:has(#field-screens) {
+  background: transparent;
+  border: 0;
+  overflow: visible;
 }
-.screen-functions > h4 {
+.question-group:has(#field-screens) > .group-heading {
+  padding: 0 0 20px;
+  border: 0;
+}
+.question-group:has(#field-screens) > .group-body {
+  padding: 0;
+}
+.editor-card.screen-card {
+  padding: 0;
+  background: #fff;
+  margin: 24px 0;
+  border-color: #aebed3;
+}
+.screen-card-heading {
+  padding: 18px 24px;
+  margin: 0;
+  border-left: 4px solid var(--blue);
+  border-radius: 10px 10px 0 0;
+  background: var(--soft);
+}
+.screen-card-heading h3 {
+  font-size: var(--type-section);
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+.screen-section {
+  padding: 24px;
+  border-top: 1px solid var(--line);
+}
+.screen-section > h4 {
   font-size: var(--type-question);
-  margin-bottom: 10px;
+  margin: 0 0 20px;
+  color: var(--ink);
+}
+.screen-section > h4 + .field-help {
+  margin-top: -12px;
+}
+.screen-behavior > .local-flow {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 .screen-functions > .input-field {
   margin-top: 16px;
+}
+.screen-roles {
+  min-width: 0;
+  margin: 0 0 18px;
+}
+.screen-basics .screen-roles > legend {
+  font-size: var(--type-control);
+  margin-bottom: 7px;
+}
+.role-picker {
+  position: relative;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.role-picker > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  min-height: 50px;
+  font-size: max(1rem, var(--type-body));
+  list-style: none;
+}
+.role-picker > summary::-webkit-details-marker {
+  display: none;
+}
+.role-picker > summary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.role-picker > summary::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+.role-picker[open] {
+  border-color: var(--blue);
+  z-index: 4;
+}
+.role-picker[open] > summary::after {
+  transform: rotate(225deg);
+}
+.role-panel {
+  position: absolute;
+  top: 100%;
+  left: -1px;
+  right: -1px;
+  border: 1px solid var(--control-border);
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px #0f172a14;
+  padding: 12px;
+}
+.role-options {
+  max-height: 14rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 8px 0;
+}
+.role-options .choice {
+  min-height: 44px;
+  padding: 10px;
+  align-items: center;
+}
+.role-results {
+  margin: 8px 0;
+}
+.role-panel > .text-button {
+  min-height: 44px;
 }
 .feature-card,
 .content-item {
   border: 1px solid var(--line);
   border-radius: 8px;
   margin: 14px 0;
-  background: var(--surface);
+  background: #fff;
   min-width: 0;
 }
-.feature-card > summary {
-  padding: 16px;
+.feature-card {
+  position: relative;
+}
+.feature-card > details > summary {
+  padding: 16px 7rem 16px 16px;
+  min-height: 60px;
   font-size: var(--type-body);
   font-weight: 600;
   overflow-wrap: anywhere;
+  background: var(--surface);
+  border-radius: 8px;
+}
+.feature-delete {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  min-height: 44px;
+  padding: 6px;
+  font-size: var(--type-control);
 }
 .feature-card-body,
 .content-item {
@@ -735,7 +865,7 @@ main {
 .feature-card-body {
   border-top: 1px solid var(--line);
 }
-.content-item h5 {
+.content-item :is(h5, h6) {
   font-size: var(--type-body);
   margin: 0;
 }
@@ -844,22 +974,27 @@ main {
   padding-bottom: 14px;
 }
 .element-settings {
-  border-top: 1px solid var(--line);
-  padding: 20px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
+  margin: 16px 0;
   scroll-margin-top: 90px;
 }
-.element-settings h4 {
-  font-size: var(--type-question);
-  margin: 0 0 14px;
+.element-settings > h5,
+.element-settings .card-top h5 {
+  font-size: var(--type-body);
+  margin: 0 0 18px;
+  color: var(--ink);
 }
-.element-settings .card-top h4 {
+.element-settings .card-top h5 {
   margin: 0;
 }
 .element-detail {
   margin: 0;
 }
 .custom-element-add {
-  margin-bottom: 24px;
+  margin: 8px 0 0;
 }
 .element-grid {
   display: grid;
@@ -1321,6 +1456,21 @@ dialog p {
   .editor-card {
     padding: 16px;
   }
+  .screen-section {
+    padding: 18px 16px;
+  }
+  .role-panel {
+    position: static;
+    border: 0;
+    border-top: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .screen-card-heading {
+    padding: 16px;
+  }
+  .element-settings {
+    padding: 14px;
+  }
   .question-group {
     border-radius: 10px;
   }
@@ -1389,6 +1539,11 @@ dialog p {
     padding: 16px;
   }
   .editor-card {
+    padding: 12px;
+  }
+  .screen-section,
+  .screen-card-heading,
+  .element-settings {
     padding: 12px;
   }
   .element-option label {
@@ -1496,11 +1651,7 @@ dialog p {
   margin: 6px 0 0;
 }
 .screen-recommendation {
-  padding: 14px 16px;
-  margin-bottom: 20px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--soft);
+  margin: 0 0 16px;
 }
 .screen-recommendation > label {
   min-height: 44px;

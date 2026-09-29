@@ -26,7 +26,7 @@ node scripts/build.cjs --test
 
 JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 합니다. 값은 파일의 줄바꿈을 LF로 맞춘 내용의 **SHA-256 앞 12자리**이며 `check.cjs`가 일치 여부를 검사합니다. 전체 로컬 빌드 검증은 `node scripts/build.cjs`로 실행할 수 있습니다. 이 명령은 위 검사를 실행하고 HTML의 앱 버전 표시를 `개발 버전`으로 설정합니다.
 
-화면·기능 연결과 폼·표 편집은 `node scripts/check-planning-browser.cjs`로 검증합니다. 같은 `PLAYWRIGHT_MODULE` 환경을 사용하고, `PLANNING_SCREENSHOTS`로 화면 저장 위치를 지정할 수 있습니다. 별도 Chrome에서 320·390·1440px, 로그인 선택·역할 추가/이름 변경/삭제·공유 기능 수정·화면/요소 동작·초안·백업 왕복과 200% 글자 확대를 확인합니다.
+화면·기능 연결과 폼·표 편집은 `node scripts/check-planning-browser.cjs`로 검증합니다. 같은 `PLAYWRIGHT_MODULE` 환경을 사용하고, `PLANNING_SCREENSHOTS`로 화면 저장 위치를 지정할 수 있습니다. 별도 Chrome에서 320·390·1440px, 로그인 선택·역할 추가/이름 변경/삭제·80개 역할의 검색/복수 선택/스크롤·접힌 기능 삭제와 취소·공유 기능 수정·화면/요소 동작·초안·백업 왕복과 200% 글자 확대를 확인합니다.
 
 ## 파일 구성
 
