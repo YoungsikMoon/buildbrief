@@ -72,8 +72,13 @@ const html = V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{s
 assert(!html.includes('<img src=x'));
 assert(!R.report(attack,true).includes('<img src=x'));
 assert(!V.report(attack).includes('<img src=x'));
-assert(html.includes('기능 후보에서 선택'));
-assert(V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'history',element:'table',panel:'features'}).includes('만들어 둔 기능 연결'));
+assert(html.includes('요소 이름') && html.includes('어떤 용도로 쓰나요?'));
+assert(!html.includes('data-designer-placement') && !html.includes('data-designer-panel'));
+const library=V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'history',element:'table',referenceOpen:true});
+assert(library.includes('요소 참고') && library.includes('기능 참고'));
+assert.equal((library.match(/data-element-help=/g)||[]).length,Q.uiElements.length);
+assert.equal((library.match(/data-feature-help=/g)||[]).length,Q.featureTypes.filter(f=>f.id!=='custom').length);
+assert(!library.includes('data-insert-element'));
 for (const contents of [null,[],{form:null},{nope:{}},JSON.parse('{"__proto__":{}}'),{form:{recommend:'yes'}},{form:{featureIds:['bad id']}},{form:{items:[{id:'a',type:'SQL'}]}},{form:{items:[{id:'a',required:true}]}},{form:{items:[{id:'a'},{id:'a'}]}},{table:{items:[{id:'a',notes:'x'.repeat(A.MAX_TEXT+1)}]}},{button:{items:[{id:'a'}]}},{table:{items:Array.from({length:A.MAX_ROWS+1},(_,i)=>({id:'i'+i}))}}]) {
   const input = {screens:[{id:'s',elementContents:contents}]}; const before=clone(input);
   assert.throws(()=>A.normalizeAnswers(input)); assert.deepEqual(input,before);
@@ -376,6 +381,24 @@ for(const prompt of [false,true]) {
 }
 assert(R.report(handoff,true).endsWith(R.report(handoff)));
 assert.deepEqual(handoff,handoffBefore,'Exports do not rewrite saved screen definitions');
+// Natural-language blocks keep their own names, descriptions and bounded planning sizes.
+const natural=A.normalizeAnswers({screens:[{id:'natural',name:'자유 구성',elements:['button'],elementContents:{button:{name:'문의하기'}},elementNotes:{button:unsafe},customElements:[{id:'search',name:'찾기',purpose:'검색어를 쓰고 찾기를 누르면 결과 목록을 보여 줘요.\n실패하면 입력한 검색어를 유지해요.'}],placements:{'custom:search':{region:'main',width:65,height:240},button:{region:'overlay',width:'half'}}}]});
+assert.equal(A.elementLabel(natural.screens[0],'button'),'문의하기');
+assert.deepEqual(A.elementSize(natural.screens[0],'button'),{width:50,height:120});
+assert.deepEqual(A.elementSize(natural.screens[0],'custom:search'),{width:65,height:240});
+const naturalReport=R.report(natural,true);
+for(const value of ['문의하기','실패하면 입력한 검색어를 유지해요.','65%','240px','용도·기능·동작','기존에 선택한 요소 유형'])assert(naturalReport.includes(value),value);
+assert(!naturalReport.includes('<img src=x'));
+const naturalHtml=V.question(screenQ,natural,{},[],{screenId:'natural',element:'custom:search'});
+assert(naturalHtml.includes('data-resize-element="custom:search"') && naturalHtml.includes('data-width="65"'));
+assert(naturalHtml.includes('data-open-reference') && !naturalHtml.includes('data-feature-choice'));
+const naturalProject=P.createProject({answers:natural});
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...naturalProject}).projects[0].answers,natural);
+for(const bad of [{width:19},{width:101},{width:'65%'},{width:NaN},{width:50.5},{height:119},{height:801},{height:'240px'},{height:Infinity}]) {
+  const raw={screens:[{id:'s',placements:{button:{region:'main',width:50,...bad}}}]},before=clone(raw);
+  assert.throws(()=>A.normalizeAnswers(raw));assert.deepEqual(clone(raw),before);
+}
+assert.throws(()=>A.normalizeAnswers({screens:[{id:'s',elementContents:{button:{name:'x'.repeat(A.MAX_TEXT+1)}}}]}));
 console.log('Connected planning checks passed: migration, visual layouts, roles, scoped actions, safe exports and backup validation.');
 
 module.exports = handoff;

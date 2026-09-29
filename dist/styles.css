@@ -518,24 +518,98 @@ a.app-version:focus-visible {
 .designer-inspector[hidden] {
   display: none;
 }
-.inspector-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  flex-shrink: 0;
+.inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
 }
-.inspector-tabs button {
-  border: 0;
-  border-bottom: 3px solid transparent;
-  padding: 14px 4px;
+.inspector-heading h4 {
+  font-size: var(--type-question);
+  margin: 0;
+}
+.natural-element-settings textarea {
+  min-height: 220px;
+}
+.reference-features {
+  display: grid;
+  gap: 8px;
+}
+.reference-feature {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: #fff;
-  color: var(--muted);
+  text-align: left;
+  color: var(--ink);
   font-size: var(--type-control);
 }
-.inspector-tabs button[aria-pressed='true'] {
+.reference-feature span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--type-small);
+}
+.reference-feature:hover {
+  border-color: var(--blue);
+}
+.inspector-body > h5 {
+  font-size: var(--type-control);
+  margin: 22px 0 10px;
+}
+.inspector-body > .inspector-add {
+  margin: 0 0 20px;
+}
+.element-delete {
+  margin-left: auto;
+  color: #b42318;
+  min-width: 44px;
+  padding: 10px;
+}
+.element-delete svg,
+.canvas-resize svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.canvas-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #f8faff;
+  color: #496387;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.canvas-resize:hover {
   color: var(--blue);
-  border-bottom-color: var(--blue);
-  font-weight: 700;
+  border-color: var(--blue);
+}
+.canvas-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
 }
 .inspector-body {
   min-height: 0;
@@ -544,18 +618,7 @@ a.app-version:focus-visible {
   overscroll-behavior: contain;
   scroll-margin-top: 160px;
 }
-.insert-location {
-  display: block;
-  font-size: var(--type-control);
-  margin-bottom: 18px;
-}
-.insert-location select {
-  margin-top: 6px;
-}
-.inspector-body > h4 {
-  font-size: var(--type-question);
-  margin: 0 0 18px;
-}
+
 .insert-group {
   border-top: 1px solid var(--line);
   padding: 4px 0;
@@ -603,11 +666,6 @@ a.app-version:focus-visible {
   color: var(--blue);
   font-size: var(--type-small);
 }
-.insert-element .option-help {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-}
 .inspector-body > .button {
   width: 100%;
   margin-top: 12px;
@@ -620,12 +678,6 @@ a.app-version:focus-visible {
   padding-bottom: 16px;
   margin-bottom: 18px;
   border-bottom: 1px solid var(--line);
-}
-.placement-controls label {
-  font-size: var(--type-control);
-}
-.placement-controls select {
-  margin-top: 6px;
 }
 .placement-controls .inline-actions {
   margin-top: 10px;
@@ -687,9 +739,10 @@ a.app-version:focus-visible {
   padding: 8px;
   border: 1px dashed #cad5e4;
   border-radius: 7px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-content: start;
+  align-items: flex-start;
   gap: 8px;
 }
 .region-top {
@@ -712,19 +765,23 @@ a.app-version:focus-visible {
   grid-area: overlay;
 }
 .canvas-region-name {
-  grid-column: 1 / -1;
+  flex: 0 0 100%;
   font-size: 11px;
   color: #68768c;
 }
 .canvas-block {
-  display: block;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   text-align: left;
-  grid-column: span 2;
-  min-width: 0;
+  flex: 0 0 calc((100% + 8px) * var(--block-ratio, 1) - 8px);
+  max-width: 100%;
+  min-width: min(100%, 110px);
+  min-height: var(--block-height, 120px);
   border: 1px solid #bac9df;
   background: #fff;
   border-radius: 6px;
-  padding: 10px;
+  padding: 10px 10px 44px;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
@@ -741,15 +798,16 @@ a.app-version:focus-visible {
   cursor: grab;
 }
 .canvas-children {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px dashed #cad5e4;
 }
 .canvas-add {
-  grid-column: 1 / -1;
+  flex: 0 0 100%;
   min-width: 0;
   min-height: 32px;
   padding: 5px 2px;
@@ -765,9 +823,6 @@ a.app-version:focus-visible {
   border-color: #b6c5d8;
   color: var(--blue);
 }
-.canvas-block.block-half {
-  grid-column: span 1;
-}
 .canvas-block.inherited {
   background: #f0f3f8;
   border-style: dashed;
@@ -776,7 +831,7 @@ a.app-version:focus-visible {
 }
 .canvas-block.selected {
   border: 2px solid var(--blue);
-  padding: 9px;
+  padding: 9px 9px 43px;
   box-shadow: 0 0 0 3px #1d4ed814;
 }
 .canvas-block-title {
@@ -797,98 +852,7 @@ a.app-version:focus-visible {
   margin-top: 10px;
   pointer-events: none;
 }
-.wire-preview i {
-  display: block;
-  background: #e2e8f0;
-  border-radius: 3px;
-  min-height: 6px;
-}
-.wire-menu {
-  display: grid;
-  gap: 7px;
-}
-.wire-menu i:last-child {
-  width: 65%;
-}
-.wire-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.wire-nav b {
-  font-size: 14px;
-  color: #7e93b4;
-}
-.wire-nav i {
-  flex: 1;
-  height: 5px;
-}
-.wire-form {
-  display: grid;
-  gap: 8px;
-  font-size: 11px;
-  color: #718096;
-}
-.wire-form i {
-  height: 17px;
-  border: 1px solid #d1dbe8;
-  background: #f8fafc;
-  margin-top: 3px;
-}
-.wire-form b,
-.wire-action {
-  background: #e2eafd;
-  color: #33558b;
-  padding: 5px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  text-align: center;
-}
-.wire-table > div {
-  display: flex;
-  gap: 4px;
-  font-size: 10px;
-  padding: 5px;
-  background: #eaf0f7;
-}
-.wire-table b {
-  flex: 1;
-  min-width: 0;
-}
-.wire-table i {
-  height: 14px;
-  background: #fff;
-  border-bottom: 1px solid #d5dfec;
-}
-.wire-cards {
-  display: flex;
-  gap: 6px;
-}
-.wire-cards i {
-  flex: 1;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  color: #8b9cb4;
-}
-.wire-search {
-  border: 1px solid #ccd7e5;
-  border-radius: 4px;
-  padding: 4px;
-  font-size: 12px;
-  color: #8b9cb4;
-}
-.wire-calendar {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-}
-.wire-calendar i {
-  text-align: center;
-  font-size: 9px;
-  font-style: normal;
-  background: #edf2f7;
-}
+
 .canvas-region.drop-active {
   border: 2px solid var(--blue);
   background: #edf3ff;
@@ -963,10 +927,10 @@ a.app-version:focus-visible {
     gap: 4px;
   }
   .canvas-block {
-    padding: 6px;
+    padding: 6px 6px 40px;
   }
   .canvas-block.selected {
-    padding: 5px;
+    padding: 5px 5px 39px;
   }
   .insert-elements {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -231,8 +231,22 @@
     };
   const elementLabel = (screen, key) =>
     key.startsWith('custom:')
-      ? screen.customElements?.find((el) => el.id === key.slice(7))?.name || '직접 추가한 요소'
-      : Q.uiElements.find((el) => el.id === key)?.label || key;
+      ? screen.customElements?.find((el) => el.id === key.slice(7))?.name || '이름 없는 요소'
+      : screen.elementContents?.[key]?.name ||
+        Q.uiElements.find((el) => el.id === key)?.label ||
+        key;
+  const elementSize = (screen, key) => {
+    const placement = elementPlacement(screen, key);
+    return {
+      width:
+        typeof placement.width === 'number'
+          ? placement.width
+          : placement.width === 'half'
+            ? 50
+            : 100,
+      height: placement.height || 120
+    };
+  };
   const canContain = (key) =>
     key.startsWith('custom:') ||
     [
@@ -367,6 +381,9 @@
             fail(`${label}의 요소별 내용`);
           elementContents[key] = {
             ...flowPlan(content, label),
+            ...(content.name !== undefined
+              ? { name: text(content.name, label + ' 요소 이름') }
+              : {}),
             reason: text(content.reason === undefined ? '' : content.reason, label),
             recommend: boolean(content.recommend, label + ' 요소 추천'),
             featureIds: ids(content.featureIds === undefined ? [] : content.featureIds, label),
@@ -422,7 +439,14 @@
             !keys.includes(key) ||
             !plain(placement) ||
             !Q.layoutRegions.some((region) => region.id === placement.region) ||
-            !['full', 'half'].includes(placement.width)
+            !(
+              ['full', 'half'].includes(placement.width) ||
+              (Number.isInteger(placement.width) && placement.width >= 20 && placement.width <= 100)
+            ) ||
+            (placement.height !== undefined &&
+              (!Number.isInteger(placement.height) ||
+                placement.height < 120 ||
+                placement.height > 800))
           )
             fail(label + ' 배치');
           if (placement.parent !== undefined && typeof placement.parent !== 'string')
@@ -430,6 +454,7 @@
           placements[key] = {
             region: placement.region,
             width: placement.width,
+            ...(placement.height !== undefined ? { height: placement.height } : {}),
             ...(placement.parent
               ? { parent: text(placement.parent, label + ' 포함 관계', 210) }
               : {})
@@ -587,6 +612,7 @@
     linkedFeatureIds,
     elementKeys,
     elementPlacement,
+    elementSize,
     elementLabel,
     canContain,
     layoutItems,

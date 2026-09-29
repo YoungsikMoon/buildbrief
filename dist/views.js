@@ -268,28 +268,6 @@ ${esc(value)}</textarea
       '</details>'
     );
   }
-  function elementFeatures(plan, screen, i, answers, scope) {
-    const ids = A.linkedFeatureIds(plan);
-    const features = rowsOf(answers, 'features');
-    return (
-      '<div class="element-functions"><h6>이 요소의 기능</h6>' +
-      featureCatalog(answers, String(i), scope, ids) +
-      request(
-        '기능·동작',
-        plan.recommendFlow,
-        attrs('screens', i, 'recommendFlow') + ' data-flow-scope="' + esc(scope) + '"'
-      ) +
-      features
-        .map((f, index) =>
-          ids.includes(f.id) ? featureCard(f, index, answers, String(i), scope) : ''
-        )
-        .join('') +
-      (ids.some((id) => !features.some((f) => f.id === id))
-        ? '<p class="field-help">삭제된 기능 연결은 기획 초안에서 확인해 주세요.</p>'
-        : '') +
-      '</div>'
-    );
-  }
   function rolesEditor(answers) {
     const roles = rowsOf(answers, 'roles');
     return /* HTML */ `<div class="inline-actions"
@@ -542,70 +520,11 @@ ${esc(value)}</textarea
       : picture;
   }
 
-  function elementDetail(el, row, i) {
-    if (!el.detail) return '';
-    const selected = row.elementOptions?.[el.id] || [];
-    if (el.id === 'form' && !selected.length) return '';
-    const options = el.detail.options;
-    return /* HTML */ `<fieldset class="sub-field element-detail"
-      ><legend>${esc(el.id === 'form' ? '이전에 선택한 입력 방식' : el.detail.label)}</legend
-      ><div class="choices"
-        >${options
-          .map(
-            (option) =>
-              /* HTML */ `<div class="choice-row"
-                ><label class="choice"
-                  ><input
-                    type="${el.detail.multiple ? 'checkbox' : 'radio'}"
-                    name="element-${row.id}-${el.id}"
-                    ${attrs('screens', i, 'elementOptions')}
-                    data-element="${el.id}"
-                    value="${option.id}"
-                    ${(option.id ? selected.includes(option.id) : !selected.length)
-                      ? 'checked'
-                      : ''}
-                  /><span>${esc(option.label)}</span></label
-                >${option.id
-                  ? /* HTML */ `<button
-                      type="button"
-                      class="option-help"
-                      data-element-help="${el.id}"
-                      data-element-choice="${option.id}"
-                      aria-label="${esc(option.label)} 설명"
-                      >?</button
-                    >`
-                  : ''}</div
-              >`
-          )
-          .join('')}</div
-      >${!el.detail.multiple && selected.length
-        ? `<button type="button" class="text-button clear-answer" data-clear-element="${el.id}" data-screen="${i}">선택 지우기</button>`
-        : ''}</fieldset
-    >`;
-  }
-  function elementContent(el, row, i, answers) {
-    if (!Q.elementContentTypes.includes(el.id)) return '';
-    const plan = row.elementContents?.[el.id] || {};
-    if (el.id === 'button' && !plan.recommend && !plan.reason) return '';
-    const label = el.id === 'form' ? '입력 항목' : el.id === 'table' ? '표의 열' : '표시할 정보';
-    const attributes = attrs('screens', i, 'elementContents') + ` data-element="${el.id}"`;
-    const itemInput = (item, j, key, title, options) =>
-      input(title, item[key], attributes + ` data-item="${j}" data-property="${key}"`, options);
-    return `<details class="optional-details" id="content-${row.id}-${el.id}" ${(plan.items || []).length || plan.recommend ? 'open' : ''}><summary>${label} 세부 설정</summary>${el.id !== 'button' ? `${(plan.items || []).map((item, j) => `<section class="content-item" id="content-${row.id}-${el.id}-${item.id}"><div class="card-top"><h6>${label} ${j + 1}</h6><div class="inline-actions"><button type="button" class="text-button" data-content-move="${j}" data-direction="-1" data-screen="${i}" data-element="${el.id}" aria-label="${label} ${j + 1} 위로" ${j === 0 ? 'disabled' : ''}>↑</button><button type="button" class="text-button" data-content-move="${j}" data-direction="1" data-screen="${i}" data-element="${el.id}" aria-label="${label} ${j + 1} 아래로" ${j === plan.items.length - 1 ? 'disabled' : ''}>↓</button><button type="button" class="text-button danger-text" data-content-remove="${j}" data-screen="${i}" data-element="${el.id}">삭제</button></div></div>${itemInput(item, j, 'name', el.id === 'form' ? '항목 이름' : el.id === 'table' ? '열 이름' : '정보 이름')}${el.id === 'form' ? `<div class="field-grid">${itemInput(item, j, 'type', '입력 방식', { type: 'single', options: Q.formInputTypes })}${itemInput(item, j, 'required', '꼭 입력해야 하나요?', { type: 'single', options: ['필수', '선택'] })}</div>${['하나 선택', '여러 개 선택'].includes(item.type) || item.options ? itemInput(item, j, 'options', '선택지 (한 줄에 하나씩)', { type: 'textarea' }) : ''}${itemInput(item, j, 'notes', '설명·제한 (선택)', { help: '예: 인원은 1~6명, 파일은 사진만. 모르면 비워 두세요.' })}` : itemInput(item, j, 'notes', '어떤 내용을 보여 주나요?', { help: '예: 예약 날짜, 처리 상태. 표시 방법이나 정렬이 필요하면 함께 적어요.' })}</section>`).join('')}<button type="button" class="button secondary" data-content-add data-screen="${i}" data-element="${el.id}">+ ${label} 추가</button>` : ''}${el.id !== 'button' || plan.recommend ? request(el.id === 'form' ? '이 폼의 항목과 필수 여부' : el.id === 'table' ? '이 표의 열과 행동' : el.id === 'button' ? '이 버튼의 동작' : '이 요소에 보여 줄 정보', plan.recommend, attributes + ' data-property="recommend"') : ''}${rowReason(plan.reason, attributes + ' data-property="reason"', `element-${row.id}-${el.id}`)}</details>`;
-  }
   function screenEditor(q, answers, state = {}) {
-    const { screen: row, index: i, element, panel } = D.selection(answers, state);
+    const { screen: row, index: i, element } = D.selection(answers, state);
     let inspector = '';
     if (i < 0) inspector = '<p class="field-help">기본 공통 화면부터 구성하세요.</p>';
-    else if (panel === 'features') {
-      const plan = element.startsWith('custom:')
-        ? row.customElements?.find((el) => el.id === element.slice(7))
-        : row.elementContents?.[element];
-      inspector = element
-        ? featureCatalog(answers, String(i), element, A.linkedFeatureIds(plan))
-        : '<p class="field-help">가운데 화면에서 기능을 넣을 요소를 먼저 선택하세요.</p>';
-    } else if (element) {
-      const placement = A.elementPlacement(row, element);
+    else if (element) {
       const items = A.layoutItems(
         row,
         rowsOf(answers, 'screens').find((s) => s.isCommon)
@@ -617,68 +536,44 @@ ${esc(value)}</textarea
           item.parent === current.parent &&
           (current.parent || item.region === current.region)
       );
+      const customIndex = (row.customElements || []).findIndex(
+        (el) => 'custom:' + el.id === element
+      );
+      const custom = customIndex >= 0 ? row.customElements[customIndex] : null;
+      const plan = row.elementContents?.[element] || {};
+      const nameAttrs = custom
+        ? attrs('screens', i, 'customElements') +
+          ' data-custom="' +
+          customIndex +
+          '" data-property="name"'
+        : attrs('screens', i, 'elementContents') +
+          ' data-element="' +
+          element +
+          '" data-property="name"';
+      const descriptionAttrs = custom
+        ? attrs('screens', i, 'customElements') +
+          ' data-custom="' +
+          customIndex +
+          '" data-property="purpose"'
+        : attrs('screens', i, 'elementNotes') + ' data-element="' + element + '"';
       inspector =
-        '<div class="placement-controls"><div class="field-grid"><label>넣을 곳<select data-designer-placement="location">' +
-        D.locationOptions(
-          items,
-          current.parent ? 'parent:' + current.parent : 'region:' + placement.region,
-          element
+        '<div class="natural-element-settings">' +
+        input(
+          '요소 이름',
+          custom ? custom.name : plan.name === undefined ? A.elementLabel(row, element) : plan.name,
+          nameAttrs
         ) +
-        '</select></label><label>너비<select data-designer-placement="width"><option value="full" ' +
-        (placement.width === 'full' ? 'selected' : '') +
-        '>전체</option><option value="half" ' +
-        (placement.width === 'half' ? 'selected' : '') +
-        '>절반</option></select></label></div><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
+        input(
+          '어떤 용도로 쓰나요?',
+          custom ? custom.purpose : row.elementNotes?.[element],
+          descriptionAttrs,
+          { type: 'textarea', help: '보여 줄 정보, 사용할 기능과 동작을 자유롭게 적어 주세요.' }
+        ) +
+        '<div class="placement-controls"><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
         (siblings[0]?.key === element ? 'disabled' : '') +
         '>앞으로</button><button type="button" class="button secondary small" data-designer-move="1" ' +
         (siblings.at(-1)?.key === element ? 'disabled' : '') +
-        '>뒤로</button><button type="button" class="text-button danger-text" data-designer-remove-element>요소 빼기</button></div></div>';
-      if (element.startsWith('custom:')) {
-        const index = (row.customElements || []).findIndex((el) => el.id === element.slice(7)),
-          item = row.customElements[index];
-        inspector +=
-          input(
-            '요소 이름',
-            item.name,
-            attrs('screens', i, 'customElements') +
-              ' data-custom="' +
-              index +
-              '" data-property="name"'
-          ) +
-          input(
-            '어떤 용도로 쓰나요?',
-            item.purpose,
-            attrs('screens', i, 'customElements') +
-              ' data-custom="' +
-              index +
-              '" data-property="purpose"',
-            { type: 'textarea' }
-          ) +
-          elementFeatures(item, row, i, answers, element);
-        if ((item.flow || []).some((action) => !action.featureId))
-          inspector += screenFlow(item, row, i, answers, element);
-      } else {
-        const el = uiElements.find((el) => el.id === element),
-          plan = row.elementContents?.[element] || {};
-        inspector +=
-          input(
-            el.prompt || '어떤 용도로 쓰나요?',
-            row.elementNotes?.[element],
-            attrs('screens', i, 'elementNotes') + ' data-element="' + element + '"',
-            { type: 'textarea' }
-          ) +
-          elementContent(el, row, i, answers) +
-          elementDetail(el, row, i) +
-          elementFeatures(plan, row, i, answers, element);
-        if (
-          (plan.flow || []).some(
-            (action) =>
-              !action.featureId ||
-              !rowsOf(answers, 'features').some((f) => f.id === action.featureId)
-          )
-        )
-          inspector += screenFlow(plan, row, i, answers, element);
-      }
+        '>뒤로</button><button type="button" class="button secondary element-delete" data-designer-remove-element aria-label="요소 삭제" title="요소 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div></div></div>';
     } else {
       inspector =
         (row.isCommon ? '' : input('화면 이름', row.name, attrs('screens', i, 'name'))) +

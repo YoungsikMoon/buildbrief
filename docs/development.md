@@ -26,7 +26,7 @@ node scripts/build.cjs --test
 
 JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 합니다. 값은 파일의 줄바꿈을 LF로 맞춘 내용의 **SHA-256 앞 12자리**이며 `check.cjs`가 일치 여부를 검사합니다. 전체 로컬 빌드 검증은 `node scripts/build.cjs`로 실행할 수 있습니다. 이 명령은 위 검사를 실행하고 HTML의 앱 버전 표시를 `개발 버전`으로 설정합니다.
 
-화면·기능 연결과 폼·표 편집은 `node scripts/check-planning-browser.cjs`로 검증합니다. 같은 `PLAYWRIGHT_MODULE` 환경을 사용하고, `PLANNING_SCREENSHOTS`로 화면 저장 위치를 지정할 수 있습니다. 별도 Chrome에서 320·390·1440px, 공통 틀과 개별 화면 전환·패널 접기와 확장·요소 분류 기본 닫힘·상위 요소 안에 삽입/이동·상위 삭제 후 하위 보존·기능 드롭다운·PC 끌어 놓기·요소별 기능과 오류/예외 추천·공유 기능·검색 가능한 역할·화면별 이유·기존 기록·초안·백업 왕복과 200% 글자 확대를 확인합니다.
+자연어 화면 편집은 `node scripts/check-planning-browser.cjs`로 검증합니다. 같은 `PLAYWRIGHT_MODULE` 환경을 사용하고 `PLANNING_SCREENSHOTS`로 화면 저장 위치를 지정합니다. 별도 Chrome 320·390·1440px에서 구역·중첩 추가, 두 입력 필드, 참고 자료와 이미지·기능 도움말의 답변 불변, 마우스·터치·키보드 크기 조절과 취소, 정렬·삭제·자식 보존, 공통 요소 적용, 접기·열기, 초안·AI 복사·파일·백업 왕복, 기존 구조화된 기록 보존과 200% 글자 확대를 확인합니다.
 
 ## 파일 구성
 
@@ -37,7 +37,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
 | [dist/app.js](../dist/app.js) | 앱 시작, 화면 이동, 이벤트 연결, 프로젝트 관리 UI, 내보내기 |
 | [dist/answers.js](../dist/answers.js) | 답변·메모 검증, 질문 표시 조건, 진행률, 선택지·입력 상한 |
-| [dist/designer.js](../dist/designer.js) | 공통/개별 화면 작업 영역, 요소 팔레트와 안전한 배치 미리보기 |
+| [dist/designer.js](../dist/designer.js) | 공통/개별 화면 배치, 요소·기능 참고 자료와 안전한 미리보기 |
 | [dist/views.js](../dist/views.js) | 질문·기능·화면 편집기와 초안 HTML 생성, HTML 이스케이프 |
 | [dist/report.js](../dist/report.js) | 기획 초안·AI 전달문 텍스트 생성 |
 | [dist/storage.js](../dist/storage.js) | 브라우저 저장 읽기·쓰기, 실패·복구 상태, 다른 탭 변경 감지 |
