@@ -2345,6 +2345,26 @@ dialog p {
 .report-element > h6 {
   margin-top: 0;
 }
+.report-entry {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 2px solid var(--line);
+}
+.report-entry > h6 {
+  margin-top: 0;
+  font-size: var(--type-question);
+  color: var(--ink);
+}
+.report-record {
+  margin: 16px 0;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.report-record > h6 {
+  margin-top: 0;
+}
 .report-rationale > h5 {
   margin: 0 0 8px;
 }

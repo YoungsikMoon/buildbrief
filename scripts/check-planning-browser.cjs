@@ -148,7 +148,7 @@ const server = http.createServer((req,res)=>{
         assert(await page.locator('[id="feature-choice-1-form"]').evaluate(n=>n===document.activeElement));
         assert(!(await page.locator('#question-form').innerText()).includes('기능에 연결하지 않은 동작'));
         await validatePage();await go(5);await page.locator('#next-button').click();
-        const report=await page.locator('#report-view').innerText();for(const text of ['기본 공통 화면','공통 레이아웃 적용','사용하지 않음','서비스의 이동 메뉴를 통일','한 화면에서 간단하게 신청','목록만 집중해서 보기','예약 신청하기','수업','예약일','오류·예외 추천','중복 신청이면 기존 예약 안내','요소 배치 순서','상단 > 상단 바 > 일반 버튼']) assert(report.includes(text),text);
+        const report=await page.locator('#report-view').innerText();for(const text of ['기본 공통 화면','공통 레이아웃 적용','사용하지 않음','서비스의 이동 메뉴를 통일','한 화면에서 간단하게 신청','목록만 집중해서 보기','예약 신청하기','수업','예약일','오류·예외 추천','중복 신청이면 기존 예약 안내','요소 배치 구조','상단 > 상단 바 > 일반 버튼']) assert(report.includes(text),text);
         await validatePage();await page.locator('#back-to-form').click();await go(4);
         const before=await stored();await page.reload();assert(await page.locator('#guide-view').isVisible());await go(4);assert.deepEqual((await stored()).answers,before.answers);
         const nav=page.locator('#export-answers');if(!await nav.isVisible()) await page.locator('#toggle-navigation').click();
@@ -193,6 +193,37 @@ const server = http.createServer((req,res)=>{
         const many=page.locator('.role-picker');await many.locator('summary').click();assert.equal(await many.locator('[data-role-option]').count(),80);assert(await many.locator('.role-options').evaluate(n=>n.scrollHeight>n.clientHeight));
         await many.locator('[data-role-search]').fill('담당 80');assert.equal(await many.locator('[data-role-option]:visible').count(),1);assert(await many.locator('[data-role-option]:visible input').isChecked());await many.locator('[data-role-search]').press('Escape');
         await select('old','form');assert.equal(await page.locator('.wire-preview img').count(),0);assert((await page.locator('.wire-preview').innerText()).includes('<img'));
+        await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validatePage();
+        // Each field/action owns its values in the preview and every export path.
+        await page.evaluate(answers=>{const p=BriefProjects.createProject({answers});localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:p.id,projects:[p]}));},require('./check-planning.cjs'));
+        await page.reload();await go(4);await select('home','form');
+        await nested(1,'form',0,'name').fill('실제로 수정한 수업명');
+        await action(1,'form',0,'result').fill('실제로 수정한 신청 결과');
+        await go(5);await page.locator('#next-button').click();
+        const screenEntry=page.locator('.report-entry').filter({has:page.locator(':scope > h6').filter({hasText:'신청 화면 [S01]'})});
+        const formReport=screenEntry.locator('.report-element').filter({has:page.locator(':scope > h6').filter({hasText:'[S01-E03]'})});
+        assert.equal(await formReport.count(),1);
+        const fieldRecord=formReport.locator('.report-input').filter({hasText:'[S01-E03-P01]'});
+        assert.equal(await fieldRecord.count(),1);
+        for(const text of ['실제로 수정한 수업명','하나 선택','필수','기초\n심화','수업은 하나만 선택'])assert((await fieldRecord.innerText()).includes(text),text);
+        assert(!(await fieldRecord.innerText()).includes('연락처'));
+        assert.equal(await formReport.locator('.report-input').count(),3);
+        const actionRecord=formReport.locator('.report-action').filter({hasText:'[S01-E03-A01]'});
+        for(const text of ['신청 누르기','실제로 수정한 신청 결과','신청 기록 [S02]','중복이면 기존 신청 안내'])assert((await actionRecord.innerText()).includes(text),text);
+        assert(!(await actionRecord.innerText()).includes('예약 철회 확인'));
+        assert.equal(await formReport.locator('.report-action').count(),3);
+        assert.equal(await page.locator('.report-document img, .report-document script').count(),0);
+        await validatePage();
+        if(process.env.PLANNING_SCREENSHOTS){await fieldRecord.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`report-fields-${width}.png`)});}
+        // Capture the clipboard API argument inside this isolated test browser.
+        await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
+        const beforeExport=await stored();await page.locator('#copy-prompt').click();
+        const copied=await page.evaluate(()=>window.testCopiedPrompt);
+        assert(copied.includes('대상 동작 \\[S01-E03-A03\\]') && copied.includes('실제로 수정한 신청 결과'));
+        const reportDownload=page.waitForEvent('download');await page.locator('#download-report').click();
+        const downloadedReport=fs.readFileSync(await (await reportDownload).path(),'utf8');
+        assert(copied.endsWith(downloadedReport),'Markdown and AI copy carry the same screen definitions');
+        assert.deepEqual((await stored()).answers,beforeExport.answers);
         await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validatePage();
         assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);console.log(`Visual screen designer browser flow passed: ${width}px`);
       } catch(error) {await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS||'.',`designer-failure-${width}.png`),fullPage:true});throw error;}

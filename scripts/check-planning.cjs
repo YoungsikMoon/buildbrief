@@ -220,7 +220,7 @@ for(const prompt of [false,true]) {
   const text=R.report(design,prompt,{screens:'예전 전체 메모'});
   assert(text.includes('기본 공통 화면 [공통]') && text.includes('첫 화면 [S01]') && text.includes('독립 화면 [S02]'));
   assert(text.includes('공통 레이아웃 적용') && text.includes('사용하지 않음'));
-  assert(text.includes('예전 전체 메모') && text.includes('요소 배치 순서'));
+  assert(text.includes('예전 전체 메모') && text.includes('요소 배치 구조'));
   assert(!text.includes('기본 공통 화면 \\[공통\\]: 사용할 역할 확인'));
   const common=text.split('##### 기본 공통 화면')[1].split('##### 첫 화면')[0];
   assert(common.includes('공통 메뉴의 이유') && !common.includes('첫 화면만의 이유'));
@@ -268,4 +268,114 @@ assert.throws(()=>A.normalizeAnswers(inheritedCycle));
 const off=clone(nestedDesign);off.screens[1].useCommonLayout=false;
 assert.equal(A.layoutItems(off.screens[1],off.screens[0]).find(item=>item.key==='button').parent,'');
 assert(R.report(off).includes('포함할 요소가 현재 화면에 없어 위치 확인 필요'));
+// The same readable document reaches the preview, Markdown file and AI prompt.
+const handoff=A.normalizeAnswers({
+  "project_name": "화면 전달 검증 예시",
+  "roles": [{"id":"member","role":"회원"},{"id":"manager","role":"담당자"}],
+  "features": [
+    {"id":"book","category":"booking","name":"신청","actor":"회원","outcome":"선택한 수업 예약","permission":"본인의 신청만 확인","priority":"첫 버전에 필요","notes":"한 사람당 하나만 신청","reason":"중복을 방지","recommendPermission":true},
+    {"id":"cancel","category":"custom","name":"취소","outcome":"신청 철회"},
+    {"id":"signout","category":"custom","name":"로그아웃","outcome":"로그인 종료"}
+  ],
+  "screens": [
+    {
+      "id":"common","isCommon":true,"purpose":"공통 이동 구조","reason":"이동 방식 통일",
+      "elements":["appbar","sidebar","form"],
+      "elementNotes":{"appbar":"서비스 이름과 내 메뉴","form":"공통 폼만의 용도"},
+      "customElements":[{"id":"nav","name":"사용자 메뉴","purpose":"계정 메뉴 묶음"}],
+      "placements":{"custom:nav":{"region":"top","width":"half","parent":"appbar"}},
+      "elementContents":{
+        "appbar":{"featureIds":["signout"],"recommendFlow":true,"flow":[{"id":"shared-action","featureId":"signout","event":"종료 누르기","result":"로그인 해제","nextScreenId":"@stay","exceptions":"실패하면 현재 로그인 유지","recommendExceptions":true}]},
+        "form":{"items":[{"id":"shared-field","name":"공통 전용 입력","type":"짧은 글"}]}
+      }
+    },
+    {
+      "id":"home","name":"신청 화면","purpose":"수업을 골라 신청","roleIds":["member"],"featureIds":["book","cancel"],
+      "reason":"입력 부담을 줄이기","recommendLayout":true,
+      "content":"이전에 적은 추가 정보","empty":"접수할 수업이 없으면 일정 안내","error":"실패 시 입력 보존","mobile":"작은 화면에서는 한 열",
+      "elements":["form","button","table","list","cards"],
+      "layoutOrder":["custom:a","button","form","table","custom:b","list","cards"],
+      "placements":{
+        "custom:a":{"region":"top","width":"full","parent":"custom:nav"},
+        "button":{"region":"top","width":"half","parent":"custom:a"},
+        "form":{"region":"main","width":"full"},
+        "table":{"region":"bottom","width":"half"},
+        "custom:b":{"region":"top","width":"half","parent":"custom:nav"},
+        "list":{"region":"right","width":"full"},
+        "cards":{"region":"main","width":"half"}
+      },
+      "elementNotes":{"form":"희망 수업과 참석 정보를 받기","button":"신청 내용 확인하기","table":"신청 기록을 비교","list":"마감 안내 목록","cards":"수업 소개 카드","search":"숨겨진 검색 용도"},
+      "elementOptions":{"form":["select"],"table":["pages"],"list":["more"],"cards":["all"]},
+      "elementContents":{
+        "form":{
+          "recommend":true,"reason":"연락처는 선택으로 받기","featureIds":["book","cancel"],
+          "items":[
+            {"id":"lesson","name":"수업","type":"하나 선택","required":"필수","options":"기초\n심화","notes":"수업은 하나만 선택"},
+            {"id":"contact","name":"연락처","type":"짧은 글","required":"선택","notes":"<img src=x onerror=alert(1)>\n### 다른 질문"},
+            {"id":"partial","type":"날짜","notes":"이름은 추후 결정"},
+            {"id":"empty"}
+          ],
+          "flow":[
+            {"id":"first","featureId":"book","event":"신청 누르기","result":"예약 번호 표시","nextScreenId":"history","exceptions":"중복이면 기존 신청 안내","recommendExceptions":true},
+            {"id":"second","featureId":"cancel","event":"취소 누르기","result":"예약 철회 확인","nextScreenId":"@back"},
+            {"id":"third","featureId":"book","event":"신청 다시 확인","result":"예약 상태 새로 표시","nextScreenId":"@stay","recommendExceptions":true}
+          ]
+        },
+        "table":{"recommend":true,"items":[{"id":"date","name":"신청일","notes":"최신순 정렬"},{"id":"state","name":"처리 상태","notes":"승인 여부 표시"}]},
+        "list":{"items":[{"id":"notice","name":"마감일","notes":"남은 날짜 함께 표시"}]},
+        "cards":{"items":[{"id":"class","name":"수업명","notes":"소요 시간 표시"}]},
+        "search":{"flow":[{"id":"hidden-action","result":"숨겨진 검색 동작","recommendExceptions":true}]}
+      },
+      "customElements":[
+        {"id":"a","name":"추가 메뉴","purpose":"회원용 메뉴","recommendFlow":true,"flow":[{"id":"custom-action","event":"내 신청 누르기","result":"신청 목록 보기","nextScreenId":"history"}]},
+        {"id":"b","name":"추가 메뉴","purpose":"안내용 메뉴"}
+      ]
+    },
+    {
+      "id":"history","name":"신청 기록","purpose":"담당자가 신청 확인","roleIds":["manager"],"useCommonLayout":false,
+      "elements":["table"],"elementNotes":{"table":"다른 화면의 표 용도"},
+      "elementContents":{"table":{"items":[{"id":"other","name":"담당 지점","notes":"이 화면에만 있는 열"}]}}
+    }
+  ]
+});
+const handoffBefore=clone(handoff);
+const screenBlock=(text,name)=>text.split('##### '+name+' [')[1].split(/^##### |^## /m)[0];
+const elementBlock=(text,ref)=>text.split(/^###### /m).find(part=>part.split('\n')[0].includes(ref));
+for(const prompt of [false,true]) {
+  const text=R.report(handoff,prompt);
+  const home=screenBlock(text,'신청 화면'),history=screenBlock(text,'신청 기록'),common=screenBlock(text,'기본 공통 화면');
+  assert(home.includes('상단 &gt; 상단 바 &gt; 사용자 메뉴 &gt; 추가 메뉴 &gt; 일반 버튼'));
+  assert(home.indexOf('└ 1. 추가 메뉴') < home.indexOf('└ 2. 추가 메뉴'));
+  const button=elementBlock(home,'[S01-E02]');
+  assert(button.includes('추가 메뉴 \\[S01-E01\\]') && button.includes('절반 너비 · 부모 요소 안에서'));
+  const inherited=elementBlock(home,'[공통-E01]');
+  assert(inherited.includes('설정 원본') && inherited.includes('상단 바 \\[공통-E01\\]'));
+  assert(!inherited.includes('종료 누르기'));assert(elementBlock(common,'[공통-E01]').includes('종료 누르기'));
+  const form=elementBlock(home,'[S01-E03]');
+  assert(form.includes('공통 요소와의 관계') && form.includes('입력 양식 \\[공통-E03\\]'));
+  assert(!home.includes('공통 전용 입력'));assert(common.includes('공통 전용 입력'));
+  const records=form.split('\n---\n');
+  const input=records.find(part=>part.includes('**입력 항목 1**'));
+  for(const value of ['S01-E03-P01','> 수업','하나 선택','필수','기초\n> 심화','수업은 하나만 선택'])assert(input.includes(value),value);
+  assert(!input.includes('연락처') && !input.includes('중복이면 기존 신청 안내'));
+  assert(form.includes('**입력 항목 3**') && !form.includes('**입력 항목 4**'));
+  const action=records.find(part=>part.includes('**동작 번호**\n> \\[S01-E03-A01\\]'));
+  for(const value of ['신청 누르기','예약 번호 표시','신청 기록 \\[S02\\]','중복이면 기존 신청 안내','오류·예외 추천 요청'])assert(action.includes(value),value);
+  assert(!action.includes('예약 철회 확인') && !action.includes('연락처는 선택으로 받기'));
+  assert(text.includes('대상 동작 \\[S01-E03-A03\\]') && text.includes('대상 동작 \\[공통-E01-A01\\]'));
+  assert(text.includes('대상 요소 \\[S01-E01\\]') && text.includes('대상 요소 \\[S01-E03\\]'));
+  assert(elementBlock(home,'[S01-E01]').includes('회원용 메뉴'));
+  assert(!elementBlock(home,'[S01-E01]').includes('안내용 메뉴'));
+  assert(elementBlock(home,'[S01-E05]').includes('안내용 메뉴'));
+  for(const [ref,values] of [['[S01-E04]',['신청일','처리 상태','최신순 정렬','승인 여부 표시','페이지 번호로 이동']],['[S01-E06]',['마감일','남은 날짜 함께 표시','더 보기 버튼']],['[S01-E07]',['수업명','소요 시간 표시','한 번에 모두 보기']]])for(const value of values)assert(elementBlock(home,ref).includes(value),value);
+  for(const value of ['수업을 골라 신청','회원','입력 부담을 줄이기','이전에 적은 추가 정보','접수할 수업이 없으면 일정 안내','실패 시 입력 보존','작은 화면에서는 한 열','연락처는 선택으로 받기'])assert(home.includes(value),value);
+  for(const value of ['기초','공통 설정 사용','예약 번호 표시','회원용 메뉴','S01-E03'])assert(!history.includes(value),value);
+  assert(history.includes('담당 지점') && history.includes('이 화면에만 있는 열'));
+  assert(!text.includes('숨겨진 검색') && !text.includes('<img src=x'));
+  assert(text.includes('&lt;img src=x onerror=alert(1)&gt;\n> \\#\\#\\# 다른 질문'));
+}
+assert(R.report(handoff,true).endsWith(R.report(handoff)));
+assert.deepEqual(handoff,handoffBefore,'Exports do not rewrite saved screen definitions');
 console.log('Connected planning checks passed: migration, visual layouts, roles, scoped actions, safe exports and backup validation.');
+
+module.exports = handoff;

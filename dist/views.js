@@ -906,15 +906,33 @@ ${esc(value)}</textarea
       );
     let questionOpen = false,
       reasonOpen = false,
-      elementOpen = false;
+      entryOpen = false,
+      elementOpen = false,
+      recordOpen = false,
+      quoteOpen = false;
+    const closeQuote = () => {
+      const end = quoteOpen ? '</p>' : '';
+      quoteOpen = false;
+      return end;
+    };
+    const closeRecord = () => {
+      const end = closeQuote() + (recordOpen ? '</section>' : '');
+      recordOpen = false;
+      return end;
+    };
     const closeElement = () => {
-      const end = elementOpen ? '</section>' : '';
+      const end = closeRecord() + (elementOpen ? '</section>' : '');
       elementOpen = false;
+      return end;
+    };
+    const closeEntry = () => {
+      const end = closeElement() + (entryOpen ? '</section>' : '');
+      entryOpen = false;
       return end;
     };
     const closeQuestion = () => {
       const end =
-        closeElement() + (reasonOpen ? '</aside>' : '') + (questionOpen ? '</section>' : '');
+        closeEntry() + (reasonOpen ? '</aside>' : '') + (questionOpen ? '</section>' : '');
       reasonOpen = questionOpen = false;
       return end;
     };
@@ -922,11 +940,24 @@ ${esc(value)}</textarea
       R.report(answers, false, notes, recommendations)
         .split('\n')
         .map((line) => {
+          if (line.startsWith('> ')) {
+            const prefix = quoteOpen ? '\n' : '<p class="report-answer">';
+            quoteOpen = true;
+            return prefix + readable(line.slice(2));
+          }
+          const quoteEnd = closeQuote();
+          if (line === '---') return quoteEnd + closeRecord();
           const heading = /^(#{1,6}) (.*)$/.exec(line);
           if (heading) {
             const depth = heading[1].length,
               level = Math.min(6, depth + 1);
-            let prefix = depth <= 3 ? closeQuestion() : closeElement();
+            let prefix =
+              quoteEnd +
+              (depth <= 3 ? closeQuestion() : depth <= 5 ? closeEntry() : closeElement());
+            if (depth === 5) {
+              prefix += '<section class="report-entry">';
+              entryOpen = true;
+            }
             if (depth === 6) {
               prefix += '<section class="report-element">';
               elementOpen = true;
@@ -941,17 +972,25 @@ ${esc(value)}</textarea
             }
             return `${prefix}<h${level}>${readable(heading[2])}</h${level}>`;
           }
-          if (/^\*\*.*\*\*$/.test(line))
-            return /* HTML */ `<p class="report-label"
-              ><strong>${readable(line.slice(2, -2))}</strong></p
-            >`;
-          if (line.startsWith('> '))
-            return /* HTML */ `<p class="report-answer">${readable(line.slice(2))}</p>`;
-          return line.trim()
-            ? /* HTML */ `<p class="${/^[-*] /.test(line) ? 'report-item' : ''}"
-                >${readable(line.replace(/^[-*] /, '• '))}</p
-              >`
-            : '';
+          if (/^\*\*.*\*\*$/.test(line)) {
+            const label = line.slice(2, -2);
+            const action = /^(?:.* · )?동작 \d+$/.test(label);
+            const item = /^(입력 항목|표의 열|표시할 정보) \d+$/.test(label);
+            if (entryOpen && (action || item)) {
+              const prefix = quoteEnd + closeRecord();
+              recordOpen = true;
+              return `${prefix}<section class="report-record ${action ? 'report-action' : 'report-input'}"><h6>${readable(label)}</h6>`;
+            }
+            return `${quoteEnd}<p class="report-label"><strong>${readable(label)}</strong></p>`;
+          }
+          return (
+            quoteEnd +
+            (line.trim()
+              ? /* HTML */ `<p class="${/^[-*] /.test(line) ? 'report-item' : ''}"
+                  >${readable(line.replace(/^[-*] /, '• '))}</p
+                >`
+              : '')
+          );
         })
         .join('') + closeQuestion();
     return /* HTML */ `<div class="page-topline"><span>내 아이디어의 첫 문서</span></div

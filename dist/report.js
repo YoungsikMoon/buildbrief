@@ -13,6 +13,7 @@
     elementLabel,
     elementPlacement,
     layoutItems,
+    linkedFeatureIds,
     HTTP_URL_HELP
   } = root.BriefAnswers || require('./answers.js');
   // User entries remain quoted data when the exported Markdown is rendered elsewhere.
@@ -34,14 +35,16 @@
     const roleName = (id) =>
       roles.find((role) => role.id === id)?.role || `연결할 역할 확인 필요 [${id}]`;
     const flowContexts = screens.flatMap((screen) => [
-      { screen, scope: '화면 전체', plan: screen },
+      { screen, key: '', scope: '화면 전체', plan: screen },
       ...(screen.elements || []).map((id) => ({
         screen,
+        key: id,
         scope: Q.uiElements.find((el) => el.id === id)?.label || id,
         plan: screen.elementContents?.[id] || {}
       })),
       ...(screen.customElements || []).map((el) => ({
         screen,
+        key: 'custom:' + el.id,
         scope: el.name || '직접 추가한 요소',
         plan: el
       }))
@@ -92,6 +95,35 @@
         ? `${screen.isCommon ? '기본 공통 화면' : screen.name || '화면 이름 미정'} [${screenLabels.get(id)}]`
         : `연결할 화면 확인 필요 [${id}]`;
     };
+    const common = screens.find((screen) => screen.isCommon);
+    const layouts = new Map(screens.map((screen) => [screen.id, layoutItems(screen, common)]));
+    const elementRef = (screen, key) =>
+      '[' +
+      screenLabels.get(screen.id) +
+      '-E' +
+      String(elementKeys(screen).indexOf(key) + 1).padStart(2, '0') +
+      ']';
+    const elementName = (screen, key) => elementLabel(screen, key) + ' ' + elementRef(screen, key);
+    const actionRef = (screen, key, index) =>
+      (key ? elementRef(screen, key).slice(0, -1) : '[' + screenLabels.get(screen.id)) +
+      '-A' +
+      String(index + 1).padStart(2, '0') +
+      ']';
+    function orderedLayout(screen) {
+      const items = layouts.get(screen.id) || [],
+        ordered = [];
+      function visit(parent, region, ancestors = []) {
+        items
+          .filter((item) => item.parent === parent && (parent || item.region === region))
+          .forEach((item, index) => {
+            if (ancestors.includes(item.key)) return;
+            ordered.push({ ...item, region, order: index + 1, ancestors });
+            visit(item.key, region, [...ancestors, item.key]);
+          });
+      }
+      for (const region of Q.layoutRegions) visit('', region.id);
+      return ordered;
+    }
     const lines = [];
     if (prompt)
       lines.push(
@@ -101,7 +133,8 @@
         '- 사용자가 기록한 내용, 제안, 확인하지 않은 가정, 미정 사항을 구분하세요. 빈칸이나 생략된 세부 항목은 정하지 않은 내용입니다. 확정된 요구로 채우지 마세요.',
         '- 각 질문 제목 아래의 답변과 선택 이유·추가 메모는 그 질문에 속합니다. 이유를 다른 질문의 근거로 옮기거나 답변 자체로 간주하지 마세요.',
         '- 사용자·문제·핵심 기능·대표 이용 과정·화면·로그인과 권한·자료를 연결하세요. 서로 맞지 않는 입력과 빠진 조건부터 질문하세요.',
-        '- 화면 요소는 화면별 목적·역할·기기에 맞춰 조합하세요. 이 문서의 기능 번호로 연결하고 삭제된 기능 연결은 확인하세요.',
+        '- 화면 요소의 배치 구조와 번호를 유지하세요. S는 화면, E는 요소, P는 입력 항목·표의 열, A는 동작, F는 기능을 가리키는 이 문서 안의 번호입니다. 같은 이름이라도 번호가 다르면 다른 대상입니다. 요소 번호는 식별용이며 실제 배치 순서는 구조·순서 필드를 따릅니다. 번호를 실제 코드·DB 식별자로 간주하지 마세요.',
+        '- 요소별 포함 대상·같은 위치 안의 순서·너비와 각 입력 항목의 방식·필수 여부·선택지·제한을 함께 보존하세요. 너비는 부모 요소 또는 배치 영역 기준이며 픽셀 크기나 반응형 동작을 정한 것은 아닙니다. 기본 배치를 사용자가 직접 정한 정책으로 확대 해석하지 마세요.',
         '- 기본 공통 화면은 서비스의 공통 레이아웃입니다. 사용하도록 표시한 화면에만 적용하고, 각 화면의 같은 종류 요소는 해당 화면 설정을 우선합니다. 공통 레이아웃 적용을 공통 접근 권한이나 별도의 이동 화면으로 해석하지 마세요. 요소 배치의 > 표시는 포함 관계입니다. 예를 들어 상단 > 상단 바 > 일반 버튼은 상단 바 안의 버튼을 뜻합니다. 배치와 순서는 기획용 구성안입니다.',
         '- 역할 목록의 이름과 각 화면이 선택한 역할을 연결하세요. 역할이 비어 있으면 미정이며 전체 공개로 간주하지 마세요. 로그인 필요는 로그인 기능을 제공한다는 뜻이며 모든 화면에 로그인을 강제한다는 뜻이 아닙니다.',
         '- 화면·요소의 동작은 행동·상황, 실행 기능, 처리 결과와 다음 화면을 한 묶음으로 해석하세요. 다른 화면으로 이동하는 경우와 현재 화면 유지·뒤로 가기를 구분하세요. 이전에 작성한 내용은 참고 기록이며 새 답변과 충돌하면 확인하세요.',
@@ -128,7 +161,7 @@
     const field = (label, value) => {
       if (isAnswered(value)) lines.push(`**${md(label)}**`, quote(display(value)), '');
     };
-    function flowFields(plan) {
+    function flowFields(plan, screen, key = '') {
       for (const [index, action] of (plan.flow || []).entries()) {
         if (!isAnswered(action) && !action.recommendExceptions) continue;
         const number = action.featureId
@@ -136,9 +169,11 @@
               .length
           : index + 1;
         lines.push(
+          '---',
           `**${action.featureId ? md(featureName(action.featureId)) + ' · ' : ''}동작 ${number}**`,
           ''
         );
+        field('동작 번호', actionRef(screen, key, index));
         field('행동이나 상황', action.event);
         if (action.featureId) field('실행할 기능', featureName(action.featureId));
         if (action.nextScreenId) field('다음 화면', screenName(action.nextScreenId));
@@ -149,6 +184,7 @@
             '오류·예외 추천 요청 · 미확정',
             '이 동작에서 발생할 수 있는 실패·예외와 사용자 안내·재시도 방법'
           );
+        lines.push('---', '');
       }
       if (plan.recommendFlow)
         field('동작 추천 요청 · 미확정', '이 대상의 행동·상황, 실행할 기능, 처리 결과와 다음 화면');
@@ -168,6 +204,199 @@
       );
       if (url) lines.push('이 URL의 내용을 이 서비스가 열람·분석한 것은 아닙니다.', '');
     };
+    function writeScreen(row) {
+      const layout = orderedLayout(row);
+      if (
+        row.isCommon &&
+        !isAnswered(row) &&
+        !layout.length &&
+        !row.recommendLayout &&
+        !row.recommendFlow
+      )
+        return;
+      lines.push(
+        '##### ' +
+          md(row.isCommon ? '기본 공통 화면' : row.name || '화면 이름 미정') +
+          ' [' +
+          screenLabels.get(row.id) +
+          ']',
+        ''
+      );
+      field('화면 목적', row.purpose);
+      if (!row.isCommon && common)
+        field(
+          '기본 공통 화면',
+          row.useCommonLayout === false ? '사용하지 않음' : '공통 레이아웃 적용'
+        );
+      field('사용할 역할', (row.roleIds || []).map(roleName));
+      field('이전에 적은 이용 대상', row.roles);
+      field(
+        '연결한 기능',
+        [
+          ...new Set([
+            ...linkedFeatureIds(row),
+            ...layout.flatMap((item) =>
+              linkedFeatureIds(
+                item.key.startsWith('custom:')
+                  ? item.owner.customElements?.find((el) => 'custom:' + el.id === item.key)
+                  : item.owner.elementContents?.[item.key]
+              )
+            )
+          ])
+        ].map(featureName)
+      );
+      if (row.recommendLayout)
+        field('이 화면의 구성 추천 요청 · 미확정', Q.screenRecommendationScope);
+      field('보여 줄 정보', row.content);
+      field('자료가 없을 때', row.empty);
+      field('실패했을 때', row.error);
+      field('휴대폰에서의 사용', row.mobile);
+      field('이 화면의 선택 이유·메모', row.reason);
+      if (layout.length) {
+        const outline = [];
+        for (const region of Q.layoutRegions) {
+          const entries = layout.filter((item) => item.region === region.id);
+          if (!entries.length) continue;
+          outline.push(region.label);
+          for (const item of entries)
+            outline.push(
+              '  '.repeat(item.ancestors.length + 1) +
+                '└ ' +
+                item.order +
+                '. ' +
+                elementName(item.owner, item.key).replace(/\r?\n/g, ' ') +
+                (item.inherited ? ' · 공통 설정 사용' : '')
+            );
+        }
+        field('요소 배치 구조', outline.join('\n'));
+        lines.push(
+          '들여쓰기는 포함 관계, 번호는 같은 부모 안의 순서입니다. 공통 설정은 원본 요소 번호로 연결됩니다. 생략된 영역에는 배치한 요소가 없습니다.',
+          ''
+        );
+      }
+      flowFields(row, row);
+      for (const entry of layout) {
+        const { owner, key, inherited, ancestors, region, order } = entry;
+        const custom = key.startsWith('custom:');
+        const element = Q.uiElements.find((el) => el.id === key);
+        const plan = custom
+          ? owner.customElements?.find((el) => 'custom:' + el.id === key) || {}
+          : owner.elementContents?.[key] || {};
+        const placement = elementPlacement(owner, key);
+        const parent = layout.find((item) => item.key === entry.parent);
+        const path = [
+          Q.layoutRegions.find((item) => item.id === region).label,
+          ...ancestors.map((id) => {
+            const item = layout.find((item) => item.key === id);
+            return elementLabel(item.owner, id);
+          }),
+          elementLabel(owner, key)
+        ];
+        lines.push(
+          '###### ' +
+            md(elementLabel(owner, key)) +
+            ' ' +
+            elementRef(owner, key) +
+            (inherited ? ' · 공통 설정 사용' : custom ? ' · 직접 추가' : ''),
+          ''
+        );
+        field('소속 화면', screenName(row.id));
+        field('배치 경로', path.join(' > '));
+        field(
+          '포함 대상',
+          parent
+            ? elementName(parent.owner, parent.key)
+            : '화면의 ' + Q.layoutRegions.find((item) => item.id === region).label + ' 영역'
+        );
+        field('같은 위치 안의 순서', String(order));
+        field(
+          '너비',
+          (placement.width === 'half' ? '절반 너비' : '전체 너비') +
+            (parent ? ' · 부모 요소 안에서' : ' · 배치 영역 안에서')
+        );
+        if (placement.parent && !parent) {
+          field(
+            '배치 확인 필요',
+            '포함할 요소가 현재 화면에 없어 위치 확인 필요. 편집기에 보이는 영역에 표시했습니다.'
+          );
+          field(
+            '보관된 포함 대상',
+            elementLabel(
+              common && elementKeys(common).includes(placement.parent) ? common : row,
+              placement.parent
+            ) + ' · 현재 화면의 배치에서 제외됨'
+          );
+        }
+        if (!owner.placements?.[key]) field('배치 기준', '요소 종류에 따른 기본 위치·너비');
+        if (inherited) {
+          field(
+            '설정 원본',
+            '기본 공통 화면의 ' +
+              elementName(owner, key) +
+              '. 용도·필드·기능·동작·추천 요청·메모는 이 원본 설정을 사용합니다.'
+          );
+          continue;
+        }
+        if (
+          !row.isCommon &&
+          row.useCommonLayout !== false &&
+          common &&
+          elementKeys(common).includes(key)
+        )
+          field('공통 요소와의 관계', elementName(common, key) + ' 대신 이 화면의 설정을 사용');
+        field(
+          custom ? '어떤 용도로 쓰나요?' : element?.prompt || '어떤 용도로 쓰나요?',
+          custom ? plan.purpose : owner.elementNotes?.[key]
+        );
+        const options = element?.detail?.options.filter((option) =>
+          (owner.elementOptions?.[key] || []).includes(option.id)
+        );
+        if (options?.length)
+          field(
+            element.detail.label,
+            options.map((option) => option.label)
+          );
+        for (const [index, item] of (plan.items || []).entries()) {
+          if (!isAnswered(item)) continue;
+          lines.push(
+            '---',
+            '**' +
+              (key === 'form' ? '입력 항목' : key === 'table' ? '표의 열' : '표시할 정보') +
+              ' ' +
+              (index + 1) +
+              '**'
+          );
+          if (isAnswered(item.name)) lines.push(quote(item.name));
+          lines.push('');
+          field(
+            '항목 번호',
+            elementRef(owner, key).slice(0, -1) + '-P' + String(index + 1).padStart(2, '0') + ']'
+          );
+          if (key === 'form') {
+            field('입력 방식', item.type);
+            field('필수 여부', item.required);
+            field('선택지로 적어 둔 내용', item.options);
+          }
+          field(key === 'form' ? '이 항목의 설명·제한' : '보여 줄 내용·표시 방법', item.notes);
+          lines.push('---', '');
+        }
+        field('이 요소에서 실행할 기능', linkedFeatureIds(plan).map(featureName));
+        flowFields(plan, owner, key);
+        if (plan.recommend)
+          field(
+            '이 요소의 추천 요청 · 미확정',
+            key === 'form'
+              ? '입력 항목·입력 방식·필수 여부·선택지'
+              : key === 'table'
+                ? '표의 열·표시할 정보·행에서 할 수 있는 행동'
+                : key === 'button'
+                  ? '버튼의 이름·동작·결과'
+                  : '항목마다 보여 줄 정보와 가능한 행동'
+          );
+        field('이 요소의 선택 이유·메모', plan.reason);
+        lines.push('');
+      }
+    }
     function writeQuestion(q) {
       const value = answers[q.id];
       lines.push(`### ${md(q.label)}`, '', '#### 답변', '');
@@ -200,127 +429,7 @@
             if (isAnswered(row.notes)) field('세부 규칙·메모', row.notes);
             if (isAnswered(row.reason)) field('이 기능의 선택 이유·메모', row.reason);
           } else if (q.type === 'screens') {
-            if (row.isCommon && !isAnswered(row) && !row.recommendLayout && !row.recommendFlow)
-              return;
-            lines.push(
-              `##### ${md(row.isCommon ? '기본 공통 화면' : row.name || '화면 이름 미정')} [${screenLabels.get(row.id)}]`,
-              ''
-            );
-            field('화면 목적', row.purpose);
-            if (!row.isCommon && screens.some((s) => s.isCommon))
-              field(
-                '기본 공통 화면',
-                row.useCommonLayout === false ? '사용하지 않음' : '공통 레이아웃 적용'
-              );
-            field('사용할 역할', (row.roleIds || []).map(roleName));
-            if (isAnswered(row.roles)) field('이전에 적은 이용 대상', row.roles);
-            field('연결한 기능', (row.featureIds || []).map(featureName));
-            if (row.recommendLayout)
-              field('이 화면의 구성 추천 요청 · 미확정', Q.screenRecommendationScope);
-            field('보여 줄 정보', row.content);
-            if (isAnswered(row.empty)) field('자료가 없을 때', row.empty);
-            if (isAnswered(row.error)) field('실패했을 때', row.error);
-            if (isAnswered(row.mobile)) field('휴대폰에서의 사용', row.mobile);
-            if (isAnswered(row.reason)) field('이 화면의 선택 이유·메모', row.reason);
-            const ordered = elementKeys(row);
-            const layout = layoutItems(
-              row,
-              (answers.screens || []).find((s) => s.isCommon)
-            );
-            if (ordered.length)
-              field(
-                '요소 배치 순서',
-                ordered.map((key) => {
-                  const placement = elementPlacement(row, key);
-                  const path = [elementLabel(row, key)],
-                    seen = new Set([key]);
-                  let item = layout.find((item) => item.key === key);
-                  while (item?.parent && !seen.has(item.parent)) {
-                    seen.add(item.parent);
-                    item = layout.find((parent) => parent.key === item.parent);
-                    if (item) path.unshift(elementLabel(item.owner, item.key));
-                  }
-                  path.unshift(
-                    Q.layoutRegions.find(
-                      (region) => region.id === (item?.region || placement.region)
-                    ).label
-                  );
-                  return `${path.join(' > ')} · ${placement.width === 'half' ? '절반 너비' : '전체 너비'}${placement.parent && !layout.find((item) => item.key === key)?.parent ? ' · 포함할 요소가 현재 화면에 없어 위치 확인 필요' : ''}`;
-                })
-              );
-            flowFields(row);
-            const customElements = (row.customElements || []).filter(
-              (item) =>
-                isAnswered(item) ||
-                item.recommendFlow ||
-                (item.flow || []).some((action) => action.recommendExceptions)
-            );
-            if ((row.elements || []).length || customElements.length)
-              lines.push('**화면 구성요소와 용도**');
-            for (const id of ordered.filter((key) => !key.startsWith('custom:'))) {
-              const element = Q.uiElements.find((item) => item.id === id);
-              lines.push(
-                `###### ${md(element?.label || id)} · ${screenLabels.get(row.id)}`,
-                ...(isAnswered(row.elementNotes?.[id]) ? [quote(row.elementNotes[id])] : [])
-              );
-              const options = element?.detail?.options.filter((option) =>
-                (row.elementOptions?.[id] || []).includes(option.id)
-              );
-              if (options?.length)
-                lines.push(
-                  quote(
-                    `${element.detail.label} ${options.map((option) => option.label).join(', ')}`
-                  )
-                );
-              const plan = row.elementContents?.[id];
-              if (plan) {
-                flowFields(plan);
-                for (const [index, item] of (plan.items || []).entries()) {
-                  if (!isAnswered(item)) continue;
-                  lines.push(
-                    `**${id === 'form' ? '입력 항목' : id === 'table' ? '표의 열' : '표시할 정보'} ${index + 1}**`
-                  );
-                  if (isAnswered(item.name)) lines.push(quote(item.name));
-                  lines.push('');
-                  if (id === 'form') {
-                    field('입력 방식', item.type);
-                    field('필수 여부', item.required);
-                    if (isAnswered(item.options)) field('선택지로 적어 둔 내용', item.options);
-                  }
-                  if (isAnswered(item.notes))
-                    field(
-                      id === 'form' ? '이 항목의 설명·제한' : '보여 줄 내용·표시 방법',
-                      item.notes
-                    );
-                }
-                if (plan.featureIds?.length)
-                  field('이 요소에서 실행할 기능', plan.featureIds.map(featureName));
-                if (plan.recommend)
-                  field(
-                    '이 요소의 추천 요청 · 미확정',
-                    id === 'form'
-                      ? '입력 항목·입력 방식·필수 여부·선택지'
-                      : id === 'table'
-                        ? '표의 열·표시할 정보·행에서 할 수 있는 행동'
-                        : id === 'button'
-                          ? '버튼의 이름·동작·결과'
-                          : '항목마다 보여 줄 정보와 가능한 행동'
-                  );
-                if (isAnswered(plan.reason)) field('이 요소의 선택 이유·메모', plan.reason);
-              }
-              lines.push('');
-            }
-            for (const item of customElements) {
-              lines.push(
-                `###### ${md(item.name || '이름 미정')} · 직접 추가 · ${screenLabels.get(row.id)}`,
-                ...(isAnswered(item.purpose) ? [quote(item.purpose)] : []),
-                ''
-              );
-              flowFields(item);
-              if (item.featureIds?.length)
-                field('이 요소에서 실행할 기능', item.featureIds.map(featureName));
-            }
-            lines.push('');
+            writeScreen(row);
           } else if (q.type === 'references') {
             urlField(`참고 ${index + 1}`, row.url);
             if (row.note) field('참고할 부분', row.note);
@@ -371,7 +480,8 @@
               isAnswered(notes[q.id]) ||
               isAnswered(answers[q.id]) ||
               (q.type === 'screens' &&
-                (screenRequests.length ||
+                (screens.some((screen) => elementKeys(screen).length) ||
+                  screenRequests.length ||
                   elementRequests.length ||
                   flowRequests.length ||
                   exceptionRequests.length)) ||
@@ -412,19 +522,19 @@
         ),
         ...elementRequests.map(
           ({ screen, id }) =>
-            `- 요소별 추천 — ${md(screenName(screen.id))} / ${Q.uiElements.find((el) => el.id === id)?.label || id}: ${id === 'form' ? '입력 항목·방식·필수 여부·선택지' : id === 'table' ? '표의 열·표시 내용·행의 행동' : id === 'button' ? '버튼 이름·동작·결과' : '표시할 정보·가능한 행동'}. 이 요소의 설명·기존 항목·선택 이유와 연결 기능을 조건으로 삼으세요.`
+            `- 요소별 추천 — ${md(screenName(screen.id))} / ${Q.uiElements.find((el) => el.id === id)?.label || id}: ${id === 'form' ? '입력 항목·방식·필수 여부·선택지' : id === 'table' ? '표의 열·표시 내용·행의 행동' : id === 'button' ? '버튼 이름·동작·결과' : '표시할 정보·가능한 행동'}. 대상 요소 ${md(elementRef(screen, id))}. 이 요소의 설명·기존 항목·선택 이유와 연결 기능을 조건으로 삼으세요.`
         ),
         ...permissionRequests.map(
           (feature) =>
             `- 기능별 권한 추천 — ${md(featureName(feature.id))}: 사용자 종류와 다룰 수 있는 자료 범위를 제안하세요. 기존 사용자·권한·로그인 답변은 유지하고 충돌은 질문하세요.`
         ),
         ...flowRequests.map(
-          ({ screen, scope }) =>
-            `- 동작·이동 추천 — ${md(screenName(screen.id))} / ${md(scope)}: 이 대상의 행동·상황, 처리 결과, 실행할 기능과 다음 화면만 제안하세요. 작성한 동작과 역할·선택 이유를 유지하고, 누락된 역할이나 화면은 임의 확정하지 마세요.`
+          ({ screen, key, scope }) =>
+            `- 동작·이동 추천 — ${md(screenName(screen.id))} / ${md(scope)}: ${key ? '대상 요소 ' + md(elementRef(screen, key)) + '. ' : ''}이 대상의 행동·상황, 처리 결과, 실행할 기능과 다음 화면만 제안하세요. 작성한 동작과 역할·선택 이유를 유지하고, 누락된 역할이나 화면은 임의 확정하지 마세요.`
         ),
         ...exceptionRequests.map(
-          ({ screen, scope, plan, action, index }) =>
-            `- 오류·예외 추천 — ${md(screenName(screen.id))} / ${md(scope)} / ${action.featureId ? md(featureName(action.featureId)) + ' / ' : ''}동작 ${action.featureId ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId).length : index + 1}: 이 동작의 행동·입력·처리 결과를 바탕으로 가능한 실패·예외, 사용자 안내, 입력 보존과 재시도 방법을 제안하세요. 작성한 대응은 유지하고 미확정 제안으로 구분하세요.`
+          ({ screen, key, scope, plan, action, index }) =>
+            `- 오류·예외 추천 — ${md(screenName(screen.id))} / ${md(scope)} / ${action.featureId ? md(featureName(action.featureId)) + ' / ' : ''}동작 ${action.featureId ? plan.flow.slice(0, index + 1).filter((item) => item.featureId === action.featureId).length : index + 1}: 대상 동작 ${md(actionRef(screen, key, index))}. 이 동작의 행동·입력·처리 결과를 바탕으로 가능한 실패·예외, 사용자 안내, 입력 보존과 재시도 방법을 제안하세요. 작성한 대응은 유지하고 미확정 제안으로 구분하세요.`
         ),
         ...(elementRequests.length || permissionRequests.length
           ? [
