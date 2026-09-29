@@ -306,7 +306,7 @@
           '포함 대상',
           parent
             ? elementName(parent.owner, parent.key)
-            : '화면의 ' + Q.layoutRegions.find((item) => item.id === region).label + ' 영역'
+            : Q.layoutRegions.find((item) => item.id === region).label
         );
         field('같은 위치 안의 순서', String(order));
         field(

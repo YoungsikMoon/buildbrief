@@ -101,12 +101,12 @@
         ${Q.layoutRegions
           .map(
             (region) =>
-              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><span class="canvas-region-name">${region.label}</span>${blocks
+              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><span class="canvas-region-name">${region.label}${region.hint ? '<br>' + esc(region.hint) : ''}</span>${blocks
                 .filter((item) => !item.parent && item.region === region.id)
                 .map((item) => blockHtml(item))
                 .join(
                   ''
-                )}<button type="button" class="canvas-add" data-insert-target="region:${region.id}" aria-label="${region.label}에 요소 추가">+ 추가</button></section>`
+                )}<button type="button" class="canvas-add" data-insert-target="region:${region.id}" aria-label="${region.label}: 요소 추가">+ 추가</button></section>`
           )
           .join('')}
         </div></div>${!blocks.length ? '<p class="designer-empty-guide">오른쪽에서 요소를 클릭해 첫 화면을 구성하세요.</p>' : ''}${reason}

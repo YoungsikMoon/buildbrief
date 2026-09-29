@@ -8,7 +8,7 @@
     { id: 'main', label: '본문' },
     { id: 'right', label: '오른쪽' },
     { id: 'bottom', label: '하단' },
-    { id: 'overlay', label: '떠 있는 영역' }
+    { id: 'overlay', label: '화면 위에 겹쳐 표시', hint: '팝업·알림·고정 버튼 등' }
   ];
   const featureTypes = [
     {
