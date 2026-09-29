@@ -19,9 +19,16 @@
     };
   }
   function elementName(screen, key) {
-    return key.startsWith('custom:')
-      ? screen.customElements?.find((el) => el.id === key.slice(7))?.name || '직접 추가한 요소'
-      : Q.uiElements.find((el) => el.id === key)?.label || key;
+    return A.elementLabel(screen, key);
+  }
+  function locationOptions(items, value = '', key = '') {
+    return `<optgroup label="화면 영역">${Q.layoutRegions.map((r) => `<option value="region:${r.id}" ${value === 'region:' + r.id ? 'selected' : ''}>${r.label}</option>`).join('')}</optgroup><optgroup label="요소 안에 넣기">${items
+      .filter((item) => A.canNest(items, key, item.key))
+      .map(
+        (item) =>
+          `<option value="parent:${esc(item.key)}" ${value === 'parent:' + item.key ? 'selected' : ''}>${esc(elementName(item.owner, item.key))} 안${item.inherited ? ' · 공통' : ''}</option>`
+      )
+      .join('')}</optgroup>`;
   }
   function preview(screen, key) {
     const plan = key.startsWith('custom:')
@@ -54,24 +61,23 @@
     const { screen, index, element, panel } = selection(answers, state);
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
     const common = screens.find((s) => s.isCommon);
-    const inherited =
-      !screen.isCommon && screen.useCommonLayout !== false && common
-        ? A.elementKeys(common)
-            .filter((key) => !A.elementKeys(screen).includes(key))
-            .map((key) => ({ owner: common, key, inherited: true }))
-        : [];
-    const blocks = [
-      ...inherited,
-      ...A.elementKeys(screen).map((key) => ({ owner: screen, key, inherited: false }))
-    ];
+    const blocks = A.layoutItems(screen, common);
+    const insertion = state.insertTarget || '';
+    const blockHtml = (item, path = []) => {
+      if (path.includes(item.key)) return '';
+      const { owner, key, inherited } = item;
+      const placement = A.elementPlacement(owner, key);
+      const children = blocks.filter((child) => child.parent === key);
+      return `<div class="canvas-block block-${placement.width === 'half' ? 'half' : 'full'}${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-block-key="${esc(key)}"><button type="button" class="canvas-block-select" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && key === element}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span><span class="wire-preview" aria-hidden="true">${preview(owner, key)}</span></button>${A.canContain(key) ? `<div class="canvas-children" data-drop-parent="${esc(key)}">${children.map((child) => blockHtml(child, [...path, key])).join('')}<button type="button" class="canvas-add" data-insert-target="parent:${esc(key)}" aria-label="${esc(elementName(owner, key))} 안에 요소 추가">+ 안에 추가</button></div>` : ''}</div>`;
+    };
     const palette = Q.uiElementGroups
       .map(
         (group) =>
-          `<details class="insert-group" ${group.id === 'navigation' ? 'open' : ''}><summary>${esc(group.label)}</summary><div class="insert-elements">${Q.uiElements
+          `<details class="insert-group" id="insert-group-${group.id}"><summary>${esc(group.label)}</summary><div class="insert-elements">${Q.uiElements
             .filter((el) => el.group === group.id)
             .map((el) => {
               const own = (screen.elements || []).includes(el.id);
-              const shared = inherited.some((item) => item.key === el.id);
+              const shared = blocks.some((item) => item.inherited && item.key === el.id);
               return `<div class="insert-element"><button type="button" data-insert-element="${el.id}" aria-label="${esc(el.label)} ${own ? '선택' : shared ? '공통 화면에서 수정' : '삽입'}">${(root.BriefViews || require('./views.js')).elementExample(el.id)}<span>${esc(el.label)}</span>${own || shared ? `<small>${own ? '배치됨' : '공통'}</small>` : ''}</button><button type="button" class="option-help" data-element-help="${el.id}" aria-label="${esc(el.label)} 설명">?</button></div>`;
             })
             .join('')}</div></details>`
@@ -87,26 +93,24 @@
         .join(
           ''
         )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>
-      <div class="designer-workspace"><section class="designer-stage" aria-label="화면 배치">
+      <div class="designer-toolbar"><span>요소를 선택해 배치와 기능을 정하세요.</span><button type="button" class="button secondary small" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="${!state.panelCollapsed}">${state.panelCollapsed ? '편집 패널 열기' : '편집 패널 접기'}</button></div>
+      <div class="designer-workspace${state.panelCollapsed ? ' inspector-collapsed' : ''}"><section class="designer-stage" aria-label="화면 배치">
         <div class="designer-stage-heading"><div><span class="designer-eyebrow">${screen.isCommon ? '서비스 공통 레이아웃' : '화면 구성'}</span><h3 data-screen-title="${index}">${esc(label(screen))}</h3></div><button type="button" class="button secondary small" data-designer-settings>화면 설정</button></div>
         <p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p>
         <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome"><span>● ● ●</span><span>${esc(label(screen))}</span></div><div class="canvas-layout">
         ${Q.layoutRegions
           .map(
             (region) =>
-              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><span class="canvas-region-name">${region.label}</span>${
-                blocks
-                  .filter((item) => A.elementPlacement(item.owner, item.key).region === region.id)
-                  .map(({ owner, key, inherited }) => {
-                    const placement = A.elementPlacement(owner, key);
-                    return `<button type="button" class="canvas-block block-${placement.width === 'half' ? 'half' : 'full'}${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && key === element}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span><span class="wire-preview" aria-hidden="true">${preview(owner, key)}</span></button>`;
-                  })
-                  .join('') || '<span class="canvas-empty">요소를 여기에 배치</span>'
-              }</section>`
+              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><span class="canvas-region-name">${region.label}</span>${blocks
+                .filter((item) => !item.parent && item.region === region.id)
+                .map((item) => blockHtml(item))
+                .join(
+                  ''
+                )}<button type="button" class="canvas-add" data-insert-target="region:${region.id}" aria-label="${region.label}에 요소 추가">+ 추가</button></section>`
           )
           .join('')}
         </div></div>${!blocks.length ? '<p class="designer-empty-guide">오른쪽에서 요소를 클릭해 첫 화면을 구성하세요.</p>' : ''}${reason}
-      </section><aside class="designer-inspector" aria-label="요소와 기능 편집"><div class="inspector-tabs" role="group" aria-label="편집 도구">${[
+      </section><aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소와 기능 편집"><div class="inspector-tabs" role="group" aria-label="편집 도구">${[
         ['elements', '요소'],
         ['features', '기능'],
         ['settings', '설정']
@@ -117,9 +121,9 @@
         )
         .join(
           ''
-        )}</div><div class="inspector-body" id="designer-inspector-body"><h4 tabindex="-1" id="inspector-title">${esc(panel === 'elements' ? '요소 삽입' : panel === 'features' ? (element ? elementName(screen, element) + '의 기능' : '기능 삽입') : element ? elementName(screen, element) : label(screen))}</h4>${panel === 'elements' ? palette + `<button type="button" class="button secondary" data-add-element data-screen="${index}">+ 요소 직접 추가</button>` : inspector}</div></aside></div></div>`;
+        )}</div><div class="inspector-body" id="designer-inspector-body"><h4 tabindex="-1" id="inspector-title">${esc(panel === 'elements' ? '요소 삽입' : panel === 'features' ? (element ? elementName(screen, element) + '의 기능' : '기능 삽입') : element ? elementName(screen, element) : label(screen))}</h4>${panel === 'elements' ? `<label class="insert-location">넣을 곳<select data-insert-location><option value="" ${!insertion ? 'selected' : ''}>요소에 맞는 기본 위치</option>${locationOptions(blocks, insertion)}</select></label>` + palette + `<button type="button" class="button secondary" data-add-element data-screen="${index}">+ 요소 직접 추가</button>` : inspector}</div></aside></div></div>`;
   }
-  const api = { selection, elementName, preview, render };
+  const api = { selection, elementName, locationOptions, preview, render };
   root.BriefDesigner = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -242,4 +242,30 @@ for(const invalid of [
   {placements:{form:null}},{placements:JSON.parse('{"__proto__":{"region":"main","width":"full"}}')}
 ]) {const input={screens:[{id:'s',...invalid}]},before=clone(input);assert.throws(()=>A.normalizeAnswers(input));assert.deepEqual(input,before);}
 assert.throws(()=>A.normalizeAnswers({screens:[{id:'a',isCommon:true},{id:'b',isCommon:true}]}));
+// Nested local/shared elements survive exports and backups; cycles never enter saved plans.
+const nestedDesign=A.normalizeAnswers({screens:[
+  {id:'c',isCommon:true,elements:['appbar'],customElements:[{id:'wrap',name:'도구 모음'}],placements:{'custom:wrap':{region:'top',width:'full',parent:'appbar'}}},
+  {id:'s',elements:['button','form'],placements:{button:{region:'top',width:'half',parent:'custom:wrap'},form:{region:'main',width:'full'}}}
+]});
+const tree=A.layoutItems(nestedDesign.screens[1],nestedDesign.screens[0]);
+assert.equal(tree.find(item=>item.key==='button').parent,'custom:wrap');
+assert(!A.canNest(tree,'appbar','custom:wrap'));
+assert(!A.canNest(tree,'form','form'));
+assert(!A.canNest(tree,'form','button'));
+assert(A.canNest(tree,'form','custom:wrap'));
+for(const prompt of [false,true])assert(R.report(nestedDesign,prompt).includes('상단 &gt; 상단 바 &gt; 도구 모음 &gt; 일반 버튼'));
+const nestedProject=P.createProject({answers:nestedDesign,drafts:nestedDesign});
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...clone(nestedProject)}).projects[0].answers,nestedDesign);
+for(const parent of ['button','unknown','custom:missing','__proto__',unsafe,123]) {
+  const bad=clone(nestedDesign);bad.screens[1].placements.button.parent=parent;assert.throws(()=>A.normalizeAnswers(bad));
+}
+const cyclic=clone(nestedDesign);cyclic.screens[0].placements.appbar={region:'top',width:'full',parent:'custom:wrap'};
+assert.throws(()=>A.normalizeAnswers(cyclic));
+// A local override must not turn a valid shared tree into a cycle.
+const inheritedCycle=clone(nestedDesign);inheritedCycle.screens[1].elements.push('appbar');
+inheritedCycle.screens[1].placements.appbar={region:'top',width:'full',parent:'custom:wrap'};
+assert.throws(()=>A.normalizeAnswers(inheritedCycle));
+const off=clone(nestedDesign);off.screens[1].useCommonLayout=false;
+assert.equal(A.layoutItems(off.screens[1],off.screens[0]).find(item=>item.key==='button').parent,'');
+assert(R.report(off).includes('포함할 요소가 현재 화면에 없어 위치 확인 필요'));
 console.log('Connected planning checks passed: migration, visual layouts, roles, scoped actions, safe exports and backup validation.');

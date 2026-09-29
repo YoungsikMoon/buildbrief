@@ -98,41 +98,37 @@ ${esc(value)}</textarea
     return `<div class="input-field"><label for="${id}">${esc(label)}</label><select id="${id}" ${attributes}><option value="">${esc(fallback)}</option>${value && !rows.some((r) => r.id === value) ? `<option value="${esc(value)}" selected>삭제된 연결 · 다시 선택해 주세요</option>` : ''}${rows.map((r) => `<option value="${esc(r.id)}" ${r.id === value ? 'selected' : ''}>${esc(r.name || '이름 미정')}</option>`).join('')}</select></div>`;
   }
   function featureCatalog(answers, screen = '', scope = '', selected = []) {
-    const key = (screen || 'shared') + (scope ? '-' + scope : '');
+    const key = (screen === '' ? 'shared' : screen) + (scope ? '-' + scope : '');
     const target = 'data-screen="' + esc(screen) + '" data-flow-scope="' + esc(scope) + '"';
     const existing = rowsOf(answers, 'features').filter((f) => !selected.includes(f.id));
     return (
-      '<div class="feature-add-actions"><button type="button" class="button secondary" data-feature-catalog-target="feature-catalog-' +
+      '<div class="feature-picker"><label for="feature-choice-' +
       key +
-      '" aria-controls="feature-catalog-' +
+      '">기능 후보에서 선택</label><select id="feature-choice-' +
       key +
-      '" aria-expanded="false">기능 후보에서 선택</button><button type="button" class="button secondary" data-feature="custom" ' +
+      '" data-feature-choice ' +
       target +
-      '>+ 직접 추가</button></div><div class="feature-catalog-panel" id="feature-catalog-' +
-      key +
-      '" hidden>' +
-      (screen !== '' && existing.length
-        ? idSelect('만들어 둔 기능 연결', '', existing, 'data-link-feature ' + target, '기능 선택')
-        : '') +
-      '<div class="catalog">' +
+      '><option value="">기능 선택</option><optgroup label="기능 후보">' +
       featureTypes
         .filter((f) => f.id !== 'custom')
-        .map(
-          (f) =>
-            '<div class="catalog-entry"><button type="button" class="catalog-item" data-feature="' +
-            f.id +
-            '" ' +
-            target +
-            '><strong>' +
-            esc(f.label) +
-            ' <span aria-hidden="true">＋</span></strong></button><button type="button" class="option-help" data-feature-help="' +
-            f.id +
-            '" aria-label="' +
-            esc(f.label) +
-            ' 설명">?</button></div>'
-        )
+        .map((f) => '<option value="type:' + f.id + '">' + esc(f.label) + '</option>')
         .join('') +
-      '</div></div>'
+      '</optgroup>' +
+      (screen !== '' && existing.length
+        ? '<optgroup label="만들어 둔 기능 연결">' +
+          existing
+            .map(
+              (f) =>
+                '<option value="link:' + f.id + '">' + esc(f.name || '이름 없는 기능') + '</option>'
+            )
+            .join('') +
+          '</optgroup>'
+        : '') +
+      '</select><div class="feature-choice-info" hidden><p class="field-help" data-feature-description></p><button type="button" class="option-help" data-feature-help hidden aria-label="선택한 기능 설명">?</button></div><div class="feature-add-actions"><button type="button" class="button secondary" data-add-chosen-feature ' +
+      target +
+      ' disabled>+ 선택한 기능 추가</button><button type="button" class="button secondary" data-feature="custom" ' +
+      target +
+      '>+ 직접 추가</button></div></div>'
     );
   }
   function permissionFields(row, i) {
@@ -461,7 +457,6 @@ ${esc(value)}</textarea
                   '기능 연결 해제'
                 )
               : '') +
-            request('오류·예외 대응', row.recommendExceptions, field('recommendExceptions')) +
             '<details class="optional-details" id="exceptions-' +
             screen.id +
             '-' +
@@ -469,8 +464,9 @@ ${esc(value)}</textarea
             '-' +
             row.id +
             '" ' +
-            (row.exceptions ? 'open' : '') +
-            '><summary>오류·예외 직접 적기</summary>' +
+            (row.exceptions || row.recommendExceptions ? 'open' : '') +
+            '><summary>오류·예외 대응</summary>' +
+            request('오류·예외 대응', row.recommendExceptions, field('recommendExceptions')) +
             input('오류나 예외 상황에서 어떻게 하나요?', row.exceptions, field('exceptions'), {
               type: 'textarea'
             }) +
@@ -610,28 +606,32 @@ ${esc(value)}</textarea
         : '<p class="field-help">가운데 화면에서 기능을 넣을 요소를 먼저 선택하세요.</p>';
     } else if (element) {
       const placement = A.elementPlacement(row, element);
+      const items = A.layoutItems(
+        row,
+        rowsOf(answers, 'screens').find((s) => s.isCommon)
+      );
+      const current = items.find((item) => item.key === element);
+      const siblings = items.filter(
+        (item) =>
+          !item.inherited &&
+          item.parent === current.parent &&
+          (current.parent || item.region === current.region)
+      );
       inspector =
-        '<div class="placement-controls"><div class="field-grid"><label>위치<select data-designer-placement="region">' +
-        Q.layoutRegions
-          .map(
-            (region) =>
-              '<option value="' +
-              region.id +
-              '" ' +
-              (placement.region === region.id ? 'selected' : '') +
-              '>' +
-              region.label +
-              '</option>'
-          )
-          .join('') +
+        '<div class="placement-controls"><div class="field-grid"><label>넣을 곳<select data-designer-placement="location">' +
+        D.locationOptions(
+          items,
+          current.parent ? 'parent:' + current.parent : 'region:' + placement.region,
+          element
+        ) +
         '</select></label><label>너비<select data-designer-placement="width"><option value="full" ' +
         (placement.width === 'full' ? 'selected' : '') +
         '>전체</option><option value="half" ' +
         (placement.width === 'half' ? 'selected' : '') +
         '>절반</option></select></label></div><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
-        (A.elementKeys(row).indexOf(element) === 0 ? 'disabled' : '') +
+        (siblings[0]?.key === element ? 'disabled' : '') +
         '>앞으로</button><button type="button" class="button secondary small" data-designer-move="1" ' +
-        (A.elementKeys(row).indexOf(element) === A.elementKeys(row).length - 1 ? 'disabled' : '') +
+        (siblings.at(-1)?.key === element ? 'disabled' : '') +
         '>뒤로</button><button type="button" class="text-button danger-text" data-designer-remove-element>요소 빼기</button></div></div>';
       if (element.startsWith('custom:')) {
         const index = (row.customElements || []).findIndex((el) => el.id === element.slice(7)),

@@ -229,6 +229,55 @@
         }[key] || 'main',
       width: 'full'
     };
+  const elementLabel = (screen, key) =>
+    key.startsWith('custom:')
+      ? screen.customElements?.find((el) => el.id === key.slice(7))?.name || '직접 추가한 요소'
+      : Q.uiElements.find((el) => el.id === key)?.label || key;
+  const canContain = (key) =>
+    key.startsWith('custom:') ||
+    [
+      'appbar',
+      'sidebar',
+      'rightpanel',
+      'footer',
+      'bottomnav',
+      'tabs',
+      'drawer',
+      'list',
+      'cards',
+      'table',
+      'form',
+      'dialog',
+      'bottomsheet',
+      'accordion',
+      'banner'
+    ].includes(key);
+  function layoutItems(screen, common) {
+    const own = elementKeys(screen);
+    const inherited =
+      !screen.isCommon && screen.useCommonLayout !== false && common
+        ? elementKeys(common)
+            .filter((key) => !own.includes(key))
+            .map((key) => ({ key, owner: common, inherited: true }))
+        : [];
+    const items = [...inherited, ...own.map((key) => ({ key, owner: screen, inherited: false }))];
+    for (const item of items) {
+      const placement = elementPlacement(item.owner, item.key);
+      item.parent = items.some((other) => other.key === placement.parent) ? placement.parent : '';
+      item.region = placement.region;
+    }
+    return items;
+  }
+  function canNest(items, key, parent) {
+    if (!parent) return true;
+    if (!canContain(parent) || !items.some((item) => item.key === parent)) return false;
+    const seen = new Set([key]);
+    for (let next = parent; next; next = items.find((item) => item.key === next)?.parent) {
+      if (seen.has(next)) return false;
+      seen.add(next);
+    }
+    return true;
+  }
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
   // For reference text only: this does not check DNS, redirects or private networks.
@@ -376,7 +425,15 @@
             !['full', 'half'].includes(placement.width)
           )
             fail(label + ' 배치');
-          placements[key] = { region: placement.region, width: placement.width };
+          if (placement.parent !== undefined && typeof placement.parent !== 'string')
+            fail(label + ' 포함 관계');
+          placements[key] = {
+            region: placement.region,
+            width: placement.width,
+            ...(placement.parent
+              ? { parent: text(placement.parent, label + ' 포함 관계', 210) }
+              : {})
+          };
         }
         return {
           isCommon: boolean(row.isCommon, label + ' 공통 화면'),
@@ -445,6 +502,32 @@
       result.screens.filter((screen) => screen.isCommon).length > 1
     )
       fail('기본 공통 화면의 중복');
+    if (Array.isArray(result.screens)) {
+      const common = result.screens.find((s) => s.isCommon);
+      for (const screen of result.screens) {
+        const keys = [
+          ...Q.uiElements.map((el) => el.id),
+          ...(screen.customElements || []).map((el) => 'custom:' + el.id),
+          ...(!screen.isCommon ? (common?.customElements || []).map((el) => 'custom:' + el.id) : [])
+        ];
+        const placements = {
+          ...(!screen.isCommon ? common?.placements : {}),
+          ...screen.placements
+        };
+        for (const [key, placement] of Object.entries(placements)) {
+          if (
+            placement.parent &&
+            (!keys.includes(placement.parent) || !canContain(placement.parent))
+          )
+            fail('요소의 포함 대상');
+          const seen = new Set([key]);
+          for (let parent = placement.parent; parent; parent = placements[parent]?.parent) {
+            if (seen.has(parent)) fail('요소의 순환 포함 관계');
+            seen.add(parent);
+          }
+        }
+      }
+    }
     if (questions.get('login_need').legacyOptions.includes(result.login_need)) {
       if (!Object.hasOwn(result, 'login_scope_history'))
         result.login_scope_history = result.login_need;
@@ -503,7 +586,11 @@
     priorities,
     linkedFeatureIds,
     elementKeys,
-    elementPlacement
+    elementPlacement,
+    elementLabel,
+    canContain,
+    layoutItems,
+    canNest
   };
   root.BriefAnswers = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

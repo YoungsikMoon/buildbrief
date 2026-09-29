@@ -34,11 +34,16 @@ const server = http.createServer((req,res)=>{
       const settings=()=>page.locator('[data-designer-settings]').click();
       const reason=async row=>{const input=edit('screens',row,'reason');await reveal(input);return input;};
       const addFeature=async(row,scope,kind='custom')=>{
-        const trigger=page.locator(`[data-feature-catalog-target="feature-catalog-${row}-${scope}"]`);
-        const boxes=await trigger.evaluate(n=>[...n.parentElement.children].map(b=>{const r=b.getBoundingClientRect();return {y:r.y,height:r.height};}));
+        const picker=page.locator('[data-feature-choice][data-screen="'+row+'"][data-flow-scope="'+scope+'"]').locator('..');
+        const boxes=await picker.locator('.feature-add-actions > button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {y:r.y,height:r.height};}));
         assert(Math.abs(boxes[0].y-boxes[1].y)<1 && Math.abs(boxes[0].height-boxes[1].height)<1,'Equal feature entry actions');
-        if(kind!=='custom') await trigger.click();
-        await page.locator(`[data-feature="${kind}"][data-screen="${row}"][data-flow-scope="${scope}"]`).click();
+        if(kind!=='custom') {
+          const before=(await stored()).answers.features?.length||0;
+          await picker.locator('select').selectOption('type:'+kind);
+          assert.equal((await stored()).answers.features?.length||0,before,'Choosing alone does not add a feature');
+          assert(await picker.locator('[data-feature-description]').innerText());
+          await picker.locator('[data-add-chosen-feature]').click();
+        } else await picker.locator('[data-feature="custom"]').click();
         return (await stored()).answers.features.at(-1);
       };
       const snapshot=async name=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.locator('#screen-designer').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${name}-${width}.png`),fullPage:true});}};
@@ -59,6 +64,14 @@ const server = http.createServer((req,res)=>{
         assert.equal(await page.evaluate(()=>BriefAnswers.isAnswered(JSON.parse(localStorage.getItem(BriefProjects.KEY)).projects[0].answers.screens)),false);
         assert.equal(await page.locator('[data-note="screens"]').count(),0);
         assert.equal(await page.locator('.designer-screens button').first().innerText(),'▣ 기본 공통 화면');
+        assert.equal(await page.locator('.insert-group[open]').count(),0,'All element groups initially collapsed');
+        const beforeToggle=(await stored()).answers;
+        const narrow=await page.locator('.designer-stage').evaluate(n=>n.getBoundingClientRect().width);
+        await page.locator('[data-toggle-inspector]').click();assert(!await page.locator('#designer-inspector').isVisible());
+        assert.equal(await page.locator('[data-toggle-inspector]').getAttribute('aria-expanded'),'false');
+        if(width===1440)assert(await page.locator('.designer-stage').evaluate(n=>n.getBoundingClientRect().width)>narrow+200);
+        assert.deepEqual((await stored()).answers,beforeToggle);
+        await page.locator('[data-toggle-inspector]').press('Enter');assert(await page.locator('#designer-inspector').isVisible());
         await insert('appbar');await insert('sidebar');
         assert.equal(await page.locator('.region-top [data-canvas-element="appbar"]').count(),1);
         assert.equal(await page.locator('.region-left [data-canvas-element="sidebar"]').count(),1);
@@ -66,7 +79,7 @@ const server = http.createServer((req,res)=>{
         await page.locator('[data-add="screens"]').click();await edit('screens',1,'name').fill('예약 신청');await edit('screens',1,'purpose').fill('날짜와 인원을 선택');
         const home=(await stored()).answers.screens[1].id;
         assert.equal(await page.locator('.canvas-block.inherited').count(),2);
-        await page.locator('.inherited[data-canvas-element="appbar"]').click();
+        await page.locator('.inherited [data-canvas-element="appbar"]').click();
         assert.equal(await page.locator('.designer-screens [aria-pressed="true"]').getAttribute('data-designer-screen'),common);
         await select(home);await settings();
         const picker=page.locator('.role-picker');await picker.locator('summary').click();await picker.locator('[data-role-search]').fill('강사');
@@ -80,30 +93,49 @@ const server = http.createServer((req,res)=>{
         assert((await page.locator('.wire-form').innerText()).includes('수업'));
         await page.locator('[data-designer-panel="features"]').click();const f=await addFeature(1,'form','booking');
         await edit('features',0,'name').fill('예약하기');await action(1,'form',0,'event').fill('신청서 제출');await action(1,'form',0,'result').fill('예약 번호 확인');
-        await action(1,'form',0,'recommendExceptions').check();await reveal(action(1,'form',0,'exceptions'));await action(1,'form',0,'exceptions').fill('중복 신청이면 기존 예약 안내');
+        await reveal(action(1,'form',0,'recommendExceptions'));await action(1,'form',0,'recommendExceptions').check();assert.equal(await action(1,'form',0,'recommendExceptions').locator('xpath=ancestor::details').count(),2);await reveal(action(1,'form',0,'exceptions'));await action(1,'form',0,'exceptions').fill('중복 신청이면 기존 예약 안내');
         assert.equal(await action(1,'form',0,'nextScreenId').locator(`option[value="${common}"]`).count(),0);
         await action(1,'form',0,'nextScreenId').selectOption('@stay');
         await (await reason(1)).fill('한 화면에서 간단하게 신청');
-        await page.locator('[data-designer-placement="width"]').selectOption('half');assert(await page.locator('[data-canvas-element="form"]').evaluate(n=>n.classList.contains('block-half')));
-        await page.locator('[data-designer-placement="region"]').selectOption('right');assert.equal(await page.locator('.region-right [data-canvas-element="form"]').count(),1);
-        await page.locator('[data-designer-placement="region"]').selectOption('main');await page.locator('[data-designer-placement="width"]').selectOption('full');
+        await page.locator('[data-designer-placement="width"]').selectOption('half');assert(await page.locator('[data-canvas-element="form"]').evaluate(n=>n.closest('.canvas-block').classList.contains('block-half')));
+        await page.locator('[data-designer-placement="location"]').selectOption('region:right');assert.equal(await page.locator('.region-right [data-canvas-element="form"]').count(),1);
+        await page.locator('[data-designer-placement="location"]').selectOption('region:main');await page.locator('[data-designer-placement="width"]').selectOption('full');
         await insert('table');await reveal(page.locator('[data-content-add][data-element="table"]'));await page.locator('[data-content-add][data-element="table"]').click();await nested(1,'table',0,'name').fill('예약일');
         await page.locator('[data-designer-move="-1"]').click();assert.deepEqual((await stored()).answers.screens[1].layoutOrder,['table','form']);
         if(width===1440){await page.locator('[data-canvas-element="table"]').dragTo(page.locator('.region-bottom'));assert.equal((await stored()).answers.screens[1].placements.table.region,'bottom');}
+        // Add a local button inside the inherited app bar; move without editing the common screen.
+        await page.locator('[data-insert-target="parent:appbar"]').click();
+        assert.equal(await page.locator('[data-insert-location]').inputValue(),'parent:appbar');
+        await insert('button');
+        assert.equal((await stored()).answers.screens[1].placements.button.parent,'appbar');
+        assert.equal(await page.locator('[data-block-key="appbar"] [data-canvas-element="button"]').count(),1);
+        assert(!(await stored()).answers.screens[0].elements.includes('button'));
+        if(width===1440) await page.locator('[data-canvas-element="button"]').dragTo(page.locator('[data-drop-parent="form"] > .canvas-add'));
+        else await page.locator('[data-designer-placement="location"]').selectOption('parent:form');
+        assert.equal((await stored()).answers.screens[1].placements.button.parent,'form');
+        assert.equal(await page.locator('[data-block-key="form"] [data-canvas-element="button"]').count(),1);
+        await select(home,'form');
+        assert.equal(await page.locator('[data-designer-placement="location"] option[value="parent:form"]').count(),0);
+        assert.equal(await page.locator('[data-designer-placement="location"] option[value="parent:button"]').count(),0);
+        await select(home,'button');await page.locator('[data-designer-placement="location"]').selectOption('parent:appbar');
         await snapshot('designer');await validatePage();
         await page.locator('[data-add="screens"]').click();await edit('screens',2,'name').fill('내 예약');
         const history=(await stored()).answers.screens[2].id;
         await edit('screens',2,'useCommonLayout').uncheck();assert.equal(await page.locator('.inherited').count(),0);
         await (await reason(2)).fill('목록만 집중해서 보기');await insert('table');
-        await page.locator('[data-feature-catalog-target="feature-catalog-2-table"]').click();await page.locator('[data-link-feature]').selectOption(f.id);
+        await page.locator('[id="feature-choice-2-table"]').selectOption('link:'+f.id);await page.locator('[data-add-chosen-feature][data-screen="2"]').click();
         await edit('features',0,'name').fill('예약 신청하기');await action(2,'table',0,'event').fill('예약 상세 보기');await action(2,'table',0,'nextScreenId').selectOption(home);
         await select(home,'form');assert.equal(await edit('features',0,'name').inputValue(),'예약 신청하기');assert.equal(await action(1,'form',0,'event').inputValue(),'신청서 제출');
         await page.locator('[data-designer-panel="elements"]').click();await page.locator('[data-add-element]').click();
         const custom=page.locator('[data-field="customElements"][data-property="name"]');await custom.fill('좌석 배치도');
         assert.equal(await page.locator('#inspector-title').innerText(),'좌석 배치도');
-        await page.locator('[data-designer-placement="region"]').selectOption('bottom');
+        await page.locator('[data-designer-placement="location"]').selectOption('parent:appbar');
+        const customKey='custom:'+(await stored()).answers.screens[1].customElements[0].id;
+        await select(home,'form');await page.locator('[data-designer-placement="location"]').selectOption('parent:'+customKey);
+        await select(home,customKey);
+        assert.equal(await page.locator('[data-designer-placement="location"] option[value="parent:form"]').count(),0,'Descendant cannot contain its ancestor');
         acceptDialog=false;await page.locator('[data-designer-remove-element]').click();assert.equal((await stored()).answers.screens[1].customElements.length,1);
-        acceptDialog=true;await page.locator('[data-designer-remove-element]').click();state=await stored();assert.equal(state.answers.screens[1].customElements.length,0);assert(!Object.keys(state.answers.screens[1].placements).some(k=>k.startsWith('custom:')));
+        acceptDialog=true;await page.locator('[data-designer-remove-element]').click();state=await stored();assert.equal(state.answers.screens[1].customElements.length,0);assert(!Object.keys(state.answers.screens[1].placements).some(k=>k.startsWith('custom:')));assert.equal(state.answers.screens[1].placements.form.parent,'appbar');
         // Hiding a standard element keeps its configuration for undo by insertion.
         await select(home,'form');await page.locator('[data-designer-remove-element]').click();assert.equal(await page.locator('[data-canvas-element="form"]').count(),0);
         await insert('form');assert.equal(await nested(1,'form',0,'name').inputValue(),'수업');assert.equal(await action(1,'form',0,'event').inputValue(),'신청서 제출');
@@ -113,10 +145,10 @@ const server = http.createServer((req,res)=>{
         const removeFeature=card.locator('[data-remove="features"]');assert(await removeFeature.isVisible());
         acceptDialog=false;await removeFeature.click();assert((await stored()).answers.features.some(f=>f.id===temporary.id));
         acceptDialog=true;await removeFeature.click();assert(!(await stored()).answers.features.some(f=>f.id===temporary.id));
-        assert(await page.locator('[data-feature-catalog-target="feature-catalog-1-form"]').evaluate(n=>n===document.activeElement));
+        assert(await page.locator('[id="feature-choice-1-form"]').evaluate(n=>n===document.activeElement));
         assert(!(await page.locator('#question-form').innerText()).includes('기능에 연결하지 않은 동작'));
         await validatePage();await go(5);await page.locator('#next-button').click();
-        const report=await page.locator('#report-view').innerText();for(const text of ['기본 공통 화면','공통 레이아웃 적용','사용하지 않음','서비스의 이동 메뉴를 통일','한 화면에서 간단하게 신청','목록만 집중해서 보기','예약 신청하기','수업','예약일','오류·예외 추천','중복 신청이면 기존 예약 안내','요소 배치 순서']) assert(report.includes(text),text);
+        const report=await page.locator('#report-view').innerText();for(const text of ['기본 공통 화면','공통 레이아웃 적용','사용하지 않음','서비스의 이동 메뉴를 통일','한 화면에서 간단하게 신청','목록만 집중해서 보기','예약 신청하기','수업','예약일','오류·예외 추천','중복 신청이면 기존 예약 안내','요소 배치 순서','상단 > 상단 바 > 일반 버튼']) assert(report.includes(text),text);
         await validatePage();await page.locator('#back-to-form').click();await go(4);
         const before=await stored();await page.reload();assert(await page.locator('#guide-view').isVisible());await go(4);assert.deepEqual((await stored()).answers,before.answers);
         const nav=page.locator('#export-answers');if(!await nav.isVisible()) await page.locator('#toggle-navigation').click();
@@ -143,6 +175,16 @@ const server = http.createServer((req,res)=>{
         assert.equal(await page.locator('.screen-tab-close').count(),0);
         assert.equal(await page.locator('.common-tab').getAttribute('aria-pressed'),'true');
         assert.equal((await stored()).answers.features.length,restored.answers.features.length);
+        // Deleting a shared container preserves children placed by an individual screen.
+        await page.locator('[data-add-element]').click();
+        await page.locator('[data-field="customElements"][data-property="name"]').fill('공통 도구 모음');
+        const sharedKey='custom:'+(await stored()).answers.screens[0].customElements[0].id;
+        await page.locator('[data-designer-placement="location"]').selectOption('parent:appbar');
+        await page.locator('[data-add="screens"]').click();
+        await page.locator('[data-insert-target="parent:'+sharedKey+'"]').click();await insert('button');
+        assert.equal((await stored()).answers.screens[1].placements.button.parent,sharedKey);
+        await select(common,sharedKey);await page.locator('[data-designer-remove-element]').click();
+        assert.equal((await stored()).answers.screens[1].placements.button.parent,'appbar');
         // Legacy screen-level records are only shown when actually present.
         await page.evaluate(()=>{const p=BriefProjects.createProject({answers:{roles:Array.from({length:80},(_,i)=>({id:'r'+i,role:'운영 담당 '+(i+1)})),screens:[{id:'old',name:'기존 화면',roleIds:['r79'],content:'보존할 메모',flow:[{id:'old-flow',event:'기존 진입 동작'}],elements:['form'],elementContents:{form:{items:[{id:'f',name:'<img src=x onerror=alert(1)>'}]}}}]},notes:{screens:'예전 전체 메모'}});localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:p.id,projects:[p]}));});
         await page.reload();await go(4);await select('old');await settings();await reveal(edit('screens',1,'content'));assert.equal(await edit('screens',1,'content').inputValue(),'보존할 메모');

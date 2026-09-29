@@ -109,9 +109,12 @@
   function showDesigner(panel, element, screenId) {
     const selected = D.selection(answers, designerState);
     designerState = {
+      ...designerState,
       screenId: screenId || selected.screen.id,
       element: element === undefined ? selected.element : element,
-      panel
+      panel,
+      insertTarget: screenId && screenId !== selected.screen.id ? '' : designerState.insertTarget,
+      panelCollapsed: screenId && element === '' ? designerState.panelCollapsed : false
     };
     renderStep(currentStep);
     const target =
@@ -126,16 +129,56 @@
         : $('#designer-inspector-body')
       )?.scrollIntoView({ block: 'start' });
   }
-  function moveCanvasElement(key, region, before = '') {
+  function placeElement(screen, key, target) {
+    const common = rowsOf('screens').find((s) => s.isCommon);
+    const items = A.layoutItems(screen, common);
+    const current = A.elementPlacement(screen, key);
+    const parent = target.startsWith('parent:') ? target.slice(7) : '';
+    let region = target.startsWith('region:') ? target.slice(7) : current.region;
+    if (parent) {
+      if (!A.canNest(items, key, parent)) return false;
+      let ancestor = items.find((item) => item.key === parent);
+      while (ancestor?.parent) ancestor = items.find((item) => item.key === ancestor.parent);
+      region = ancestor?.region || region;
+    }
+    if (!Q.layoutRegions.some((r) => r.id === region)) return false;
+    screen.placements ||= {};
+    const previous = screen.placements[key];
+    screen.placements[key] = { region, width: current.width, ...(parent ? { parent } : {}) };
+    try {
+      // Check inherited and hidden relationships with the same validation used by backups.
+      A.normalizeAnswers({ screens: rowsOf('screens') });
+    } catch {
+      if (previous) screen.placements[key] = previous;
+      else delete screen.placements[key];
+      return false;
+    }
+    return true;
+  }
+  function placeInserted(screen, key) {
+    const current = A.elementPlacement(screen, key);
+    const target =
+      designerState.insertTarget ||
+      (current.parent ? 'parent:' + current.parent : 'region:' + current.region);
+    if (!placeElement(screen, key, target)) placeElement(screen, key, 'region:' + current.region);
+  }
+  function detachChildren(screen, key) {
+    const placement = A.elementPlacement(screen, key);
+    for (const row of screen.isCommon ? rowsOf('screens') : [screen])
+      for (const [childKey, child] of Object.entries(row.placements || {}))
+        if (
+          child.parent === key &&
+          (!placement.parent || !placeElement(row, childKey, 'parent:' + placement.parent))
+        )
+          placeElement(row, childKey, 'region:' + placement.region);
+  }
+  function moveCanvasElement(key, target, before = '') {
     const { screen } = D.selection(answers, designerState);
     const order = A.elementKeys(screen);
-    if (before === key || !order.includes(key) || !Q.layoutRegions.some((r) => r.id === region))
-      return;
+    if (before === key || !order.includes(key) || !placeElement(screen, key, target)) return;
     const next = order.filter((id) => id !== key);
     next.splice(before && next.includes(before) ? next.indexOf(before) : next.length, 0, key);
     screen.layoutOrder = next;
-    screen.placements ||= {};
-    screen.placements[key] = { ...A.elementPlacement(screen, key), region };
     changed(true);
   }
   function flowTarget(screen, scope = '') {
@@ -425,29 +468,41 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-insert-location]')) {
+      designerState.insertTarget = el.value;
+      return;
+    }
+    if (el.matches('[data-feature-choice]')) {
+      const picker = el.closest('.feature-picker');
+      const type = featureTypes.find((f) => 'type:' + f.id === el.value);
+      const existing = rowsOf('features').find((f) => 'link:' + f.id === el.value);
+      picker.querySelector('[data-add-chosen-feature]').disabled = !type && !existing;
+      picker.querySelector('.feature-choice-info').hidden = !type && !existing;
+      picker.querySelector('[data-feature-description]').textContent =
+        type?.description ||
+        (existing ? '이 기능을 연결해요. 이름과 설명은 다른 곳에도 함께 반영돼요.' : '');
+      const help = picker.querySelector('[data-feature-help]');
+      help.hidden = !type;
+      help.dataset.featureHelp = type?.id || '';
+      help.setAttribute('aria-label', (type?.label || '기능') + ' 설명');
+      return;
+    }
     if (el.dataset.designerPlacement) {
       const { screen, element } = D.selection(answers, designerState);
       const key = el.dataset.designerPlacement;
-      if (
-        !element ||
-        !(key === 'region'
-          ? Q.layoutRegions.some((r) => r.id === el.value)
-          : key === 'width' && ['full', 'half'].includes(el.value))
-      )
-        return;
-      screen.placements ||= {};
-      screen.placements[element] = { ...A.elementPlacement(screen, element), [key]: el.value };
+      if (!element) return;
+      if (key === 'location') {
+        if (!placeElement(screen, element, el.value)) {
+          toast('요소를 자기 자신이나 그 안의 요소에 넣을 수 없어요.');
+          renderStep(currentStep);
+          return;
+        }
+      } else if (key === 'width' && ['full', 'half'].includes(el.value)) {
+        screen.placements ||= {};
+        screen.placements[element] = { ...A.elementPlacement(screen, element), width: el.value };
+      } else return;
       changed(true);
       document.querySelector(`[data-designer-placement="${key}"]`)?.focus({ preventScroll: true });
-      return;
-    }
-    if (el.matches('select[data-link-feature]')) {
-      const screen = rowsOf('screens')[Number(el.dataset.screen)];
-      if (screen && rowsOf('features').some((f) => f.id === el.value)) {
-        if (!connectFeature(screen, el.dataset.flowScope, el.value)) return;
-        changed(true);
-        focusFeature(el.dataset.screen, el.dataset.flowScope, el.value);
-      }
       return;
     }
     if (el.matches('select[data-assign-feature]')) {
@@ -598,7 +653,7 @@
         if (block.dataset.canvasOwner !== object.id) return;
         const scope = block.dataset.canvasElement;
         block.querySelector('.wire-preview').innerHTML = D.preview(object, scope);
-        if (!block.classList.contains('inherited'))
+        if (!block.closest('.canvas-block').classList.contains('inherited'))
           block.querySelector('.canvas-block-title').textContent = D.elementName(object, scope);
       });
       if (current.element && field === 'customElements' && property === 'name')
@@ -666,7 +721,7 @@
     event.dataTransfer.setData('text/plain', draggedElement.key);
   });
   document.addEventListener('dragover', (event) => {
-    const zone = event.target.closest('[data-drop-region]');
+    const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
     if (
       !zone ||
       !draggedElement ||
@@ -679,7 +734,7 @@
     zone.classList.add('drop-active');
   });
   document.addEventListener('drop', (event) => {
-    const zone = event.target.closest('[data-drop-region]');
+    const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
     if (
       !zone ||
       !draggedElement ||
@@ -690,7 +745,9 @@
     const before = event.target.closest('[data-canvas-element]');
     moveCanvasElement(
       draggedElement.key,
-      zone.dataset.dropRegion,
+      zone.dataset.dropParent
+        ? 'parent:' + zone.dataset.dropParent
+        : 'region:' + zone.dataset.dropRegion,
       before?.dataset.canvasOwner === draggedElement.screenId ? before.dataset.canvasElement : ''
     );
     draggedElement = null;
@@ -705,7 +762,38 @@
     });
     const b = event.target.closest('button');
     if (!b) return;
-    const d = b.dataset;
+    const d = { ...b.dataset };
+    if (d.toggleInspector !== undefined) {
+      designerState.panelCollapsed = !designerState.panelCollapsed;
+      renderStep(currentStep);
+      $('[data-toggle-inspector]')?.focus({ preventScroll: true });
+      return;
+    }
+    if (d.insertTarget) {
+      designerState.insertTarget = d.insertTarget;
+      showDesigner('elements');
+      $('[data-insert-location]')?.focus({ preventScroll: true });
+      return;
+    }
+    if (d.addChosenFeature !== undefined) {
+      const value = b.closest('.feature-picker').querySelector('[data-feature-choice]').value;
+      if (value.startsWith('link:')) {
+        const id = value.slice(5),
+          screen = rowsOf('screens')[Number(d.screen)];
+        if (
+          !screen ||
+          !rowsOf('features').some((f) => f.id === id) ||
+          !connectFeature(screen, d.flowScope, id)
+        )
+          return;
+        changed(true);
+        focusFeature(d.screen, d.flowScope, id);
+        return;
+      }
+      const type = featureTypes.find((f) => 'type:' + f.id === value);
+      if (!type) return;
+      d.feature = type.id;
+    }
     if (d.designerScreen !== undefined) return showDesigner('elements', '', d.designerScreen);
     if (d.createCommon !== undefined) {
       if (rowsOf('screens').length >= A.MAX_ROWS)
@@ -728,8 +816,16 @@
         common?.elements?.includes(d.insertElement)
       )
         return showDesigner('settings', d.insertElement, common.id);
+      const alreadyPlaced = (screen.elements || []).includes(d.insertElement);
       screen.elements = [...new Set([...(screen.elements || []), d.insertElement])];
-      designerState = { screenId: screen.id, element: d.insertElement, panel: 'settings' };
+      if (!alreadyPlaced) placeInserted(screen, d.insertElement);
+      designerState = {
+        ...designerState,
+        screenId: screen.id,
+        element: d.insertElement,
+        panel: 'settings',
+        panelCollapsed: false
+      };
       changed(true);
       $('#inspector-title')?.focus({ preventScroll: true });
       if (window.matchMedia('(max-width: 800px)').matches)
@@ -739,9 +835,24 @@
     if (d.designerMove) {
       const { screen, element } = D.selection(answers, designerState),
         order = A.elementKeys(screen);
+      const items = A.layoutItems(
+        screen,
+        rowsOf('screens').find((s) => s.isCommon)
+      );
+      const current = items.find((item) => item.key === element);
+      if (!current) return;
+      const siblings = items
+        .filter(
+          (item) =>
+            !item.inherited &&
+            item.parent === current.parent &&
+            (current.parent || item.region === current.region)
+        )
+        .map((item) => item.key);
+      const neighbor = siblings[siblings.indexOf(element) + Number(d.designerMove)];
       const from = order.indexOf(element),
-        to = from + Number(d.designerMove);
-      if (from < 0 || to < 0 || to >= order.length) return;
+        to = order.indexOf(neighbor);
+      if (from < 0 || to < 0) return;
       [order[from], order[to]] = [order[to], order[from]];
       screen.layoutOrder = order;
       changed(true);
@@ -756,6 +867,7 @@
       if (!element) return;
       if (element.startsWith('custom:')) {
         if (!window.confirm('이 요소와 작성한 내용을 삭제할까요?')) return;
+        detachChildren(screen, element);
         screen.customElements = screen.customElements.filter((el) => el.id !== element.slice(7));
         screen.layoutOrder = (screen.layoutOrder || []).filter((key) => key !== element);
         if (screen.placements) delete screen.placements[element];
@@ -764,12 +876,6 @@
       designerState.panel = 'elements';
       changed(true);
       $('#inspector-title')?.focus({ preventScroll: true });
-      return;
-    }
-    if (d.featureCatalogTarget) {
-      const panel = document.getElementById(d.featureCatalogTarget);
-      panel.hidden = !panel.hidden;
-      b.setAttribute('aria-expanded', String(!panel.hidden));
       return;
     }
     if (d.editRoles !== undefined) {
@@ -873,7 +979,7 @@
       if (!panel) {
         document
           .querySelector(
-            `[data-feature-catalog-target="feature-catalog-${d.screen}-${d.flowScope}"]`
+            `[data-feature-choice][data-screen="${d.screen}"][data-flow-scope="${d.flowScope}"]`
           )
           ?.focus({ preventScroll: true });
         return;
@@ -941,7 +1047,14 @@
           return toast(`직접 추가하는 요소는 화면마다 최대 ${A.MAX_ROWS}개까지 기록할 수 있어요.`);
         const item = { id: P.newId(), name: '', purpose: '' };
         screen.customElements.push(item);
-        designerState = { screenId: screen.id, element: 'custom:' + item.id, panel: 'settings' };
+        placeInserted(screen, 'custom:' + item.id);
+        designerState = {
+          ...designerState,
+          screenId: screen.id,
+          element: 'custom:' + item.id,
+          panel: 'settings',
+          panelCollapsed: false
+        };
         changed(true);
         $('#designer-inspector-body')
           ?.querySelector('[data-property="name"]')
@@ -951,6 +1064,7 @@
         window.confirm('이 요소를 삭제할까요? 이름과 용도도 함께 삭제돼요.')
       ) {
         const key = 'custom:' + screen.customElements[Number(d.removeElement)].id;
+        detachChildren(screen, key);
         screen.customElements.splice(Number(d.removeElement), 1);
         screen.layoutOrder = (screen.layoutOrder || []).filter((id) => id !== key);
         if (screen.placements) delete screen.placements[key];
@@ -1037,7 +1151,10 @@
       if (rows[index] && window.confirm(message)) {
         let returnTo =
           d.remove === 'features'
-            ? `[data-feature-catalog-target="${b.closest('.element-functions')?.querySelector('[data-feature-catalog-target]')?.dataset.featureCatalogTarget || 'feature-catalog-shared'}"]`
+            ? '[id="' +
+              (b.closest('.element-functions')?.querySelector('[data-feature-choice]')?.id ||
+                'feature-choice-shared') +
+              '"]'
             : `[data-add="${d.remove}"]`;
         if (d.remove === 'screens') {
           const selected = D.selection(answers, designerState).screen;

@@ -9,6 +9,10 @@
     activeQuestions,
     normalizeRecommendations,
     normalizeHttpUrl,
+    elementKeys,
+    elementLabel,
+    elementPlacement,
+    layoutItems,
     HTTP_URL_HELP
   } = root.BriefAnswers || require('./answers.js');
   // User entries remain quoted data when the exported Markdown is rendered elsewhere.
@@ -98,7 +102,7 @@
         '- 각 질문 제목 아래의 답변과 선택 이유·추가 메모는 그 질문에 속합니다. 이유를 다른 질문의 근거로 옮기거나 답변 자체로 간주하지 마세요.',
         '- 사용자·문제·핵심 기능·대표 이용 과정·화면·로그인과 권한·자료를 연결하세요. 서로 맞지 않는 입력과 빠진 조건부터 질문하세요.',
         '- 화면 요소는 화면별 목적·역할·기기에 맞춰 조합하세요. 이 문서의 기능 번호로 연결하고 삭제된 기능 연결은 확인하세요.',
-        '- 기본 공통 화면은 서비스의 공통 레이아웃입니다. 사용하도록 표시한 화면에만 적용하고, 각 화면의 같은 종류 요소는 해당 화면 설정을 우선합니다. 공통 레이아웃 적용을 공통 접근 권한이나 별도의 이동 화면으로 해석하지 마세요. 배치와 순서는 기획용 구성안입니다.',
+        '- 기본 공통 화면은 서비스의 공통 레이아웃입니다. 사용하도록 표시한 화면에만 적용하고, 각 화면의 같은 종류 요소는 해당 화면 설정을 우선합니다. 공통 레이아웃 적용을 공통 접근 권한이나 별도의 이동 화면으로 해석하지 마세요. 요소 배치의 > 표시는 포함 관계입니다. 예를 들어 상단 > 상단 바 > 일반 버튼은 상단 바 안의 버튼을 뜻합니다. 배치와 순서는 기획용 구성안입니다.',
         '- 역할 목록의 이름과 각 화면이 선택한 역할을 연결하세요. 역할이 비어 있으면 미정이며 전체 공개로 간주하지 마세요. 로그인 필요는 로그인 기능을 제공한다는 뜻이며 모든 화면에 로그인을 강제한다는 뜻이 아닙니다.',
         '- 화면·요소의 동작은 행동·상황, 실행 기능, 처리 결과와 다음 화면을 한 묶음으로 해석하세요. 다른 화면으로 이동하는 경우와 현재 화면 유지·뒤로 가기를 구분하세요. 이전에 작성한 내용은 참고 기록이며 새 답변과 충돌하면 확인하세요.',
         '- 화면·요소·기능 아래의 설명과 선택 이유는 해당 대상에만 적용하세요. 폼 항목·표의 열·연결한 동작은 소속 화면과 요소를 유지하세요. 자연어 설명도 요구사항이며 항목별 재작성을 강요하지 마세요. 같은 기능 번호는 여러 화면에서 함께 쓰는 하나의 기능입니다.',
@@ -218,20 +222,30 @@
             if (isAnswered(row.error)) field('실패했을 때', row.error);
             if (isAnswered(row.mobile)) field('휴대폰에서의 사용', row.mobile);
             if (isAnswered(row.reason)) field('이 화면의 선택 이유·메모', row.reason);
-            const ordered = (root.BriefAnswers || require('./answers.js')).elementKeys(row);
+            const ordered = elementKeys(row);
+            const layout = layoutItems(
+              row,
+              (answers.screens || []).find((s) => s.isCommon)
+            );
             if (ordered.length)
               field(
                 '요소 배치 순서',
                 ordered.map((key) => {
-                  const name = key.startsWith('custom:')
-                    ? row.customElements.find((el) => el.id === key.slice(7))?.name ||
-                      '직접 추가한 요소'
-                    : Q.uiElements.find((el) => el.id === key)?.label || key;
-                  const placement = (root.BriefAnswers || require('./answers.js')).elementPlacement(
-                    row,
-                    key
+                  const placement = elementPlacement(row, key);
+                  const path = [elementLabel(row, key)],
+                    seen = new Set([key]);
+                  let item = layout.find((item) => item.key === key);
+                  while (item?.parent && !seen.has(item.parent)) {
+                    seen.add(item.parent);
+                    item = layout.find((parent) => parent.key === item.parent);
+                    if (item) path.unshift(elementLabel(item.owner, item.key));
+                  }
+                  path.unshift(
+                    Q.layoutRegions.find(
+                      (region) => region.id === (item?.region || placement.region)
+                    ).label
                   );
-                  return `${name} · ${Q.layoutRegions.find((region) => region.id === placement.region).label} · ${placement.width === 'half' ? '절반 너비' : '전체 너비'}`;
+                  return `${path.join(' > ')} · ${placement.width === 'half' ? '절반 너비' : '전체 너비'}${placement.parent && !layout.find((item) => item.key === key)?.parent ? ' · 포함할 요소가 현재 화면에 없어 위치 확인 필요' : ''}`;
                 })
               );
             flowFields(row);
