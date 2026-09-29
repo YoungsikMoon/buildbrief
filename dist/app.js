@@ -585,7 +585,12 @@
     if (!rerender && qid === 'screens') {
       const current = D.selection(answers, designerState);
       const tab = document.querySelector(`[data-designer-screen="${object.id}"]`);
-      if (tab && !object.isCommon && field === 'name') tab.textContent = object.name || '새 화면';
+      if (tab && !object.isCommon && field === 'name') {
+        tab.textContent = object.name || '새 화면';
+        tab.parentElement
+          .querySelector('.screen-tab-close')
+          ?.setAttribute('aria-label', `${object.name || '새 화면'} 삭제`);
+      }
       if (current.screen.id === object.id && field === 'name')
         document.querySelector('.canvas-chrome span:last-child').textContent =
           object.name || '새 화면';
@@ -1027,13 +1032,21 @@
           : d.remove === 'features'
             ? '이 기능을 삭제할까요? 모든 화면·요소의 연결에 영향을 줘요. 한 곳에서만 빼려면 연결 해제를 사용하세요.'
             : d.remove === 'screens'
-              ? '이 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.'
+              ? `‘${rows[index]?.name || '새 화면'}’ 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.`
               : '이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.';
       if (rows[index] && window.confirm(message)) {
-        const returnTo =
+        let returnTo =
           d.remove === 'features'
             ? `[data-feature-catalog-target="${b.closest('.element-functions')?.querySelector('[data-feature-catalog-target]')?.dataset.featureCatalogTarget || 'feature-catalog-shared'}"]`
             : `[data-add="${d.remove}"]`;
+        if (d.remove === 'screens') {
+          const selected = D.selection(answers, designerState).screen;
+          const next =
+            selected.id === rows[index].id ? rows[index + 1] || rows[index - 1] : selected;
+          if (selected.id === rows[index].id)
+            designerState = { screenId: next?.id || '', element: '', panel: 'elements' };
+          if (next) returnTo = `[data-designer-screen="${next.id}"]`;
+        }
         answers[d.remove] = rows.filter((_, i) => i !== index);
         changed(true);
         document.querySelector(returnTo)?.focus({ preventScroll: true });

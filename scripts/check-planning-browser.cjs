@@ -123,6 +123,26 @@ const server = http.createServer((req,res)=>{
         const downloaded=page.waitForEvent('download');await nav.click();const backup=JSON.parse(fs.readFileSync(await (await downloaded).path(),'utf8'));assert.deepEqual(backup.answers,before.answers);
         await page.locator('#import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
         const restored=await stored();assert.notEqual(restored.id,before.id);assert.deepEqual(restored.answers,before.answers);
+        // Close a tab without opening settings or switching away from the active screen.
+        await go(4);
+        assert.equal(await page.locator('.screen-tab-close[data-index="0"]').count(),0);
+        await page.locator('[data-add="screens"]').click();await edit('screens',3,'name').fill('임시 화면 A');
+        await page.locator('[data-add="screens"]').click();await edit('screens',4,'name').fill('임시 화면 B');
+        const activeId=(await stored()).answers.screens[4].id;
+        const closeA=page.locator('.screen-tab-close[data-index="3"]');
+        assert.equal(await closeA.getAttribute('aria-label'),'임시 화면 A 삭제');
+        acceptDialog=false;await closeA.click();assert.equal((await stored()).answers.screens.length,5);
+        assert.equal(await page.locator('.designer-screens [aria-pressed="true"]').getAttribute('data-designer-screen'),activeId);
+        acceptDialog=true;await closeA.click();assert.equal((await stored()).answers.screens.length,4);
+        assert.equal(await page.locator('.designer-screens [aria-pressed="true"]').getAttribute('data-designer-screen'),activeId);
+        assert.equal(await edit('screens',3,'name').inputValue(),'임시 화면 B');
+        await page.locator('.screen-tab-close[data-index="3"]').focus();await page.keyboard.press('Enter');
+        assert.deepEqual((await stored()).answers,restored.answers);
+        assert(await page.locator(`[data-designer-screen="${history}"]`).evaluate(n=>n===document.activeElement));
+        await page.locator('.screen-tab-close[data-index="2"]').click();await page.locator('.screen-tab-close[data-index="1"]').click();
+        assert.equal(await page.locator('.screen-tab-close').count(),0);
+        assert.equal(await page.locator('.common-tab').getAttribute('aria-pressed'),'true');
+        assert.equal((await stored()).answers.features.length,restored.answers.features.length);
         // Legacy screen-level records are only shown when actually present.
         await page.evaluate(()=>{const p=BriefProjects.createProject({answers:{roles:Array.from({length:80},(_,i)=>({id:'r'+i,role:'운영 담당 '+(i+1)})),screens:[{id:'old',name:'기존 화면',roleIds:['r79'],content:'보존할 메모',flow:[{id:'old-flow',event:'기존 진입 동작'}],elements:['form'],elementContents:{form:{items:[{id:'f',name:'<img src=x onerror=alert(1)>'}]}}}]},notes:{screens:'예전 전체 메모'}});localStorage.setItem(BriefProjects.KEY,JSON.stringify({version:1,activeId:p.id,projects:[p]}));});
         await page.reload();await go(4);await select('old');await settings();await reveal(edit('screens',1,'content'));assert.equal(await edit('screens',1,'content').inputValue(),'보존할 메모');

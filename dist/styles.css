@@ -416,6 +416,41 @@ a.app-version:focus-visible {
 .screen-tab.common-tab {
   border-style: dashed;
 }
+.screen-tab-item {
+  display: flex;
+  flex: 0 0 auto;
+  max-width: 20rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.screen-tab-item:has([aria-pressed='true']) {
+  border-color: var(--blue);
+  background: var(--soft);
+}
+.screen-tab-item > .screen-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  border-radius: 7px 0 0 7px;
+  background: transparent;
+  padding-right: 8px;
+}
+.screen-tab-close {
+  flex: 0 0 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0 7px 7px 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.screen-tab-close:hover {
+  color: #b91c1c;
+  background: #fff3f0;
+}
 .add-screen {
   color: var(--blue);
 }
