@@ -132,6 +132,9 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await go(5);await page.locator('#next-button').click();
       const report=await page.locator('.report-document').innerText();for(const text of ['검색어를 입력하고','오류가 나도 검색어','빠른 찾기','용도·기능·동작','기획용'])assert(report.includes(text),text);
       assert.equal(await page.locator('.report-document img,.report-document script').count(),0);
+      const reportJump=page.locator('a[data-report-jump]').first();assert(await reportJump.isVisible(),'Report questions and answers link back to the form');
+      const jumpTarget=await reportJump.getAttribute('data-report-jump');await reportJump.click();assert(await page.locator('#form-view').isVisible());assert(await page.locator('#field-'+jumpTarget).isVisible(),'Report jump lands on its question');
+      await go(5);await page.locator('#next-button').click();
       await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
       await page.locator('#copy-prompt').click();const copied=await page.evaluate(()=>window.testCopiedPrompt);
       const download=page.waitForEvent('download');await page.locator('#download-report').click();const markdown=fs.readFileSync(await (await download).path(),'utf8');assert(copied.endsWith(markdown));assert(copied.includes('별도 기능 번호나 필드 목록이 없다는 이유로 누락하지 마세요'));

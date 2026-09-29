@@ -804,9 +804,21 @@ ${esc(value)}</textarea
       entryOpen = false,
       elementOpen = false,
       recordOpen = false,
-      quoteOpen = false;
+      quoteOpen = false,
+      questionId = '';
+    const markdownLabel = (value) =>
+      String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/[\\`*_\[\]#|]/g, '\\$&');
+    const questionTargets = new Map();
+    for (const q of A.activeQuestions(answers)) {
+      const key = markdownLabel(q.label);
+      questionTargets.set(key, [...(questionTargets.get(key) || []), q.id]);
+    }
     const closeQuote = () => {
-      const end = quoteOpen ? '</p>' : '';
+      const end = quoteOpen ? '</a></p>' : '';
       quoteOpen = false;
       return end;
     };
@@ -829,6 +841,7 @@ ${esc(value)}</textarea
       const end =
         closeEntry() + (reasonOpen ? '</aside>' : '') + (questionOpen ? '</section>' : '');
       reasonOpen = questionOpen = false;
+      questionId = '';
       return end;
     };
     const body =
@@ -836,9 +849,14 @@ ${esc(value)}</textarea
         .split('\n')
         .map((line) => {
           if (line.startsWith('> ')) {
-            const prefix = quoteOpen ? '\n' : '<p class="report-answer">';
+            const continued = quoteOpen;
+            const prefix = continued ? '\n' : '<p class="report-answer">';
             quoteOpen = true;
-            return prefix + readable(line.slice(2));
+            const link =
+              questionId && !continued
+                ? `<a class="report-jump-answer" data-report-jump="${esc(questionId)}" href="#field-${esc(questionId)}" aria-label="${readable(line.slice(2))} · 작성 화면으로 이동">`
+                : '';
+            return prefix + (quoteOpen ? link : '') + readable(line.slice(2));
           }
           const quoteEnd = closeQuote();
           if (line === '---') return quoteEnd + closeRecord();
@@ -860,12 +878,16 @@ ${esc(value)}</textarea
             if (depth === 3) {
               prefix += '<section class="report-question">';
               questionOpen = true;
+              questionId = questionTargets.get(heading[2])?.shift() || '';
             }
             if (depth === 4 && heading[2] === '선택 이유·추가 메모') {
               prefix += '<aside class="report-rationale">';
               reasonOpen = true;
             }
-            return `${prefix}<h${level}>${readable(heading[2])}</h${level}>`;
+            const headingHtml = questionId
+              ? `<a class="report-jump-question" data-report-jump="${esc(questionId)}" href="#field-${esc(questionId)}" aria-label="${readable(heading[2])} · 작성 화면으로 이동">${readable(heading[2])}</a>`
+              : readable(heading[2]);
+            return `${prefix}<h${level}>${headingHtml}</h${level}>`;
           }
           if (/^\*\*.*\*\*$/.test(line)) {
             const label = line.slice(2, -2);

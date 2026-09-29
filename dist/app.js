@@ -379,6 +379,19 @@
     window.scrollTo({ top: 0, behavior: 'instant' });
     $('#report-title').focus({ preventScroll: true });
   }
+  function jumpToQuestion(questionId) {
+    const stepIndex = steps.findIndex((step) =>
+      step.groups.some((group) => group.questions.some((question) => question.id === questionId))
+    );
+    if (stepIndex < 0) return;
+    renderStep(stepIndex);
+    setNavigation(false);
+    requestAnimationFrame(() => {
+      const field = document.getElementById('field-' + questionId);
+      field?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      field?.querySelector('legend')?.focus({ preventScroll: true });
+    });
+  }
   function download(text, extension, suffix, title = P.projectTitle({ answers })) {
     const filename = `${title}-${suffix}`.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100);
     const url = URL.createObjectURL(
@@ -856,6 +869,11 @@
       if (!picker.contains(event.target)) picker.open = false;
     });
     const b = event.target.closest('button');
+    const reportJump = event.target.closest('a[data-report-jump]');
+    if (reportJump) {
+      event.preventDefault();
+      return jumpToQuestion(reportJump.dataset.reportJump);
+    }
     if (!b) return;
     const d = { ...b.dataset };
     if (d.openReference !== undefined || d.closeReference !== undefined) {
