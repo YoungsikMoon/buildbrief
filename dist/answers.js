@@ -5,7 +5,9 @@
   const allQuestions = Q.steps.flatMap((step) => step.groups.flatMap((group) => group.questions));
   const questions = new Map([...allQuestions, ...Q.retiredQuestions].map((q) => [q.id, q]));
   const MAX_ROWS = 80,
-    MAX_TEXT = 6000;
+    MAX_GRID_ROWS = MAX_ROWS * 4,
+    MAX_TEXT = 6000,
+    MIN_ELEMENT_HEIGHT = 64;
   const EXCLUSIVE = [UNKNOWN, '특별한 방법 없음', '추가 정보 없음', '기기 기능이 필요하지 않음'];
   const priorities = ['첫 버전에 필요', '나중에', UNKNOWN];
   const plain = (value) =>
@@ -292,6 +294,56 @@
     }
     return true;
   }
+  function gridLayout(items, preferred = '') {
+    const positions = new Map(),
+      groups = new Map();
+    for (const item of items) {
+      const group = item.parent ? 'parent:' + item.parent : 'region:' + item.region;
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(item);
+    }
+    for (const siblings of groups.values()) {
+      const occupied = [];
+      let nextRow = 1,
+        nextColumn = 1;
+      const rank = (item) =>
+        item.inherited
+          ? 0
+          : item.key === preferred
+            ? 1
+            : elementPlacement(item.owner, item.key).grid
+              ? 2
+              : 3;
+      for (const item of [...siblings].sort((a, b) => rank(a) - rank(b))) {
+        const span = Math.ceil(elementSize(item.owner, item.key).width / 5);
+        const requested = elementPlacement(item.owner, item.key).grid;
+        let row = requested?.row || nextRow,
+          column = requested ? Math.min(requested.column, 21 - span) : nextColumn;
+        if (column + span > 21) {
+          row = (row % MAX_GRID_ROWS) + 1;
+          column = 1;
+        }
+        while (
+          occupied.some(
+            (p) => p.row === row && column < p.column + p.span && column + span > p.column
+          )
+        ) {
+          if (requested || column + span >= 21) {
+            row = (row % MAX_GRID_ROWS) + 1;
+            column = requested ? Math.min(requested.column, 21 - span) : 1;
+          } else column++;
+        }
+        const position = { row, column, span };
+        occupied.push(position);
+        positions.set(item.key, position);
+        if (!requested) {
+          nextRow = row;
+          nextColumn = column + span;
+        }
+      }
+    }
+    return positions;
+  }
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
   // For reference text only: this does not check DNS, redirects or private networks.
@@ -444,17 +496,29 @@
               (Number.isInteger(placement.width) && placement.width >= 20 && placement.width <= 100)
             ) ||
             (placement.height !== undefined &&
-              (!Number.isInteger(placement.height) ||
-                placement.height < 120 ||
-                placement.height > 800))
+              (!Number.isSafeInteger(placement.height) || placement.height < MIN_ELEMENT_HEIGHT))
           )
             fail(label + ' 배치');
           if (placement.parent !== undefined && typeof placement.parent !== 'string')
             fail(label + ' 포함 관계');
+          if (
+            placement.grid !== undefined &&
+            (!plain(placement.grid) ||
+              !Number.isInteger(placement.grid.column) ||
+              placement.grid.column < 1 ||
+              placement.grid.column > 20 ||
+              !Number.isInteger(placement.grid.row) ||
+              placement.grid.row < 1 ||
+              placement.grid.row > MAX_GRID_ROWS)
+          )
+            fail(label + ' 격자 위치');
           placements[key] = {
             region: placement.region,
             width: placement.width,
             ...(placement.height !== undefined ? { height: placement.height } : {}),
+            ...(placement.grid
+              ? { grid: { column: placement.grid.column, row: placement.grid.row } }
+              : {}),
             ...(placement.parent
               ? { parent: text(placement.parent, label + ' 포함 관계', 210) }
               : {})
@@ -593,6 +657,7 @@
     UNKNOWN,
     EXCLUSIVE,
     MAX_ROWS,
+    MAX_GRID_ROWS,
     MAX_TEXT,
     HTTP_URL_HELP,
     allQuestions,
@@ -613,6 +678,8 @@
     elementKeys,
     elementPlacement,
     elementSize,
+    gridLayout,
+    MIN_ELEMENT_HEIGHT,
     elementLabel,
     canContain,
     layoutItems,

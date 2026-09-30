@@ -17,12 +17,6 @@
     };
   }
   const elementName = (screen, key) => A.elementLabel(screen, key);
-  function preview(screen, key) {
-    const description = key.startsWith('custom:')
-      ? screen.customElements?.find((el) => el.id === key.slice(7))?.purpose
-      : screen.elementNotes?.[key];
-    return `<span class="canvas-description">${esc(description || '')}</span>`;
-  }
   function references(category = Q.uiElementGroups[0].id) {
     const V = root.BriefViews || require('./views.js');
     if (!Q.uiElementGroups.some((group) => group.id === category) && category !== 'features')
@@ -63,28 +57,50 @@
     for (const block of container.matches?.('.canvas-block[data-width]')
       ? [container]
       : container.querySelectorAll('.canvas-block[data-width]')) {
-      block.style.setProperty('--block-ratio', String(Number(block.dataset.width) / 100));
+      const span = Math.ceil(Number(block.dataset.width) / 5);
+      block.style.gridColumn = `${Math.min(Number(block.dataset.column) || 1, 21 - span)} / span ${span}`;
+      block.style.gridRow = block.dataset.row || 'auto';
       block.style.setProperty('--block-height', block.dataset.height + 'px');
     }
+    for (const grid of container.querySelectorAll('.canvas-grid')) {
+      const blocks = [...grid.querySelectorAll(':scope > .canvas-block')];
+      const count = blocks.length
+        ? Math.max(...blocks.map((block) => Number(block.dataset.row)))
+        : 0;
+      grid.querySelectorAll(':scope > .canvas-grid-row').forEach((row) => row.remove());
+      for (let index = 1; index <= count; index++) {
+        const row = document.createElement('div');
+        row.className = 'canvas-grid-row';
+        row.dataset.gridRow = index;
+        row.style.gridRow = String(index);
+        row.setAttribute('aria-hidden', 'true');
+        grid.prepend(row);
+      }
+    }
   }
-  function render(answers, state, inspector, reason) {
+  function render(answers, state, inspector, reason, recommendation = '') {
     const { screen, index, element } = selection(answers, state);
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
     const common = screens.find((s) => s.isCommon);
     const blocks = A.layoutItems(screen, common);
+    const positions = A.gridLayout(blocks);
+    const gridHtml = (items, target, path = []) => {
+      return `<div class="canvas-grid${target.startsWith('parent:') ? ' canvas-children' : ''}" ${target.startsWith('parent:') ? `data-drop-parent="${esc(target.slice(7))}"` : `data-drop-region="${target.slice(7)}"`}>${items.map((item) => blockHtml(item, path)).join('')}</div>`;
+    };
     const blockHtml = (item, path = []) => {
       if (path.includes(item.key)) return '';
       const { owner, key, inherited } = item;
       const size = A.elementSize(owner, key);
+      const position = positions.get(key);
       const children = blocks.filter((child) => child.parent === key);
-      return `<div class="canvas-block${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-block-key="${esc(key)}" data-width="${size.width}" data-height="${size.height}">
-        <button type="button" class="canvas-block-select" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && key === element}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span><span class="wire-preview" aria-hidden="true">${preview(owner, key)}</span></button>
-        ${A.canContain(key) ? `<div class="canvas-children" data-drop-parent="${esc(key)}">${children.map((child) => blockHtml(child, [...path, key])).join('')}<button type="button" class="canvas-add" data-add-element data-screen="${index}" data-target="parent:${esc(key)}" aria-label="${esc(elementName(owner, key))} 안에 요소 추가">+ 안에 추가</button></div>` : ''}
+      return `<div class="canvas-block${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-block-key="${esc(key)}" data-width="${size.width}" data-height="${size.height}" data-column="${position.column}" data-row="${position.row}">
+        <div class="canvas-block-heading"><button type="button" class="canvas-block-select" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && key === element}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span></button>${A.canContain(key) ? `<button type="button" class="canvas-add-child" data-add-element data-screen="${index}" data-target="parent:${esc(key)}" data-drop-parent="${esc(key)}" aria-label="${esc(elementName(owner, key))} 안에 요소 추가" title="이 요소 안에 추가">+</button>` : ''}</div>
+        ${A.canContain(key) ? gridHtml(children, 'parent:' + key, [...path, key]) : ''}
         ${inherited ? '' : `<button type="button" class="canvas-resize" data-resize-element="${esc(key)}" data-resize-owner="${owner.id}" aria-label="${esc(elementName(owner, key))} 크기 조절" title="끌어서 크기 조절 · 방향키로도 조절할 수 있어요"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20 20 8M14 20l6-6"/></svg></button>`}
       </div>`;
     };
     return `<div class="screen-designer" id="screen-designer">
-      <nav class="designer-screens" aria-label="기획할 화면">${common ? `<button type="button" class="screen-tab common-tab" data-designer-screen="${common.id}" aria-pressed="${screen.id === common.id}"><span>▣</span> 기본 공통 화면</button>` : '<button type="button" class="screen-tab common-tab" data-create-common>▣ 기본 공통 화면</button>'}${screens
+      <div class="designer-toolbar"><nav class="designer-screens" aria-label="기획할 화면">${common ? `<button type="button" class="screen-tab common-tab" data-designer-screen="${common.id}" aria-pressed="${screen.id === common.id}"><span>▣</span> 기본 공통 화면</button>` : '<button type="button" class="screen-tab common-tab" data-create-common>▣ 기본 공통 화면</button>'}${screens
         .filter((s) => !s.isCommon)
         .map(
           (s) =>
@@ -92,29 +108,26 @@
         )
         .join(
           ''
-        )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>
+        )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>${recommendation}<button type="button" class="button secondary small" data-expand-designer aria-pressed="${Boolean(state.expanded)}" aria-controls="screen-designer">${state.expanded ? '↙ 작게 보기' : '⛶ 크게 보기'}</button></div>
       <div class="designer-workspace${state.panelCollapsed ? ' inspector-collapsed' : ''}"><section class="designer-stage" aria-label="화면 배치">
-        <div class="designer-stage-heading"><div><span class="designer-eyebrow">${screen.isCommon ? '서비스 공통 레이아웃' : '화면 구성'}</span><h3 data-screen-title="${index}">${esc(label(screen))}</h3></div><button type="button" class="button secondary small" data-designer-settings>화면 설정</button></div>
-        <p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p>
+        <div class="designer-stage-heading"><div class="designer-stage-title"><h3 data-screen-title="${index}">${esc(label(screen))}</h3><p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p></div><button type="button" class="button secondary small" data-designer-settings>화면 설정</button></div>
         <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome"><span>● ● ●</span><span>${esc(label(screen))}</span></div><div class="canvas-layout">
         ${Q.layoutRegions
           .map(
             (region) =>
-              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><span class="canvas-region-name">${region.label}${region.hint ? '<br>' + esc(region.hint) : ''}</span>${blocks
-                .filter((item) => !item.parent && item.region === region.id)
-                .map((item) => blockHtml(item))
-                .join(
-                  ''
-                )}<button type="button" class="canvas-add" data-add-element data-screen="${index}" data-target="region:${region.id}" aria-label="${region.label}: 요소 추가">+ 추가</button></section>`
+              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><div class="canvas-region-heading"><span class="canvas-region-name">${region.label}</span><button type="button" class="canvas-add" data-add-element data-screen="${index}" data-target="region:${region.id}" aria-label="${region.label}: 요소 추가" title="이 구역에 추가">+</button></div>${region.hint ? `<span class="canvas-region-hint">${esc(region.hint)}</span>` : ''}${gridHtml(
+                blocks.filter((item) => !item.parent && item.region === region.id),
+                'region:' + region.id
+              )}</section>`
           )
           .join('')}
-        </div></div><p class="designer-hint">박스 모서리로 크기를 조절해요. ?에서 요소와 기능 예시를 볼 수 있어요.</p>${reason}
+        </div></div><p class="designer-hint">이름을 끌어 격자에 놓고, 모서리로 크기를 조절해요. 설정의 방향 버튼으로도 이동할 수 있어요.</p>${reason}
       </section><div class="designer-panel${state.panelCollapsed ? ' panel-collapsed' : ''}">${state.panelCollapsed ? '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="false" aria-label="설정 패널 펼치기" title="설정 패널 펼치기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>' : ''}<aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
         <div class="inspector-heading">${state.panelCollapsed ? '' : '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="true" aria-label="설정 패널 접기" title="설정 패널 접기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><span class="inspector-toggle-label">설정 접기</span></button>'}<h4 tabindex="-1" id="inspector-title">${state.referenceOpen ? '참고 자료' : '설정'}</h4>${state.referenceOpen ? '<button type="button" class="button secondary small" data-close-reference>← 설정으로</button>' : '<button type="button" class="option-help" data-open-reference aria-label="요소·기능 참고 자료 보기" title="요소·기능 참고 자료">?</button>'}</div>
         <div class="inspector-body" id="designer-inspector-body">${state.referenceOpen ? references(state.referenceCategory) : `<button type="button" class="button secondary inspector-add" data-add-element data-screen="${index}">+ 요소 추가</button>${inspector}`}</div>
       </aside></div></div></div>`;
   }
-  const api = { selection, elementName, preview, references, applySizes, render };
+  const api = { selection, elementName, references, applySizes, render };
   root.BriefDesigner = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

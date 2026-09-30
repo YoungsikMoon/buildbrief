@@ -520,7 +520,7 @@ ${esc(value)}</textarea
       : picture;
   }
 
-  function screenEditor(q, answers, state = {}) {
+  function screenEditor(q, answers, state = {}, recommendations = []) {
     const { screen: row, index: i, element } = D.selection(answers, state);
     let inspector = '';
     if (i < 0) inspector = '<p class="field-help">기본 공통 화면부터 구성하세요.</p>';
@@ -569,7 +569,7 @@ ${esc(value)}</textarea
           descriptionAttrs,
           { type: 'textarea', help: '보여 줄 정보, 사용할 기능과 동작을 자유롭게 적어 주세요.' }
         ) +
-        '<div class="placement-controls"><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
+        '<div class="placement-controls"><div class="grid-controls" role="group" aria-label="격자 배치"><span>위치</span><button type="button" class="button secondary small" data-grid-move="left" aria-label="왼쪽으로 이동">←</button><button type="button" class="button secondary small" data-grid-move="up" aria-label="위로 이동">↑</button><button type="button" class="button secondary small" data-grid-move="down" aria-label="아래로 이동">↓</button><button type="button" class="button secondary small" data-grid-move="right" aria-label="오른쪽으로 이동">→</button></div><div class="grid-controls" role="group" aria-label="요소 너비"><span>너비</span><button type="button" class="button secondary small" data-grid-width="50">절반</button><button type="button" class="button secondary small" data-grid-width="100">전체</button></div><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
         (siblings[0]?.key === element ? 'disabled' : '') +
         '>앞으로</button><button type="button" class="button secondary small" data-designer-move="1" ' +
         (siblings.at(-1)?.key === element ? 'disabled' : '') +
@@ -644,7 +644,7 @@ ${esc(value)}</textarea
             'screen-' + row.id,
             row.isCommon ? '공통 화면의 선택 이유' : '이 화면의 선택 이유'
           );
-    return D.render(answers, state, inspector, reason);
+    return D.render(answers, state, inspector, reason, recommendationEditor(q, recommendations));
   }
   function reasonEditor(q, notes) {
     const value = notes[q.id] || '';
@@ -683,7 +683,8 @@ ${esc(value)}</textarea
     const value = answers[q.id];
     let control = '';
     if (q.type === 'features') control = featureEditor(answers);
-    else if (q.type === 'screens') control = screenEditor(q, answers, designerState);
+    else if (q.type === 'screens')
+      control = screenEditor(q, answers, designerState, recommendations);
     else if (q.type === 'references') control = referenceEditor(q, answers);
     else if (q.type === 'roles') control = rolesEditor(answers);
     else if (q.type === 'rows')
@@ -779,8 +780,6 @@ ${esc(value)}</textarea
     return /* HTML */ `<fieldset class="question" id="field-${q.id}"
       ><legend id="label-${q.id}">${esc(q.label)}</legend>${q.help
         ? /* HTML */ `<p class="question-help" id="hint-${q.id}">${esc(q.help)}</p>`
-        : ''}${q.type === 'screens'
-        ? recommendationEditor(q, recommendations)
         : ''}${control}${q.type === 'screens'
         ? ''
         : recommendationEditor(q, recommendations)}${q.type !== 'screens' &&

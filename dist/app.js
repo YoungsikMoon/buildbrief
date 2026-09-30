@@ -170,14 +170,41 @@
         )
           placeElement(row, childKey, 'region:' + placement.region);
   }
-  function moveCanvasElement(key, target, before = '') {
+  function moveCanvasElement(key, target, before = '', grid = null) {
     const { screen } = D.selection(answers, designerState);
     const order = A.elementKeys(screen);
     if (before === key || !order.includes(key) || !placeElement(screen, key, target)) return;
     const next = order.filter((id) => id !== key);
     next.splice(before && next.includes(before) ? next.indexOf(before) : next.length, 0, key);
     screen.layoutOrder = next;
+    if (grid) {
+      screen.placements[key].grid = grid;
+      const items = A.layoutItems(
+        screen,
+        rowsOf('screens').find((s) => s.isCommon)
+      );
+      const current = items.find((item) => item.key === key);
+      const positions = A.gridLayout(items, key);
+      for (const item of items.filter(
+        (item) =>
+          !item.inherited &&
+          item.parent === current.parent &&
+          (current.parent || item.region === current.region)
+      )) {
+        const { row, column } = positions.get(item.key);
+        screen.placements[item.key] = {
+          ...A.elementPlacement(screen, item.key),
+          grid: { row, column }
+        };
+      }
+    }
     changed(true);
+  }
+  function toggleExpandedDesigner() {
+    designerState.expanded = !designerState.expanded;
+    setNavigation(false);
+    renderStep(currentStep);
+    $('[data-expand-designer]')?.focus({ preventScroll: true });
   }
   function flowTarget(screen, scope = '') {
     if (!screen) return null;
@@ -257,7 +284,8 @@
     updateProgress();
   }
   function showGuide(focus = true) {
-    document.body.classList.remove('designing');
+    designerState.expanded = false;
+    document.body.classList.remove('designing', 'designer-expanded');
     $('#guide-view').hidden = false;
     $('#form-view').hidden = true;
     $('#report-view').hidden = true;
@@ -273,6 +301,8 @@
     currentStep = Math.max(0, Math.min(steps.length - 1, index));
     const step = steps[currentStep];
     document.body.classList.toggle('designing', step.id === 'screens');
+    if (step.id !== 'screens') designerState.expanded = false;
+    document.body.classList.toggle('designer-expanded', Boolean(designerState.expanded));
     if (step.id === 'screens') ensureCommonScreen();
     $('#guide-view').hidden = true;
     $('#form-view').hidden = false;
@@ -280,34 +310,39 @@
     $('#page-title').textContent = step.title;
     $('#page-description').textContent = step.description;
     $('#step-badge').textContent = `${currentStep + 1} / ${steps.length}`;
-    $('#start-note').hidden = currentStep !== 0;
     renderNavigation();
-    $('#question-groups').innerHTML = A.activeGroups(step, answers, notes)
-      .map(
-        (g) =>
-          /* HTML */ `<section class="question-group"
-            >${g.title
-              ? /* HTML */ `<div class="group-heading"
-                  ><h2>${esc(g.title)}</h2>${g.description
-                    ? /* HTML */ `<p>${esc(g.description)}</p>`
-                    : ''}</div
-                >`
-              : ''}<div class="group-body"
-              >${g.questions
-                .map((q) => V.question(q, answers, notes, recommendations, designerState))
-                .join('')}</div
-            ></section
-          >`
-      )
-      .join('');
+    const groups = A.activeGroups(step, answers, notes);
+    $('#question-groups').innerHTML =
+      groups
+        .map(
+          (g) =>
+            /* HTML */ `<section class="question-group"
+              >${groups.length > 1 && g.title
+                ? /* HTML */ `<div class="group-heading"
+                    ><h2>${esc(g.title)}</h2>${g.description
+                      ? /* HTML */ `<p>${esc(g.description)}</p>`
+                      : ''}</div
+                  >`
+                : ''}<div class="group-body"
+                >${g.questions
+                  .map((q) => V.question(q, answers, notes, recommendations, designerState))
+                  .join('')}</div
+              ></section
+            >`
+        )
+        .join('');
     D.applySizes();
     for (const [id, open] of states) {
       const el = document.getElementById(id);
       if (el) el.open = open;
     }
     $('#previous-button').disabled = currentStep === 0;
-    $('#next-button').textContent =
-      currentStep === steps.length - 1 ? '기획 초안 보기 →' : '다음 단계 →';
+    const nextLabel = currentStep === steps.length - 1 ? '기획 초안 보기' : '다음 단계';
+    $('#next-button-label').textContent = nextLabel;
+    $('#next-button').setAttribute(
+      'aria-label',
+      `${nextLabel} · 현재 ${steps.length}단계 중 ${currentStep + 1}단계`
+    );
     if (navigate) {
       markStarted();
       save();
@@ -368,7 +403,8 @@
     $('#option-help-dialog').scrollTop = 0;
   }
   function renderReport() {
-    document.body.classList.remove('designing');
+    designerState.expanded = false;
+    document.body.classList.remove('designing', 'designer-expanded');
     if (!$('#form-view').hidden) formScrollY = window.scrollY;
     $('#guide-view').hidden = true;
     $('#form-view').hidden = true;
@@ -641,11 +677,14 @@
       document.querySelectorAll('[data-canvas-element]').forEach((block) => {
         if (block.dataset.canvasOwner !== object.id) return;
         const scope = block.dataset.canvasElement;
-        block.querySelector('.wire-preview').innerHTML = D.preview(object, scope);
         if (!block.closest('.canvas-block').classList.contains('inherited')) {
           const name = D.elementName(object, scope);
           block.querySelector('.canvas-block-title').textContent = name;
           block.setAttribute('aria-label', name + ' 선택');
+          block
+            .closest('.canvas-block')
+            .querySelector(':scope > .canvas-block-heading > .canvas-add-child')
+            ?.setAttribute('aria-label', name + ' 안에 요소 추가');
           block
             .closest('.canvas-block')
             .querySelector(':scope > [data-resize-element]')
@@ -717,6 +756,24 @@
   function saveElementSize(screen, key, size) {
     screen.placements ||= {};
     screen.placements[key] = { ...A.elementPlacement(screen, key), ...size };
+    const positions = A.gridLayout(
+      A.layoutItems(
+        screen,
+        rowsOf('screens').find((s) => s.isCommon)
+      )
+    );
+    for (const block of document.querySelectorAll('.canvas-block')) {
+      const position = positions.get(block.dataset.blockKey);
+      if (position) {
+        block.dataset.row = position.row;
+        block.dataset.column = position.column;
+      }
+      if (block.dataset.blockKey === key) {
+        block.dataset.width = size.width;
+        block.dataset.height = size.height;
+      }
+    }
+    D.applySizes();
     changed();
   }
   function finishResize(commit) {
@@ -777,7 +834,10 @@
           Math.round((resizing.before.width + (dx / resizing.parentWidth) * 100) / 5) * 5
         )
       ),
-      height: Math.max(120, Math.min(800, Math.round((resizing.height + dy) / 8) * 8))
+      height: Math.max(
+        A.MIN_ELEMENT_HEIGHT,
+        Math.min(Number.MAX_SAFE_INTEGER, Math.round((resizing.height + dy) / 8) * 8)
+      )
     };
     showElementSize(resizing.handle, resizing.size);
   });
@@ -796,6 +856,16 @@
       finishResize(false);
       return;
     }
+    if (
+      event.key === 'Escape' &&
+      designerState.expanded &&
+      !document.querySelector('dialog[open]') &&
+      !draggedElement
+    ) {
+      event.preventDefault();
+      toggleExpandedDesigner();
+      return;
+    }
     const handle = event.target.closest('[data-resize-element]');
     if (!handle || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
     const screen = rowsOf('screens').find((row) => row.id === handle.dataset.resizeOwner),
@@ -811,9 +881,9 @@
       )
     );
     size.height = Math.max(
-      120,
+      A.MIN_ELEMENT_HEIGHT,
       Math.min(
-        800,
+        Number.MAX_SAFE_INTEGER,
         size.height + (event.key === 'ArrowUp' ? -16 : event.key === 'ArrowDown' ? 16 : 0)
       )
     );
@@ -828,6 +898,54 @@
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', draggedElement.key);
   });
+  function clearDropPreview() {
+    document.querySelectorAll('.drop-active').forEach((el) => el.classList.remove('drop-active'));
+    document.querySelectorAll('.canvas-drop-preview').forEach((el) => el.remove());
+  }
+  function gridDrop(event, zone) {
+    const grid = zone.matches('.canvas-grid') ? zone : null;
+    if (!grid || !draggedElement) return null;
+    const { screen } = D.selection(answers, designerState);
+    const rect = grid.getBoundingClientRect();
+    const span = Math.ceil(A.elementSize(screen, draggedElement.key).width / 5);
+    const rows = [...grid.querySelectorAll(':scope > .canvas-grid-row')].sort(
+      (a, b) => Number(a.dataset.gridRow) - Number(b.dataset.gridRow)
+    );
+    const row = rows.find((line) => event.clientY <= line.getBoundingClientRect().bottom + 4);
+    const position = {
+      column: Math.max(
+        1,
+        Math.min(21 - span, Math.floor(((event.clientX - rect.left) / rect.width) * 20) + 1)
+      ),
+      row: Math.min(A.MAX_GRID_ROWS, row ? Number(row.dataset.gridRow) : rows.length + 1)
+    };
+    const items = A.layoutItems(
+      screen,
+      rowsOf('screens').find((s) => s.isCommon)
+    );
+    const parent = zone.dataset.dropParent || '';
+    if (parent && !A.canNest(items, draggedElement.key, parent)) return null;
+    const preview = items.map((item) =>
+      item.key !== draggedElement.key
+        ? item
+        : {
+            ...item,
+            parent,
+            region: zone.dataset.dropRegion || item.region,
+            owner: {
+              ...screen,
+              placements: {
+                ...screen.placements,
+                [item.key]: { ...A.elementPlacement(screen, item.key), grid: position }
+              }
+            }
+          }
+    );
+    const { row: targetRow, column } = A.gridLayout(preview, draggedElement.key).get(
+      draggedElement.key
+    );
+    return { row: targetRow, column };
+  }
   document.addEventListener('dragover', (event) => {
     const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
     if (
@@ -838,8 +956,18 @@
       return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    document.querySelectorAll('.drop-active').forEach((el) => el.classList.remove('drop-active'));
+    clearDropPreview();
     zone.classList.add('drop-active');
+    const position = gridDrop(event, zone);
+    if (position) {
+      const { screen } = D.selection(answers, designerState);
+      const preview = document.createElement('div');
+      preview.className = 'canvas-drop-preview';
+      preview.setAttribute('aria-hidden', 'true');
+      preview.style.gridColumn = `${position.column} / span ${Math.ceil(A.elementSize(screen, draggedElement.key).width / 5)}`;
+      preview.style.gridRow = String(position.row);
+      zone.append(preview);
+    }
   });
   document.addEventListener('drop', (event) => {
     const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
@@ -856,13 +984,15 @@
       zone.dataset.dropParent
         ? 'parent:' + zone.dataset.dropParent
         : 'region:' + zone.dataset.dropRegion,
-      before?.dataset.canvasOwner === draggedElement.screenId ? before.dataset.canvasElement : ''
+      before?.dataset.canvasOwner === draggedElement.screenId ? before.dataset.canvasElement : '',
+      gridDrop(event, zone)
     );
     draggedElement = null;
+    clearDropPreview();
   });
   document.addEventListener('dragend', () => {
     draggedElement = null;
-    document.querySelectorAll('.drop-active').forEach((el) => el.classList.remove('drop-active'));
+    clearDropPreview();
   });
   document.addEventListener('click', async (event) => {
     document.querySelectorAll('.role-picker[open]').forEach((picker) => {
@@ -876,6 +1006,51 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.expandDesigner !== undefined) return toggleExpandedDesigner();
+    if (d.gridMove || d.gridWidth) {
+      const { screen, element } = D.selection(answers, designerState);
+      if (!element) return;
+      if (d.gridWidth) {
+        saveElementSize(screen, element, {
+          ...A.elementSize(screen, element),
+          width: Number(d.gridWidth)
+        });
+        renderStep(currentStep);
+      } else {
+        const items = A.layoutItems(
+          screen,
+          rowsOf('screens').find((s) => s.isCommon)
+        );
+        const current = items.find((item) => item.key === element);
+        const position = A.gridLayout(items).get(element);
+        const column = Math.max(
+          1,
+          Math.min(
+            21 - position.span,
+            position.column + (d.gridMove === 'left' ? -1 : d.gridMove === 'right' ? 1 : 0)
+          )
+        );
+        const row = Math.max(
+          1,
+          Math.min(
+            A.MAX_GRID_ROWS,
+            position.row + (d.gridMove === 'up' ? -1 : d.gridMove === 'down' ? 1 : 0)
+          )
+        );
+        moveCanvasElement(
+          element,
+          current.parent ? 'parent:' + current.parent : 'region:' + current.region,
+          '',
+          { column, row }
+        );
+      }
+      document
+        .querySelector(
+          d.gridMove ? `[data-grid-move="${d.gridMove}"]` : `[data-grid-width="${d.gridWidth}"]`
+        )
+        ?.focus({ preventScroll: true });
+      return;
+    }
     if (d.openReference !== undefined || d.closeReference !== undefined) {
       designerState.referenceOpen = d.openReference !== undefined;
       designerState.panelCollapsed = false;
@@ -941,6 +1116,18 @@
         to = order.indexOf(neighbor);
       if (from < 0 || to < 0) return;
       [order[from], order[to]] = [order[to], order[from]];
+      const firstGrid = screen.placements?.[element]?.grid;
+      const secondGrid = screen.placements?.[neighbor]?.grid;
+      if (firstGrid || secondGrid) {
+        const positions = A.gridLayout(items);
+        for (const [key, other] of [
+          [element, neighbor],
+          [neighbor, element]
+        ]) {
+          const { row, column } = positions.get(other);
+          screen.placements[key] = { ...A.elementPlacement(screen, key), grid: { row, column } };
+        }
+      }
       screen.layoutOrder = order;
       changed(true);
       (
@@ -1163,7 +1350,8 @@
           : null;
       if (screen && !connectFeature(screen, d.flowScope, row.id)) return;
       answers[qid] = [...rows, row];
-      if (qid === 'screens') designerState = { screenId: row.id, element: '', panel: 'settings' };
+      if (qid === 'screens')
+        designerState = { ...designerState, screenId: row.id, element: '', panel: 'settings' };
       changed(true);
       if (screen) {
         focusFeature(d.screen, d.flowScope, row.id);
@@ -1205,7 +1393,12 @@
           const next =
             selected.id === rows[index].id ? rows[index + 1] || rows[index - 1] : selected;
           if (selected.id === rows[index].id)
-            designerState = { screenId: next?.id || '', element: '', panel: 'settings' };
+            designerState = {
+              ...designerState,
+              screenId: next?.id || '',
+              element: '',
+              panel: 'settings'
+            };
           if (next) returnTo = `[data-designer-screen="${next.id}"]`;
         }
         answers[d.remove] = rows.filter((_, i) => i !== index);

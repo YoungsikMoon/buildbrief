@@ -13,6 +13,7 @@
     elementLabel,
     elementPlacement,
     layoutItems,
+    gridLayout,
     linkedFeatureIds,
     HTTP_URL_HELP
   } = root.BriefAnswers || require('./answers.js');
@@ -334,6 +335,10 @@
             : Q.layoutRegions.find((item) => item.id === region).label
         );
         field('같은 위치 안의 순서', String(order));
+        if (placement.grid) {
+          const position = gridLayout(layout).get(key);
+          field('격자 위치 · 기획용', `${position.row}행 · ${position.column}열 / 20열`);
+        }
         field(
           '너비',
           (typeof placement.width === 'number'

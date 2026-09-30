@@ -236,7 +236,8 @@ assert(homeHtml.includes('이 화면의 선택 이유') && !homeHtml.includes('d
 assert(homeHtml.includes(' inherited') && !V.question(screenQ,design,{},[],{screenId:'independent'}).includes(' inherited'));
 assert(!homeHtml.includes('공통 메뉴의 이유') && homeHtml.includes('첫 화면만의 이유'));
 assert.equal(D.selection(design,{screenId:'deleted'}).screen.id,'common');
-assert(!D.preview({elementContents:{form:{items:[{name:unsafe}]}}},'form').includes('<img src=x'));
+const nameOnlyCanvas=D.render({screens:[{id:'s',elements:['form'],elementNotes:{form:'FORM_DESCRIPTION'},customElements:[{id:'c',name:'요소 이름',purpose:'CUSTOM_DESCRIPTION'}]}]},{screenId:'s'},'','');
+assert(nameOnlyCanvas.includes('요소 이름')&&!nameOnlyCanvas.includes('FORM_DESCRIPTION')&&!nameOnlyCanvas.includes('CUSTOM_DESCRIPTION'),'Canvas shows element names without descriptions');
 const designProject=P.createProject({answers:design,drafts:design,notes:{screens:'예전 전체 메모'}});
 for(const backup of [{format:'buildbrief-idea',version:1,...designProject},{format:'buildbrief-ideas',version:1,activeId:designProject.id,projects:[designProject]}]) {
   const restored=P.importBackup(clone(backup)).projects[0];assert.deepEqual(restored.answers,design);assert.deepEqual(restored.drafts,design);assert.deepEqual(restored.notes,designProject.notes);
@@ -394,7 +395,34 @@ assert(naturalHtml.includes('data-resize-element="custom:search"') && naturalHtm
 assert(naturalHtml.includes('data-open-reference') && !naturalHtml.includes('data-feature-choice'));
 const naturalProject=P.createProject({answers:natural});
 assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...naturalProject}).projects[0].answers,natural);
-for(const bad of [{width:19},{width:101},{width:'65%'},{width:NaN},{width:50.5},{height:119},{height:801},{height:'240px'},{height:Infinity}]) {
+// Grid positions share normalization, preview, export and backup paths.
+const gridAnswers=A.normalizeAnswers({screens:[{id:'grid',elements:['button','search','form'],placements:{button:{region:'main',width:50,grid:{column:11,row:2}},search:{region:'main',width:50,grid:{column:11,row:2}},form:{region:'main',width:100,grid:{column:20,row:160}}}}]});
+const gridBefore=clone(gridAnswers), gridItems=A.layoutItems(gridAnswers.screens[0]);
+assert.deepEqual(A.gridLayout(gridItems).get('button'),{column:11,row:2,span:10});
+assert.deepEqual(A.gridLayout(gridItems).get('search'),{column:11,row:3,span:10});
+assert.deepEqual(A.gridLayout(gridItems).get('form'),{column:1,row:160,span:20});
+assert.equal(A.gridLayout(gridItems,'search').get('search').row,2);
+assert.equal(A.gridLayout(gridItems,'search').get('button').row,3);
+assert(R.report(gridAnswers).includes('2행 · 11열 / 20열'));
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...P.createProject({answers:gridAnswers})}).projects[0].answers,gridAnswers);
+assert.deepEqual(gridAnswers,gridBefore);
+for(const grid of [null,[],{}, {column:0,row:1},{column:21,row:1},{column:1.5,row:1},{column:1,row:0},{column:1,row:A.MAX_GRID_ROWS+1},{column:1,row:1.5},{column:'1',row:1},{column:1,row:Infinity}])
+  assert.throws(()=>A.normalizeAnswers({screens:[{id:'bad-grid',elements:['button'],placements:{button:{region:'main',width:50,grid}}}]}));
+const wrapped=gridItems.map((item)=>({...item,owner:{...item.owner,placements:{...item.owner.placements,[item.key]:{region:'main',width:100,grid:{column:1,row:A.MAX_GRID_ROWS}}}}}));
+assert.equal(A.gridLayout(wrapped).get('search').row,1,'Collisions at the row limit use available rows');
+assert.equal(A.gridLayout([{...gridItems[0],inherited:true},gridItems[1]],'search').get('button').row,2,'Common positions remain anchored');
+assert.equal(A.gridLayout([{...gridItems[0],parent:'form'},gridItems[1]]).get('search').row,2,'Nested grids have separate occupancy');
+const crowded=Array.from({length:(A.MAX_ROWS+Q.uiElements.length)*2},(_,i)=>({key:'custom:'+i,region:'main',parent:'',owner:{placements:{['custom:'+i]:{region:'main',width:100,grid:{column:1,row:A.MAX_GRID_ROWS}}}}}));
+assert.equal(new Set([...A.gridLayout(crowded).values()].map(p=>p.row)).size,crowded.length,'All common and local elements fit without exhausting grid rows');
+const flowing=gridItems.map((item,i)=>({...item,owner:{...item.owner,placements:{[item.key]:{region:'main',width:[65,50,20][i]}}}}));
+assert.deepEqual([...A.gridLayout(flowing).values()].map(p=>p.row),[1,2,2],'Legacy automatic layouts preserve reading order instead of filling earlier gaps');
+for(const height of [64,80,119,801,1600,10000]) {
+  const sized=A.normalizeAnswers({screens:[{id:'s',elements:['button'],placements:{button:{region:'main',width:50,height}}}]});
+  const project=P.createProject({answers:sized});
+  assert.equal(A.elementSize(sized.screens[0],'button').height,height);
+  assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...project}).projects[0].answers,sized);
+}
+for(const bad of [{width:19},{width:101},{width:'65%'},{width:NaN},{width:50.5},{height:63},{height:0},{height:-1},{height:64.5},{height:'240px'},{height:Infinity},{height:Number.MAX_SAFE_INTEGER+1}]) {
   const raw={screens:[{id:'s',placements:{button:{region:'main',width:50,...bad}}}]},before=clone(raw);
   assert.throws(()=>A.normalizeAnswers(raw));assert.deepEqual(clone(raw),before);
 }

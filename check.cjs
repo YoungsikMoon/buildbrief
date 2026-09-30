@@ -628,7 +628,10 @@ test('Screen recommendations retain their scope, answers and identity through ba
   const html = V.question(question('screens'), answers, {}, ['screens'], { screenId: 'screen-1', panel: 'settings' });
   assert.equal((html.match(/data-field="recommendLayout"/g) || []).length, 1);
   assert(html.includes('data-designer-screen="screen-2"'));
-  assert(html.indexOf('필요한 화면 목록을 AI에 추천 요청') < html.indexOf('screen-designer'));
+  assert.equal((html.match(/data-recommend="screens"/g) || []).length, 1);
+  assert.match(html, /data-recommend="screens"\s+checked/);
+  assert(html.indexOf('designer-toolbar') < html.indexOf('필요한 화면 목록을 AI에 추천 요청'));
+  assert(html.indexOf('필요한 화면 목록을 AI에 추천 요청') < html.indexOf('designer-workspace'));
   assert(!V.report(answers).includes('<검토>'));
   assert.deepEqual(answers, before);
   answers.screens[0].recommendLayout = false;

@@ -15,7 +15,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     await page.addInitScript(()=>{window.cspErrors=[];document.addEventListener('securitypolicyviolation',e=>window.cspErrors.push(e.violatedDirective));});
     let acceptDialog=true;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>acceptDialog?d.accept():d.dismiss());
     const stored=()=>page.evaluate(()=>{const w=JSON.parse(localStorage.getItem(BriefProjects.KEY));return BriefAnswers.normalizeProject(w.projects.find(p=>p.id===w.activeId));});
-    const go=async step=>{const b=page.locator(`[data-step="${step}"]`);if(!await b.isVisible())await page.locator('#toggle-navigation').click();await b.click();};
+    const go=async step=>{const b=page.locator(`#step-nav [data-step="${step}"]`);if(!await b.isVisible())await page.locator('#toggle-navigation').click();await b.click();};
     const edit=(row,field)=>page.locator(`[data-q="screens"][data-row="${row}"][data-field="${field}"]`);
     const block=key=>page.locator(`[data-block-key="${key}"]`);
     const choose=async(owner,key)=>{await page.locator(`[data-designer-screen="${owner}"]`).click();await page.locator(`[data-canvas-owner="${owner}"][data-canvas-element="${key}"]`).click();};
@@ -24,12 +24,49 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const validate=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Overflow ${width}`);assert.equal(await page.locator('[id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length-new Set(ids).size;}),0);};
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
-      await page.goto(base);await go(2);
+      await page.goto(base);await go(0);
+      assert.equal(await page.locator('.page-topline,#start-note').count(),0,'Redundant introductory rows are removed');
+      const manage=page.locator('#manage-projects');
+      if(!await manage.isVisible())await page.locator('#toggle-navigation').click();
+      assert((await manage.boundingBox()).height>=44);
+      assert(await manage.evaluate(n=>parseFloat(getComputedStyle(n).borderTopWidth)>0),'Management is a bordered button');
+      await manage.focus();await manage.press('Enter');assert(await page.locator('#projects-dialog').isVisible());
+      await page.locator('#close-projects').click();assert(await manage.evaluate(n=>n===document.activeElement));
+      await go(0);
+      for(let step=0;step<6;step++){
+        assert.equal(await page.locator('#next-button #step-badge').innerText(),`${step+1} / 6`);
+        assert((await page.locator('#next-button').getAttribute('aria-label')).includes(`현재 6단계 중 ${step+1}단계`));
+        assert.equal(await page.locator('#form-view h1').count(),1);
+        const headings=await page.locator('.question-group > .group-heading').count();
+        if(step===2)assert(headings>1,'Distinct user/environment groups retain their headings');
+        else assert.equal(headings,0,'Single-topic pages use only the page heading');
+        await validate();
+        if(step===0){
+          const heading=await page.locator('.page-heading').boundingBox(),first=await page.locator('#field-project_name').boundingBox();
+          assert(first.y-heading.y-heading.height<80,'Questions directly follow the page heading');
+          await page.evaluate(()=>window.scrollTo(0,0));await shot('compact-page');
+        }
+        await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
+        await page.evaluate(()=>document.documentElement.style.fontSize='');
+        if(step<5)await page.locator('#next-button').click();
+      }
+      assert.equal(await page.locator('#next-button-label').innerText(),'기획 초안 보기');
+      await page.locator('#next-button').click();assert(await page.locator('#report-view').isVisible());
+      await go(1);await page.locator('#previous-button').click();assert.equal(await page.locator('#step-badge').innerText(),'1 / 6');
+      await page.locator('#next-button').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#step-badge').innerText(),'2 / 6');
+      await go(2);
       await page.locator('[data-q="login_need"][value="로그인 필요"]').check();
       for(const value of ['카카오','Google'])await page.locator(`[data-q="login_methods"][value="${value}"]`).check();
       await page.locator('[data-role-preset="1"]').click();await go(4);
       assert.equal(await page.locator('[data-designer-panel],[data-designer-placement],[data-insert-element]').count(),0);
       assert.equal(await page.locator('#field-features,.designer-related').count(),0);
+      for(const region of await page.locator('.canvas-region-heading').all()){
+        const label=await region.locator('.canvas-region-name').boundingBox(),add=region.locator('.canvas-add'),button=await add.boundingBox();
+        assert.equal(await add.innerText(),'+');
+        assert(button.x>=label.x+label.width&&button.x-label.x-label.width<=5,'Region + follows its label');
+        assert(Math.abs(button.y+button.height/2-label.y-label.height/2)<1,'Region + aligns with its label');
+      }
+      assert.equal(await page.locator('.canvas-region > .canvas-add').count(),0,'Regions have no separate add row');
       if(width===1440){
         const original=await page.locator('.designer-stage').boundingBox();
         await page.setViewportSize({width:1920,height:1000});
@@ -37,8 +74,16 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         assert(wider.width>original.width+400,'Extra desktop width goes to the canvas');
         assert(main.x+main.width>=1919,'The editor uses the available right edge');
         const title=await page.locator('#page-title').boundingBox();
-        assert(wider.y-title.y<210,'The canvas follows the heading and screen controls without an extra toolbar');
+        assert(wider.y-title.y<120,'The compact heading leaves more height for the canvas');
+        const tabs=await page.locator('.designer-screens').boundingBox(),request=await page.locator('.designer-toolbar > .recommendation-request').boundingBox();
+        assert(request.y>=tabs.y&&request.y+request.height<=tabs.y+tabs.height,'Screen recommendation uses the space beside the tabs');
+        const stageHeading=await page.locator('.designer-stage-heading').boundingBox(), paper=await page.locator('.canvas-paper').boundingBox();
+        assert(paper.y-stageHeading.y<85,'Screen title and guidance share a compact row');
         if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,'wide-editor-1920.png')});}
+        await page.setViewportSize({width:2536,height:1306});await validate();
+        const tallPaper=await page.locator('.canvas-paper').boundingBox(),next=await page.locator('#next-button').boundingBox();
+        assert(tallPaper.height>paper.height+150,'Extra desktop height goes to the canvas');
+        assert(next.y+next.height>1266&&next.y+next.height<=1306,'Navigation uses the bottom of the available workspace');
         for(const viewport of [1200,1001,1000,801,800]){
           await page.setViewportSize({width:viewport,height:1000});await validate();
           await page.locator('[data-toggle-inspector]').click();await validate();
@@ -50,10 +95,41 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       let state=await stored();const common=state.answers.screens[0].id,top='custom:'+state.answers.screens[0].customElements[0].id;
       await name().fill('상단 메뉴');await describe().fill('왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.');
       assert.equal(await page.locator('.natural-element-settings input,.natural-element-settings textarea').count(),2);
-      await page.locator(`[data-add-element][data-target="parent:${top}"]`).click();
+      assert(!(await page.locator('.canvas-paper').innerText()).includes(await describe().inputValue()),'Descriptions stay in the settings panel after editing');
+      await choose(common,top);
+      assert.equal(await describe().inputValue(),'왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.','Selecting an element restores its description in the panel');
+      assert(!(await page.locator('.canvas-paper').innerText()).includes(await describe().inputValue()),'Descriptions also stay out of the canvas after rendering');
+      const addChild=page.locator(`[data-add-element][data-target="parent:${top}"]`);
+      assert.equal(await addChild.innerText(),'+');
+      assert.equal(await addChild.getAttribute('aria-label'),'상단 메뉴 안에 요소 추가');
+      assert(await block(top).locator(':scope > .canvas-children').isHidden(),'An empty container has no reserved add row');
+      assert.equal(await page.locator('.canvas-children > [data-add-element]').count(),0);
+      const addBox=await addChild.boundingBox(),topBox=await block(top).boundingBox();
+      const titleBox=await block(top).locator(':scope > .canvas-block-heading > .canvas-block-select').boundingBox();
+      assert(addBox.width>=32&&addBox.height>=32,'Compact add controls keep a usable pointer target');
+      assert(addBox.x>=titleBox.x+titleBox.width&&addBox.x-titleBox.x-titleBox.width<=5,'Element + follows its name');
+      assert(Math.abs(addBox.y+addBox.height/2-titleBox.y-titleBox.height/2)<1,'Element + aligns with its name');
+      assert.equal(Math.round(topBox.height),120,'Neither the add button nor description enlarges the saved element height');
+      const topResize=page.locator(`[data-resize-element="${top}"]`);
+      await topResize.scrollIntoViewIfNeeded();const shrinkBox=await topResize.boundingBox(),sx=shrinkBox.x+shrinkBox.width/2,sy=shrinkBox.y+shrinkBox.height/2;
+      if(width>800){await page.mouse.move(sx,sy);await page.mouse.down();await page.mouse.move(sx,sy-96,{steps:8});await page.mouse.up();}
+      else{const cdp=await context.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:sx,y:sy}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:sx,y:sy-96}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await cdp.detach();}
+      assert.equal((await stored()).answers.screens[0].placements[top].height,64);
+      assert.equal(Math.round((await block(top).boundingBox()).height),64,'The box can visibly shrink below the former 120px minimum');
+      await topResize.press('ArrowUp');assert.equal((await stored()).answers.screens[0].placements[top].height,64,'The control remains usable at its minimum height');
+      if(width===1440){
+        for(let i=0;i<47;i++)await topResize.press('ArrowDown');
+        assert.equal((await stored()).answers.screens[0].placements[top].height,816,'Height can exceed the former 800px maximum');
+        await page.reload();await go(4);
+        assert.equal(Math.round((await block(top).boundingBox()).height),816,'Large heights survive reload');
+        for(let i=0;i<47;i++)await topResize.press('ArrowUp');
+      }
+      await page.evaluate(()=>window.scrollTo(0,0));await shot('inline-add-controls');
+      await addChild.focus();await addChild.press('Enter');
       state=await stored();const first='custom:'+state.answers.screens[0].customElements[1].id;
       await name().fill('검색');await describe().fill('검색어를 입력하고 찾기를 누르면 결과를 보여 줘요.\n오류가 나도 검색어는 지우지 않아요.');
       assert.equal((await stored()).answers.screens[0].placements[first].parent,top);
+      assert(await block(top).locator(':scope > .canvas-children').isVisible(),'Nested content opens only when it exists');
       const beforeHelp=(await stored()).answers;
       await page.locator('[data-open-reference]').click();
       assert.equal(await page.locator('.reference-category:visible').count(),1);
@@ -111,7 +187,9 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal(await block(second).evaluate(n=>parseInt(n.style.getPropertyValue('--block-height'))),resized.height);
       if(width>800){
         const beforeCancel=(await stored()).answers;await resize.scrollIntoViewIfNeeded();const b=await resize.boundingBox();await page.mouse.move(b.x+10,b.y+10);await page.mouse.down();await page.mouse.move(b.x-25,b.y+30);await page.keyboard.press('Escape');await page.mouse.up();assert.deepEqual((await stored()).answers,beforeCancel);
-        const source=page.locator('[data-canvas-element="'+second+'"]'), destination=page.locator('[data-drop-region="bottom"] > .canvas-add');
+        const source=page.locator('[data-canvas-element="'+second+'"]'), destination=page.locator('[data-drop-region="bottom"] > .canvas-region-heading > .canvas-add');
+        await source.dragTo(page.locator(`[data-add-element][data-target="parent:${first}"]`));
+        assert.equal((await stored()).answers.screens[0].placements[second].parent,first,'The compact + accepts drops into empty elements');
         await source.evaluate(n=>window.scrollTo(0,window.scrollY+n.getBoundingClientRect().top-160));
         const from=await source.boundingBox(), to=await destination.boundingBox();
         await page.mouse.move(from.x+12,from.y+12);await page.mouse.down();await page.mouse.move(from.x+20,from.y+20);await page.mouse.move(to.x+20,to.y+10,{steps:12});await page.mouse.move(to.x+22,to.y+12);await page.mouse.up();
@@ -147,6 +225,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal(await page.locator('#field-features,.designer-related').count(),0,'Existing projects also use the unified editor');
       const previous=(await stored()).answers.screens[1].elementContents.form;
       await name().fill('수업 신청서');await page.locator('[data-field="elementNotes"][data-element="form"]').fill('수업과 연락처를 받아요. 오류가 생기면 입력값을 유지해요.');
+      assert(!(await page.locator('.canvas-paper').innerText()).includes('수업과 연락처를 받아요.'),'Previously structured elements also keep descriptions in the panel');
       const after=(await stored()).answers.screens[1].elementContents.form;assert.deepEqual(after,{...previous,name:'수업 신청서'});
       const legacyBeforeExport=(await stored()).answers;
       await go(5);await page.locator('#next-button').click();
@@ -164,6 +243,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         for(const text of ['작성한 기록을 그대로 보여 줘요.','원본을 유지해요.','신청 결과를 확인하고 돌아와요.'])assert(output.includes(text),text);
       }
       assert.deepEqual((await stored()).answers,legacyBeforeExport,'Filtering obsolete links is display-only');
+      await require('./check-grid-browser.cjs')({page,go,width,shot});
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
       console.log(`Natural-language designer browser checks passed: ${width}px`);
