@@ -560,7 +560,7 @@ ${esc(value)}</textarea
         '<div class="parent-setting"><span class="parent-label">부모 요소</span>' +
         (parent
           ? `<div class="parent-name-row"><strong data-parent-label>${esc(A.elementLabel(parent.owner, parent.key))}</strong>${parent.inherited ? '<small>공통</small>' : ''}<button type="button" class="button secondary parent-edit" data-edit-parent aria-label="부모 요소 이름 수정" title="부모 요소 이름 수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg></button></div><div data-parent-editor hidden><label class="visually-hidden" for="parent-element-name">부모 요소 이름</label><input id="parent-element-name" data-parent-name maxlength="${A.MAX_TEXT}" value="${esc(A.elementLabel(parent.owner, parent.key))}" autocomplete="off"><p class="field-help">${parent.inherited ? '공통 요소의 이름이 사용하는 모든 화면에 반영돼요.' : '부모 이름을 바꿔도 포함관계는 유지돼요.'}</p><div class="inline-actions"><button type="button" class="button primary small" data-save-parent>저장</button><button type="button" class="button secondary small" data-cancel-parent>취소</button></div></div>`
-          : `<p class="field-help">없음 · ${esc(Q.layoutRegions.find(region => region.id === current.region)?.label || '본문')}에 배치</p>`) + '</div>' +
+          : '<p class="field-help">없음 · 캔버스에 직접 배치</p>') + '</div>' +
         input(
           '요소 이름',
           custom ? custom.name : plan.name === undefined ? A.elementLabel(row, element) : plan.name,
@@ -579,7 +579,9 @@ ${esc(value)}</textarea
         (level <= 1 ? 'disabled' : '') +
         '>↓</button><button type="button" class="option-help" data-level-help aria-label="요소 레벨 안내">?</button><button type="button" class="button secondary element-delete" data-designer-remove-element aria-label="요소 삭제" title="요소 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div><p id="element-level-error" class="field-error" role="status" hidden></p></div></div>';
     } else if (panel === 'screen') {
+      const size = A.canvasSize(row);
       inspector =
+        `<div class="input-field"><label for="canvas-preset">작업면 크기</label><select id="canvas-preset" data-canvas-preset><option value="custom">직접 설정</option><option value="monitor">내 모니터 크기</option>${[[1280,720],[1920,1080],[2560,1440],[3840,2160]].map(([w,h])=>`<option value="${w}x${h}" ${size.width===w&&size.height===h?'selected':''}>${w} × ${h}</option>`).join('')}</select><div class="canvas-dimensions"><label for="canvas-width">너비 (px)<input id="canvas-width" data-canvas-dimension="width" type="number" min="320" max="8192" step="1" value="${size.width}"></label><label for="canvas-height">기준 높이 (px)<input id="canvas-height" data-canvas-dimension="height" type="number" min="240" max="${A.MAX_CANVAS_Y}" step="1" value="${size.height}"></label></div><p class="field-help">너비를 바꾸면 요소의 가로 위치와 너비도 비례해 바뀌어요. 아래쪽 공간은 요소에 맞춰 늘어나요. 내 모니터 크기는 운영체제의 화면 배율을 반영해요.</p></div>` +
         (row.isCommon
           ? ''
           : input('화면 이름', row.name, attrs('screens', i, 'name') + ' data-designer-name', {

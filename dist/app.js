@@ -123,6 +123,7 @@
     const rows = rowsOf('screens');
     if (!rows.some((s) => s.isCommon) && rows.length < A.MAX_ROWS)
       answers.screens = [{ id: P.newId(), isCommon: true, name: '', elements: [] }, ...rows];
+    if (A.prepareCanvases(rowsOf('screens'))) save();
   }
   function showDesigner(panel, element, screenId) {
     const selected = D.selection(answers, designerState);
@@ -352,6 +353,7 @@
     if (focus) $('#guide-title').focus({ preventScroll: true });
   }
   function renderStep(index, navigate = false) {
+    D.captureView(designerState);
     const states = new Map(
       [...document.querySelectorAll('#question-groups details[id]')].map((el) => [el.id, el.open])
     );
@@ -389,6 +391,7 @@
       .join('');
     D.applySizes();
     D.applyVisibility(designerState, D.selection(answers, designerState).screen.id);
+    D.mountViewport(designerState);
     for (const input of document.querySelectorAll('[data-designer-name]')) validateName(input);
     for (const [id, open] of states) {
       const el = document.getElementById(id);
@@ -679,6 +682,33 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-canvas-zoom]')) return D.zoomTo(designerState, el.value === 'fit' ? 'fit' : Number(el.value));
+    if (el.matches('[data-canvas-preset],[data-canvas-dimension]')) {
+      const { screen } = D.selection(answers, designerState);
+      const size = { ...A.canvasSize(screen) };
+      const previous = screen.canvas, before = D.collisions();
+      if (el.dataset.canvasDimension) {
+        const dimension = el.dataset.canvasDimension;
+        const min = dimension === 'width' ? 320 : 240, max = dimension === 'width' ? 8192 : A.MAX_CANVAS_Y;
+        if (!setFieldError(el, Number.isInteger(el.valueAsNumber) && el.valueAsNumber >= min && el.valueAsNumber <= max ? '' : `${min}~${max}px 사이의 정수를 입력해 주세요.`)) return;
+        size[dimension] = el.valueAsNumber;
+      } else {
+        if (el.value === 'custom') return;
+        const values = el.value === 'monitor' ? [window.screen.width, window.screen.height] : el.value.split('x').map(Number);
+        size.width = Math.max(320, Math.min(8192, values[0]));
+        size.height = Math.max(240, Math.min(A.MAX_CANVAS_Y, values[1]));
+      }
+      if (size.width === previous.width && size.height === previous.height) return;
+      screen.canvas = size;
+      renderStep(currentStep);
+      if (hasNewCollision(before)) {
+        screen.canvas = previous;
+        renderStep(currentStep);
+        toast('작업면을 줄이면 같은 레벨 요소가 겹쳐요. 요소 위치나 크기를 먼저 조절해 주세요.');
+      } else changed();
+      document.getElementById(el.id)?.focus({ preventScroll: true });
+      return;
+    }
     if (el.matches('[data-designer-name]')) return edit(el);
     if (el.matches('[data-element-level]')) return commitElementLevel(el);
     if (el.id === 'planning-template-enabled') {
@@ -937,6 +967,39 @@
     else $('#projects-dialog').close();
     toast(id ? '이름을 변경했어요.' : '새 프로젝트를 만들었어요.');
   });
+  let cameraDrag = null;
+  document.addEventListener('scroll', event => {
+    if (event.target.matches?.('.canvas-viewport')) D.captureView(designerState);
+  }, true);
+  document.addEventListener('pointerdown', event => {
+    const map = event.target.closest('#canvas-minimap');
+    const viewport = event.target.closest('.canvas-viewport');
+    if (map && event.button === 0 || viewport && (event.button === 1 || event.button === 0 && designerState.panMode)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const target = map || viewport;
+      target.focus({ preventScroll: true });
+      cameraDrag = { target, map: Boolean(map), pointer: event.pointerId, x: event.clientX, y: event.clientY,
+        left: viewport?.scrollLeft, top: viewport?.scrollTop };
+      target.setPointerCapture(event.pointerId);
+      if (map) D.navigateMap(event, designerState);
+    }
+  }, true);
+  document.addEventListener('pointermove', event => {
+    if (cameraDrag?.pointer !== event.pointerId) return;
+    if (cameraDrag.map) D.navigateMap(event, designerState);
+    else {
+      cameraDrag.target.scrollLeft = cameraDrag.left - (event.clientX - cameraDrag.x);
+      cameraDrag.target.scrollTop = cameraDrag.top - (event.clientY - cameraDrag.y);
+      D.captureView(designerState);
+    }
+  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) document.addEventListener(type, event => {
+    if (cameraDrag?.pointer !== event.pointerId) return;
+    const { target, pointer } = cameraDrag;
+    cameraDrag = null;
+    if (target.hasPointerCapture(pointer)) target.releasePointerCapture(pointer);
+  });
   let resizing = null;
   function showElementSize(handle, size) {
     const block = handle.closest('.canvas-block');
@@ -1005,15 +1068,16 @@
       x: event.clientX,
       y: event.clientY,
       parentWidth: Math.max(1, parentWidth),
-      height: block.getBoundingClientRect().height,
+      height: block.offsetHeight,
+      scale: Number($('.canvas-world').dataset.scale || 1),
       moved: false
     };
     handle.setPointerCapture(event.pointerId);
   });
   document.addEventListener('pointermove', (event) => {
     if (!resizing || event.pointerId !== resizing.pointer) return;
-    const dx = event.clientX - resizing.x,
-      dy = event.clientY - resizing.y;
+    const dx = (event.clientX - resizing.x) / resizing.scale,
+      dy = (event.clientY - resizing.y) / resizing.scale;
     if (Math.abs(dx) + Math.abs(dy) < 3 && !resizing.moved) return;
     resizing.moved = true;
     resizing.size = {
@@ -1054,6 +1118,20 @@
   });
   document.addEventListener('keydown', (event) => {
     if (event.isComposing) return;
+    if (event.target.id === 'canvas-minimap' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const viewport = $('.canvas-viewport');
+      if (event.key === 'Home') viewport.scrollTo(0, 0);
+      else if (event.key === 'End') viewport.scrollTo(viewport.scrollWidth, viewport.scrollHeight);
+      else viewport.scrollBy(event.key === 'ArrowLeft' ? -80 : event.key === 'ArrowRight' ? 80 : 0, event.key === 'ArrowUp' ? -80 : event.key === 'ArrowDown' ? 80 : 0);
+      D.captureView(designerState);
+      return;
+    }
+    if (event.target.matches('[data-canvas-dimension]') && event.key === 'Enter') {
+      event.preventDefault();
+      event.target.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
     if (event.target.matches('[data-parent-name]') && ['Enter', 'Escape'].includes(event.key)) {
       event.preventDefault();
       if (event.key === 'Enter') saveParentName();
@@ -1142,6 +1220,7 @@
       toast(`너비 ${Math.round(size.width)}%, 최소 높이 ${size.height}px`);
   });
   document.addEventListener('dragstart', (event) => {
+    if (designerState.panMode && event.target.closest('.canvas-viewport')) return event.preventDefault();
     const block = event.target.closest('[data-canvas-element][draggable="true"]');
     if (!block) return;
     const rect = block.closest('.canvas-block').getBoundingClientRect();
@@ -1163,6 +1242,7 @@
     if (!grid || !draggedElement) return null;
     const { screen } = D.selection(answers, designerState);
     const rect = grid.getBoundingClientRect();
+    const scale = Number($('.canvas-world').dataset.scale || 1);
     const width = A.elementSize(screen, draggedElement.key).width;
     const items = A.layoutItems(
       screen,
@@ -1176,8 +1256,8 @@
           0,
           Math.min(
             100 - width,
-            ((Math.round((event.clientX - rect.left - draggedElement.offsetX) / 8) * 8) /
-              rect.width) *
+            ((Math.round((event.clientX - rect.left - draggedElement.offsetX) / scale / 8) * 8) /
+              grid.clientWidth) *
               100
           )
         ).toFixed(4)
@@ -1186,7 +1266,7 @@
         0,
         Math.min(
           A.MAX_CANVAS_Y,
-          Math.round((event.clientY - rect.top - draggedElement.offsetY) / 8) * 8
+          Math.round((event.clientY - rect.top - draggedElement.offsetY) / scale / 8) * 8
         )
       )
     };
@@ -1241,6 +1321,7 @@
     clearDropPreview();
   });
   document.addEventListener('click', async (event) => {
+    if (designerState.panMode && event.target.closest('.canvas-viewport')) return;
     document.querySelectorAll('.role-picker[open], .level-filter[open]').forEach((picker) => {
       if (!picker.contains(event.target)) picker.open = false;
     });
@@ -1252,6 +1333,23 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.toggleMinimap !== undefined) {
+      designerState.minimap = designerState.minimap === false;
+      $('#canvas-minimap-panel').hidden = !designerState.minimap;
+      b.setAttribute('aria-pressed', designerState.minimap);
+      D.drawMinimap();
+      return;
+    }
+    if (d.panCanvas !== undefined) {
+      designerState.panMode = !designerState.panMode;
+      $('.canvas-viewport').classList.toggle('is-panning', designerState.panMode);
+      b.setAttribute('aria-pressed', Boolean(designerState.panMode));
+      return;
+    }
+    if (d.zoomStep) {
+      const scale = Number($('.canvas-world').dataset.scale), steps = [.1, .25, .5, .75, 1, 1.5, 2];
+      return D.zoomTo(designerState, Number(d.zoomStep) > 0 ? steps.find(value => value > scale + .001) || 2 : steps.reverse().find(value => value < scale - .001) || .1);
+    }
     if (d.editParent !== undefined || d.cancelParent !== undefined) {
       const editing = d.editParent !== undefined;
       $('[data-parent-editor]').hidden = !editing;
@@ -1363,7 +1461,7 @@
           '같은 부모 안에서는 레벨 숫자가 높을수록 앞에 표시돼요. 같은 레벨끼리는 겹칠 수 없고, 부모가 자식을 포함하는 관계는 예외예요. 레벨이 같아도 부모가 같다는 뜻은 아니에요.',
         fit: `숫자를 직접 입력하거나 ↑·↓로 1씩 바꿀 수 있어요. 범위는 1~${A.MAX_ELEMENT_LEVEL}이고 Enter 또는 입력칸 밖을 누르면 적용해요. 요소 보기에서는 같은 레벨을 함께 켜고 끄며, 변경한 레벨은 자동으로 보여요.`,
         avoid:
-          '구역에 추가하면 1레벨, 요소 안에 추가하면 부모보다 1 높은 레벨로 시작해요. 이후 레벨 변경은 선택한 요소에만 적용돼요. 자식은 부모 묶음 안에서 겹치며, 부모 이름은 요소 설정에서 확인해요.'
+          '캔버스에 추가하면 1레벨, 요소 안에 추가하면 부모보다 1 높은 레벨로 시작해요. 이후 레벨 변경은 선택한 요소에만 적용돼요. 자식은 부모 묶음 안에서 겹치며, 부모 이름은 요소 설정에서 확인해요.'
       });
     if (d.levelMove) {
       const { screen, element } = D.selection(answers, designerState);
@@ -1548,6 +1646,23 @@
       );
       if (canvas?.clientWidth)
         created.width = Number(Math.max(1, Math.min(100, 24000 / canvas.clientWidth)).toFixed(4));
+      if (!created.parent && canvas) {
+        const boxes = [...canvas.querySelectorAll(':scope > .canvas-block')].filter(block => Number(block.dataset.level) === level);
+        const view = designerState.views?.[screen.id] || { x: 0, y: 0 };
+        const width = canvas.clientWidth, elementWidth = created.width * width / 100;
+        const rects = boxes.map(block => ({ x: Number(block.dataset.x) * width / 100, y: Number(block.dataset.y), width: block.offsetWidth, height: block.offsetHeight }));
+        const startX = Math.min(width - elementWidth, Math.max(0, Math.ceil((view.x + 16) / 8) * 8));
+        const startY = Math.ceil((view.y + 16) / 8) * 8;
+        // ponytail: first available edge intersection; an optimal packing solver is unnecessary for at most MAX_ROWS elements.
+        const xs = [...new Set([startX, 16, ...rects.map(r => Math.ceil((r.x + r.width + 16) / 8) * 8)])].filter(x => x + elementWidth <= width);
+        const ys = [...new Set([startY, ...rects.map(r => Math.ceil((r.y + r.height + 16) / 8) * 8)])].filter(y => y >= startY && y <= A.MAX_CANVAS_Y).sort((a,b) => a-b);
+        outer: for (const y of ys) for (const x of xs) {
+          if (rects.every(r => x + elementWidth <= r.x || x >= r.x + r.width || y + 120 <= r.y || y >= r.y + r.height)) {
+            created.position = { x: Number((x / width * 100).toFixed(4)), y };
+            break outer;
+          }
+        }
+      }
       designerState = {
         ...designerState,
         screenId: screen.id,
@@ -1566,6 +1681,7 @@
       if (designerState.hiddenLevels?.[screen.id])
         designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(level => level !== created.level);
       D.applyVisibility(designerState, screen.id);
+      D.focusBlock('custom:' + item.id);
       changed();
       const nameInput = $('#designer-inspector-body')?.querySelector('[data-property="name"]');
       nameInput?.focus({ preventScroll: true });
@@ -1599,6 +1715,7 @@
       if (qid === 'screens')
         row = {
           ...row,
+          canvas: { ...A.canvasSize(rows.find(row => row.isCommon) || {}) },
           name: A.nextName(
             rows.filter((row) => !row.isCommon),
             '새 화면 '

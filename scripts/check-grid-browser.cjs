@@ -6,7 +6,7 @@ module.exports = async ({ page, go, width, shot }) => {
       screens: [
         {
           id: 'grid-common',
-          isCommon: true,
+          isCommon: true, canvas: { width: 1280, height: 720 },
           elements: [],
           customElements: [
             { id: 'container', name: '상단 메뉴' },
@@ -14,18 +14,18 @@ module.exports = async ({ page, go, width, shot }) => {
             { id: 'b', name: '추천 목록' }
           ],
           placements: {
-            'custom:container': { region: 'top', width: 100, height: 96 },
+            'custom:container': { region: 'main', width: 100, height: 96, position: { x: 0, y: 320 } },
             'custom:a': { region: 'main', width: 50, height: 96, grid: { row: 1, column: 1 } },
             'custom:b': { level: 2, region: 'main', width: 50, height: 96, grid: { row: 1, column: 11 } }
           }
         },
         {
-          id: 'grid-own',
+          id: 'grid-own', canvas: { width: 1280, height: 720 },
           name: '검색 화면',
           elements: [],
           customElements: [{ id: 'child', name: '검색 입력' }],
           placements: {
-            'custom:child': { region: 'top', parent: 'custom:container', width: 50, height: 64 }
+            'custom:child': { region: 'main', parent: 'custom:container', width: 50, height: 64 }
           }
         }
       ]
@@ -47,7 +47,7 @@ module.exports = async ({ page, go, width, shot }) => {
   const stored = () =>
     page.evaluate(() => {
       const w = JSON.parse(localStorage.getItem(BriefProjects.KEY));
-      return w.projects.find((p) => p.id === w.activeId).answers;
+      return BriefAnswers.normalizeAnswers(w.projects.find((p) => p.id === w.activeId).answers);
     });
   const before = await stored();
   const assertSeparate = async () => {
@@ -119,7 +119,7 @@ module.exports = async ({ page, go, width, shot }) => {
     await page.locator('.level-filter summary').click();
     await page.locator('[data-view-level="2"]').uncheck();
     await page.keyboard.press('Escape');
-    const grid = page.locator('.region-main > .canvas-grid');
+    const grid = page.locator('.canvas-world');
     const rect = await grid.boundingBox();
     const beforeB = (await stored()).screens[0].placements['custom:b'];
     const beforeLevel = await block('a').getAttribute('data-level');
@@ -297,5 +297,124 @@ module.exports = async ({ page, go, width, shot }) => {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.evaluate(() => (document.documentElement.style.fontSize = ''));
   await shot('inspector-tabs');
-  console.log(`Grid and expanded editor browser checks passed: ${width}px`);
+  // A fixed world stays the same size across monitors; camera controls never rewrite placement.
+  await page.evaluate(() => {
+    const w=JSON.parse(localStorage.getItem(BriefProjects.KEY));
+    w.projects.find(p=>p.id===w.activeId).answers=BriefAnswers.normalizeAnswers({screens:[{
+      id:'camera',isCommon:true,canvas:{width:1920,height:1080},
+      customElements:[{id:'near',name:'검색 상자'},{id:'far',name:'하단 메뉴'}],
+      placements:{
+        'custom:near':{region:'main',level:1,width:12.5,height:120,position:{x:0,y:16}},
+        'custom:far':{region:'main',level:2,width:12.5,height:120,position:{x:75,y:800}}
+      }
+    }]});
+    localStorage.setItem(BriefProjects.KEY,JSON.stringify(w));
+  });
+  await page.reload(); await go(4);
+  const cameraBefore=await stored();
+  const world=page.locator('.canvas-world'), viewport=page.locator('.canvas-viewport');
+  const zoom=page.locator('[data-canvas-zoom]'), map=page.locator('#canvas-minimap');
+  const near=page.locator('[data-block-key="custom:near"]');
+  const camera=()=>viewport.evaluate(n=>({x:n.scrollLeft,y:n.scrollTop,width:n.clientWidth,height:n.clientHeight}));
+  assert.equal(await page.locator('.canvas-region').count(),0);
+  assert.equal(await world.evaluate(n=>n.offsetWidth),1920);
+  assert.equal(await map.locator('.minimap-elements rect').count(),2);
+  assert(await page.locator('[data-toggle-minimap]').evaluate(n=>n.nextElementSibling.matches('.level-filter')));
+  for(const scale of [.5,2,1]) {
+    await zoom.selectOption(String(scale));
+    assert(Math.abs((await near.boundingBox()).width-240*scale)<1);
+    assert.equal(await world.evaluate(n=>n.offsetWidth),1920);
+  }
+  await page.setViewportSize({width:width===1440?1024:width+20,height:768});
+  assert.equal(await world.evaluate(n=>n.offsetWidth),1920);
+  await page.setViewportSize({width,height:1000});
+  await zoom.selectOption('fit');
+  assert(await viewport.evaluate(n=>n.scrollWidth<=n.clientWidth+1&&n.scrollHeight<=n.clientHeight+1),'Fit shows the entire world');
+  await zoom.selectOption('1');
+  await map.scrollIntoViewIfNeeded();
+  const mr=await map.boundingBox();
+  await map.click({position:{x:mr.width*.85,y:mr.height*.7}});
+  let location=await camera();assert(location.x>0&&location.y>0);
+  assert(Math.abs(Number(await map.locator('.minimap-view').getAttribute('x'))-location.x)<1);
+  await map.focus();await map.press('Home');assert.equal((await camera()).x,0);
+  await map.press('ArrowRight');assert((await camera()).x>0);
+  await map.press('End');assert((await camera()).y>0);
+  await page.locator('[data-toggle-minimap]').click();assert(await map.isHidden());
+  await page.locator('[data-designer-panel="element"]').click();assert(await map.isHidden());
+  await page.locator('[data-toggle-minimap]').click();assert(await map.isVisible());
+  await map.focus();await map.press('Home');
+  await page.locator('[data-pan-canvas]').click();
+  await viewport.scrollIntoViewIfNeeded();
+  const vr=await viewport.boundingBox();
+  await page.mouse.move(vr.x+150,vr.y+130);await page.mouse.down();
+  await page.mouse.move(vr.x+86,vr.y+66,{steps:4});await page.mouse.up();
+  location=await camera();assert.equal(location.x,64);assert.equal(location.y,64);
+  if(width<800) {
+    const cdp=await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:vr.x+140,y:vr.y+120}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:vr.x+100,y:vr.y+80}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await cdp.detach();assert.equal((await camera()).x,104);assert.equal((await camera()).y,104);
+  }
+  await page.locator('[data-pan-canvas]').click();
+  await page.locator('.level-filter summary').click();
+  await page.locator('[data-view-level="2"]').uncheck();
+  assert.equal(await map.locator('.minimap-elements rect').count(),1);
+  await page.locator('[data-view-level="2"]').check();await page.keyboard.press('Escape');
+  assert.deepEqual(await stored(),cameraBefore,'Zoom, pan, fit, minimap and window resize are view-only');
+  // Both half and double zoom must convert pointer movement back into world pixels.
+  for(const scale of [.5,2]) {
+    await zoom.selectOption(String(scale));
+    const handle=page.locator('[data-resize-element="custom:near"]');
+    await handle.scrollIntoViewIfNeeded();const hr=await handle.boundingBox();
+    const beforeSize=(await stored()).screens[0].placements['custom:near'];
+    await page.mouse.move(hr.x+hr.width/2,hr.y+hr.height/2);await page.mouse.down();
+    await page.mouse.move(hr.x+hr.width/2+16,hr.y+hr.height/2+16,{steps:4});await page.mouse.up();
+    const size=(await stored()).screens[0].placements['custom:near'];
+    assert.equal(size.height,beforeSize.height+16/scale);
+    assert(Math.abs((size.width-beforeSize.width)*19.2-16/scale)<.01);
+  }
+  if(width>800) {
+    await zoom.selectOption('0.5');await map.focus();await map.press('Home');
+    const source=page.locator('[data-canvas-element="custom:near"]');
+    await source.scrollIntoViewIfNeeded();const r=await source.boundingBox();
+    const beforeDrop=(await stored()).screens[0].placements['custom:near'].position;
+    await page.mouse.move(r.x+8,r.y+8);await page.mouse.down();
+    await page.mouse.move(r.x+16,r.y+16,{steps:3});
+    await page.mouse.move(r.x+40,r.y+168,{steps:8});await page.mouse.move(r.x+40,r.y+168);await page.mouse.up();
+    const afterDrop=(await stored()).screens[0].placements['custom:near'].position;
+    assert(Math.abs((afterDrop.x-beforeDrop.x)*19.2-64)<.02);
+    assert.equal(afterDrop.y-beforeDrop.y,320,'Half zoom drops save world pixels, not screen pixels');
+  }
+  await zoom.selectOption('1');
+  await map.focus();await map.press('End');
+  const addLocation=await camera();
+  await page.locator('[data-add-element][data-target="region:main"]').click();
+  const added=(await stored()).screens[0].customElements.at(-1);
+  const placement=(await stored()).screens[0].placements['custom:'+added.id];
+  assert(placement.position.y>=addLocation.y,'New elements are added near the current view');
+  assert.equal(await page.evaluate(()=>BriefDesigner.collisions().size),0);
+  await page.locator('[data-designer-panel="screen"]').click();
+  await page.locator('[data-canvas-preset]').selectOption('monitor');
+  assert.deepEqual((await stored()).screens[0].canvas,await page.evaluate(()=>({width:Math.max(320,Math.min(8192,screen.width)),height:Math.max(240,Math.min(100000,screen.height))})));
+  await page.locator('[data-canvas-preset]').selectOption('3840x2160');
+  assert.equal(await world.evaluate(n=>n.offsetWidth),3840);
+  const dimensions=await stored();
+  await page.locator('#canvas-width').fill('319');await page.locator('#canvas-width').press('Enter');
+  assert.equal(await page.locator('#canvas-width').getAttribute('aria-invalid'),'true');assert.deepEqual(await stored(),dimensions);
+  await page.locator('#canvas-width').fill('2560');await page.locator('#canvas-width').press('Enter');
+  assert.equal(await world.evaluate(n=>n.offsetWidth),2560);
+  await page.locator('#canvas-height').fill('240');await page.locator('#canvas-height').press('Enter');
+  assert(await world.evaluate(n=>n.offsetHeight>=936),'A short canvas still includes its elements');
+  await page.locator('#canvas-height').fill('2160');await page.locator('#canvas-height').press('Enter');
+  await page.locator('[data-add="screens"]').click();assert.equal((await stored()).screens[1].canvas.width,2560);
+  await page.locator('[data-designer-screen="camera"]').click();
+  await zoom.selectOption('fit');await shot('monitor-canvas');
+  const final=await stored();await page.reload();await go(4);assert.deepEqual(await stored(),final);
+  await page.evaluate(()=>{
+    const w=JSON.parse(localStorage.getItem(BriefProjects.KEY)),p=w.projects.find(p=>p.id===w.activeId);
+    if(JSON.stringify(BriefProjects.importBackup({format:'buildbrief-idea',version:1,...p}).projects[0].answers)!==JSON.stringify(BriefAnswers.normalizeAnswers(p.answers)))throw Error('Canvas backup mismatch');
+    if(!BriefReport.report(p.answers).includes('2560 × 2160px'))throw Error('Canvas dimensions missing from report');
+  });
+  console.log(`Canvas, minimap, zoom, pan, dimensions and expanded editor passed: ${width}px`);
 };

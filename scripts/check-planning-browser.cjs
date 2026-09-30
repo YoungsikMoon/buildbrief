@@ -60,13 +60,8 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('[data-role-preset="1"]').click();await go(4);
       assert.equal(await page.locator('[data-designer-placement],[data-insert-element]').count(),0);
       assert.equal(await page.locator('#field-features,.designer-related').count(),0);
-      for(const region of await page.locator('.canvas-region-heading').all()){
-        const label=await region.locator('.canvas-region-name').boundingBox(),add=region.locator('.canvas-add'),button=await add.boundingBox();
-        assert.equal(await add.innerText(),'+');
-        assert(button.x>=label.x+label.width&&button.x-label.x-label.width<=5,'Region + follows its label');
-        assert(Math.abs(button.y+button.height/2-label.y-label.height/2)<1,'Region + aligns with its label');
-      }
-      assert.equal(await page.locator('.canvas-region > .canvas-add').count(),0,'Regions have no separate add row');
+      assert.equal(await page.locator('.canvas-region').count(),0,'One canvas replaces reserved regions');
+      assert.equal(await page.locator('.canvas-world').count(),1);
       if(width===1440){
         const original=await page.locator('.designer-stage').boundingBox();
         await page.setViewportSize({width:1920,height:1000});
@@ -92,7 +87,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         }
         await page.setViewportSize({width,height:1000});
       }
-      await page.locator('[data-add-element][data-target="region:top"]').click();
+      await page.locator('[data-add-element][data-target="region:main"]').click();
       let state=await stored();const common=state.answers.screens[0].id,top='custom:'+state.answers.screens[0].customElements[0].id;
       await name().fill('상단 메뉴');await describe().fill('왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.');
       assert.equal(await page.locator('.natural-element-settings input:not([data-element-level]):not([data-parent-name]),.natural-element-settings textarea').count(),2);
@@ -189,16 +184,14 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal(await block(second).evaluate(n=>parseInt(n.style.getPropertyValue('--block-height'))),resized.height);
       if(width>800){
         const beforeCancel=(await stored()).answers;await resize.scrollIntoViewIfNeeded();const b=await resize.boundingBox();await page.mouse.move(b.x+10,b.y+10);await page.mouse.down();await page.mouse.move(b.x-25,b.y+30);await page.keyboard.press('Escape');await page.mouse.up();assert.deepEqual((await stored()).answers,beforeCancel);
-        const source=page.locator('[data-canvas-element="'+second+'"]'), destination=page.locator('[data-drop-region="bottom"] > .canvas-region-heading > .canvas-add');
+        const source=page.locator('[data-canvas-element="'+second+'"]'), destination=page.locator('.canvas-world');
         await source.dragTo(page.locator(`[data-add-element][data-target="parent:${first}"]`));
         assert.equal((await stored()).answers.screens[0].placements[second].parent,first,'The compact + accepts drops into empty elements');
-        await source.evaluate(n=>window.scrollTo(0,window.scrollY+n.getBoundingClientRect().top-160));
-        const from=await source.boundingBox(), to=await destination.boundingBox();
-        await page.mouse.move(from.x+12,from.y+12);await page.mouse.down();await page.mouse.move(from.x+20,from.y+20);await page.mouse.move(to.x+20,to.y+10,{steps:12});await page.mouse.move(to.x+22,to.y+12);await page.mouse.up();
-        const moved=(await stored()).answers.screens[0].placements[second];assert.equal(moved.region,'bottom');assert.equal(moved.height,resized.height);
+        await source.dragTo(destination, {sourcePosition:{x:8,y:8},targetPosition:{x:400,y:80}});
+        const moved=(await stored()).answers.screens[0].placements[second];assert.equal(moved.region,'main');assert(!moved.parent);assert.equal(moved.height,resized.height);
       }
       await choose(common,top);acceptDialog=false;await page.locator('[data-designer-remove-element]').click();assert.equal((await stored()).answers.screens[0].customElements.length,3);acceptDialog=true;
-      await page.locator('[data-designer-remove-element]').click();state=await stored();assert.equal(state.answers.screens[0].customElements.length,2);assert(!state.answers.screens[0].placements[first].parent);assert.equal(state.answers.screens[0].placements[first].region,'top');
+      await page.locator('[data-designer-remove-element]').click();state=await stored();assert.equal(state.answers.screens[0].customElements.length,2);assert(!state.answers.screens[0].placements[first].parent);assert.equal(state.answers.screens[0].placements[first].region,'main');
       await choose(common,first);await page.locator('[data-element-level]').fill('3');await page.locator('[data-element-level]').press('Enter');
       await page.locator('[data-add="screens"]').click();state=await stored();const own=state.answers.screens[1].id;
       await edit(1,'name').fill('신청 화면');await edit(1,'purpose').fill('원하는 수업을 찾아 신청');

@@ -8,7 +8,7 @@ module.exports = async ({ page, go, width, shot }) => {
         screens: [
           {
             id: 'layers-common',
-            isCommon: true,
+            isCommon: true, canvas: { width: 1280, height: 720 },
             customElements: [
               { id: 'back', name: '뒤쪽 요소' },
               { id: 'front', name: '앞쪽 요소' }
@@ -19,7 +19,7 @@ module.exports = async ({ page, go, width, shot }) => {
             }
           },
           {
-            id: 'layers-own',
+            id: 'layers-own', canvas: { width: 1280, height: 720 },
             name: '중첩 화면',
             customElements: [{ id: 'child', name: '안쪽 요소' }],
             placements: {
@@ -33,7 +33,7 @@ module.exports = async ({ page, go, width, shot }) => {
             }
           },
           {
-            id: 'layers-other',
+            id: 'layers-other', canvas: { width: 1280, height: 720 },
             name: '다른 화면',
             useCommonLayout: false,
             customElements: [{ id: 'only', name: '다른 요소' }]
@@ -218,9 +218,9 @@ module.exports = async ({ page, go, width, shot }) => {
   const childBox = page.locator(`[data-block-key="${childKey}"]`);
   const siblingBox = page.locator(`[data-block-key="${siblingKey}"]`);
   assert.equal(await childBox.getAttribute('data-level'), '8', 'Parent changes do not silently rewrite children');
-  await page.locator('[data-add-element][data-target="region:right"]').click();
+  await page.locator('[data-add-element][data-target="region:main"]').click();
   assert.equal(await input.inputValue(), '1', 'A region addition always starts at level one');
-  await page.locator('[data-add-element][data-target="region:right"]').click();
+  await page.locator('[data-add-element][data-target="region:main"]').click();
   assert.equal(await input.inputValue(), '1', 'Repeated additions never auto-increment levels');
   await open();
   assert.equal(await check(1).count(), 1, 'A shared level has only one menu row');

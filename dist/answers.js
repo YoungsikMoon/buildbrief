@@ -451,6 +451,57 @@
       place(items.filter((item) => !item.parent && item.region === region.id));
     return positions;
   }
+  const canvasSize = screen => screen.canvas || { width: 1920, height: 1080 };
+  function prepareCanvases(screens) {
+    const common = screens.find(row => row.isCommon);
+    const originals = screens.map(row => ({ ...row, placements: { ...row.placements } }));
+    const oldCommon = originals.find(row => row.isCommon);
+    let changed = false;
+    for (const screen of screens) {
+      if (screen.canvas) continue;
+      changed = true;
+      const size = { ...canvasSize(common || screen) };
+      const old = originals.find(row => row.id === screen.id);
+      const items = layoutItems(old, oldCommon), positions = canvasLayout(items);
+      const heights = new Map();
+      const height = item => {
+        if (heights.has(item.key)) return heights.get(item.key);
+        const children = items.filter(child => child.parent === item.key);
+        const result = Math.max(elementSize(item.owner, item.key).height,
+          children.length ? 84 + Math.max(...children.map(child => positions.get(child.key).y + height(child))) : 0);
+        heights.set(item.key, result);
+        return result;
+      };
+      const regionHeight = region => Math.max(80, ...items.filter(item => !item.parent && item.region === region)
+        .map(item => positions.get(item.key).y + height(item) + 32));
+      const top = regionHeight('top'), middle = Math.max(300, ...['left', 'main', 'right'].map(regionHeight));
+      const bottom = regionHeight('bottom');
+      const bounds = {
+        top: [16, 16, size.width - 32],
+        left: [16, top + 32, size.width * .2 - 24],
+        main: [size.width * .2 + 8, top + 32, size.width * .6 - 16],
+        right: [size.width * .8 + 8, top + 32, size.width * .2 - 24],
+        bottom: [16, top + middle + 48, size.width - 32],
+        overlay: [16, top + middle + bottom + 64, size.width - 32]
+      };
+      screen.placements ||= {};
+      for (const item of items.filter(item => item.owner === old)) {
+        const placement = elementPlacement(old, item.key), position = positions.get(item.key);
+        const [x, y, width] = bounds[item.region];
+        screen.placements[item.key] = { ...placement, region: 'main',
+          width: item.parent ? elementSize(old, item.key).width : Math.max(1, Number((elementSize(old, item.key).width * width / size.width).toFixed(4))),
+          position: item.parent ? { ...position } : {
+            x: Number(((x + position.x * width / 100) / size.width * 100).toFixed(4)),
+            y: Math.min(MAX_CANVAS_Y, Math.round(y + position.y))
+          }
+        };
+        screen.placements[item.key].position.x = Math.min(screen.placements[item.key].position.x, 100 - screen.placements[item.key].width);
+        delete screen.placements[item.key].grid;
+      }
+      screen.canvas = size;
+    }
+    return changed;
+  }
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
   // For reference text only: this does not check DNS, redirects or private networks.
@@ -592,6 +643,11 @@
         )
           fail(label + ' 배치 순서');
         const placements = {};
+        if (row.canvas !== undefined && (!plain(row.canvas) ||
+          Object.keys(row.canvas).some(key => !['width', 'height'].includes(key)) ||
+          !Number.isInteger(row.canvas.width) || row.canvas.width < 320 || row.canvas.width > 8192 ||
+          !Number.isInteger(row.canvas.height) || row.canvas.height < 240 || row.canvas.height > MAX_CANVAS_Y))
+          fail(label + ' 캔버스 크기');
         if (row.placements !== undefined && !plain(row.placements)) fail(label + ' 배치');
         for (const [key, placement] of Object.entries(row.placements || {})) {
           if (
@@ -656,6 +712,7 @@
               : boolean(row.useCommonLayout, label + ' 공통 화면 적용'),
           layoutOrder: [...layoutOrder],
           placements,
+          ...(row.canvas ? { canvas: { width: row.canvas.width, height: row.canvas.height } } : {}),
           ...flowPlan(row, label),
           ...stringFields(
             row,
@@ -805,6 +862,8 @@
     elementSize,
     gridLayout,
     canvasLayout,
+    canvasSize,
+    prepareCanvases,
     MIN_ELEMENT_HEIGHT,
     MAX_ELEMENT_LEVEL,
     elementLabel,

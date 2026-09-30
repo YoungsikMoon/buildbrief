@@ -4,16 +4,16 @@ module.exports = async ({ page, go, width, shot }) => {
   await page.evaluate(() => {
     const w = JSON.parse(localStorage.getItem(BriefProjects.KEY));
     w.projects.find(p => p.id === w.activeId).answers = BriefAnswers.normalizeAnswers({ screens: [
-      { id: 'parent-common', isCommon: true, customElements: [{ id: 'shared', name: '공통 메뉴' }],
-        placements: { 'custom:shared': { region: 'top', width: 100, level: 4 } } },
-      { id: 'parent-screen', name: '편집 화면', customElements: [
+      { id: 'parent-common', isCommon: true, canvas: { width: 1280, height: 720 }, customElements: [{ id: 'shared', name: '공통 메뉴' }],
+        placements: { 'custom:shared': { region: 'main', width: 100, level: 4, position: { x: 0, y: 1000 } } } },
+      { id: 'parent-screen', canvas: { width: 1280, height: 720 }, name: '편집 화면', customElements: [
         { id: 'a', name: '카드' }, { id: 'b', name: '도구' }, { id: 'c', name: '본문 내용' }
       ], placements: {
         'custom:a': { region: 'main', width: 40, height: 220, level: 1, position: { x: 0, y: 0 } },
         'custom:b': { region: 'main', width: 40, height: 120, level: 1, position: { x: 40, y: 0 } },
         'custom:c': { region: 'main', parent: 'custom:a', width: 100, height: 64, level: 2, position: { x: 0, y: 0 } }
       } },
-      { id: 'other-parent-screen', name: '다른 편집 화면', useCommonLayout: false,
+      { id: 'other-parent-screen', canvas: { width: 1280, height: 720 }, name: '다른 편집 화면', useCommonLayout: false,
         customElements: [{ id: 'separate', name: '카드' }] }
     ] });
     localStorage.setItem(BriefProjects.KEY, JSON.stringify(w));
@@ -68,7 +68,7 @@ module.exports = async ({ page, go, width, shot }) => {
     await page.mouse.move(rect.x + 45, rect.y + 10, { steps: 5 }); await page.mouse.up();
     assert.deepEqual(await stored(), before, 'Pointer resize rejects a collision and restores size');
     await select('b');
-    const grid = page.locator('.region-main > .canvas-grid');
+    const grid = page.locator('.canvas-world');
     await page.locator('[data-canvas-element="custom:b"]').dragTo(grid, { sourcePosition: { x: 8, y: 8 }, targetPosition: { x: 20, y: 20 } });
     assert.deepEqual(await stored(), before, 'Drag and drop cannot overlap a same-level sibling');
   }

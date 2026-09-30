@@ -988,7 +988,7 @@
       id: 'screens',
       title: '화면과 기능',
       short: '화면·기능',
-      description: '구역에 요소를 추가하고, 용도와 동작을 내 말로 설명해요.',
+      description: '캔버스에 요소를 배치하고, 용도와 동작을 내 말로 설명해요.',
       groups: [
         {
           title: '',

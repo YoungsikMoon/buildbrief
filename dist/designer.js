@@ -60,6 +60,8 @@
   }
   function applySizes(container = document) {
     const scope = container.ownerDocument || container;
+    const world = scope.querySelector('.canvas-world');
+    if (world) world.style.width = world.dataset.canvasWidth + 'px';
     for (const block of scope.querySelectorAll('.canvas-block[data-width]')) {
       block.style.width = block.dataset.width + '%';
       block.style.left = block.dataset.x + '%';
@@ -70,9 +72,11 @@
     for (const grid of [...scope.querySelectorAll('.canvas-grid')].reverse()) {
       const blocks = [...grid.querySelectorAll(':scope > .canvas-block')];
       grid.style.minHeight =
-        Math.max(32, ...blocks.map((block) => Number(block.dataset.y) + block.offsetHeight + 16)) +
+        Math.max(Number(grid.dataset.canvasHeight) || 32, ...blocks.map((block) => Number(block.dataset.y) + block.offsetHeight + 16)) +
         'px';
     }
+    applyCamera();
+    drawMinimap();
   }
   function applyVisibility(state, screenId) {
     const hidden = state.hiddenLevels?.[screenId] || [];
@@ -90,17 +94,111 @@
     const count = document.querySelector('[data-visible-level-count]');
     if (count)
       count.textContent = visible === checks.length ? '전체' : `${visible}/${checks.length}`;
+    drawMinimap();
+  }
+  let observer;
+  function captureView(state) {
+    const viewport = document.querySelector('.canvas-viewport'), world = document.querySelector('.canvas-world');
+    if (!viewport || !world) return;
+    state.views ||= {};
+    state.views[world.dataset.screen] = {
+      zoom: world.dataset.zoom === 'fit' ? 'fit' : Number(world.dataset.zoom),
+      x: viewport.scrollLeft / Number(world.dataset.scale || 1),
+      y: viewport.scrollTop / Number(world.dataset.scale || 1)
+    };
+    drawViewFrame();
+  }
+  function applyCamera() {
+    const viewport = document.querySelector('.canvas-viewport'), world = document.querySelector('.canvas-world');
+    if (!viewport || !world) return;
+    const scale = world.dataset.zoom === 'fit'
+      ? Math.min(1, (viewport.clientWidth - 2) / world.offsetWidth, (viewport.clientHeight - 2) / world.offsetHeight)
+      : Number(world.dataset.zoom);
+    world.dataset.scale = scale;
+    world.style.transform = `scale(${scale})`;
+    const space = world.parentElement;
+    space.style.width = world.offsetWidth * scale + 'px';
+    space.style.height = world.offsetHeight * scale + 'px';
+    const size = document.querySelector('[data-canvas-size-label]');
+    if (size) size.textContent = `${world.offsetWidth} × ${world.offsetHeight}`;
+    drawViewFrame();
+  }
+  function mountViewport(state) {
+    observer?.disconnect();
+    const viewport = document.querySelector('.canvas-viewport'), world = document.querySelector('.canvas-world');
+    if (!viewport || !world) return;
+    const view = state.views?.[world.dataset.screen];
+    viewport.scrollLeft = (view?.x || 0) * Number(world.dataset.scale || 1);
+    viewport.scrollTop = (view?.y || 0) * Number(world.dataset.scale || 1);
+    observer = new ResizeObserver(() => { applyCamera(); drawMinimap(); });
+    observer.observe(viewport);
+    drawMinimap();
+  }
+  function zoomTo(state, zoom) {
+    const viewport = document.querySelector('.canvas-viewport'), world = document.querySelector('.canvas-world');
+    if (!viewport || !world) return;
+    const old = Number(world.dataset.scale || 1);
+    const x = (viewport.scrollLeft + viewport.clientWidth / 2) / old;
+    const y = (viewport.scrollTop + viewport.clientHeight / 2) / old;
+    world.dataset.zoom = zoom;
+    document.querySelector('[data-canvas-zoom]').value = String(zoom);
+    applyCamera();
+    const scale = Number(world.dataset.scale);
+    viewport.scrollLeft = zoom === 'fit' ? 0 : x * scale - viewport.clientWidth / 2;
+    viewport.scrollTop = zoom === 'fit' ? 0 : y * scale - viewport.clientHeight / 2;
+    captureView(state);
+    drawMinimap();
+  }
+  function drawViewFrame() {
+    const viewport = document.querySelector('.canvas-viewport'), world = document.querySelector('.canvas-world');
+    const frame = document.querySelector('.minimap-view');
+    if (!viewport || !world || !frame) return;
+    const scale = Number(world.dataset.scale || 1);
+    for (const [name, value] of Object.entries({ x: viewport.scrollLeft / scale, y: viewport.scrollTop / scale,
+      width: Math.min(world.offsetWidth, viewport.clientWidth / scale), height: Math.min(world.offsetHeight, viewport.clientHeight / scale) }))
+      frame.setAttribute(name, value);
+  }
+  function drawMinimap() {
+    const map = document.querySelector('#canvas-minimap'), world = document.querySelector('.canvas-world');
+    if (!map || !world || map.closest('[hidden]')) return;
+    map.setAttribute('viewBox', `0 0 ${world.offsetWidth} ${world.offsetHeight}`);
+    const origin = world.getBoundingClientRect(), scale = Number(world.dataset.scale || 1);
+    const group = map.querySelector('.minimap-elements');
+    group.replaceChildren();
+    for (const block of world.querySelectorAll('.canvas-block:not(.level-hidden)')) {
+      const rect = block.getBoundingClientRect(), node = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      for (const [name, value] of Object.entries({ x: (rect.x - origin.x) / scale, y: (rect.y - origin.y) / scale,
+        width: rect.width / scale, height: rect.height / scale })) node.setAttribute(name, value);
+      node.setAttribute('class', block.classList.contains('selected') ? 'minimap-selected' : 'minimap-element');
+      group.append(node);
+    }
+    drawViewFrame();
+  }
+  function navigateMap(event, state) {
+    const map = document.querySelector('#canvas-minimap'), world = document.querySelector('.canvas-world');
+    const viewport = document.querySelector('.canvas-viewport'), rect = map.getBoundingClientRect();
+    const ratio = Math.min(rect.width / world.offsetWidth, rect.height / world.offsetHeight);
+    const x = (event.clientX - rect.left - (rect.width - world.offsetWidth * ratio) / 2) / ratio;
+    const y = (event.clientY - rect.top - (rect.height - world.offsetHeight * ratio) / 2) / ratio;
+    viewport.scrollLeft = x * Number(world.dataset.scale) - viewport.clientWidth / 2;
+    viewport.scrollTop = y * Number(world.dataset.scale) - viewport.clientHeight / 2;
+    captureView(state);
+  }
+  function focusBlock(key) {
+    const block = [...document.querySelectorAll('.canvas-block')].find(block => block.dataset.blockKey === key);
+    block?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   function collisions() {
     const pairs = new Map();
+    const scale = Number(document.querySelector('.canvas-world')?.dataset.scale || 1);
     for (const grid of document.querySelectorAll('.canvas-grid')) {
       const boxes = [...grid.querySelectorAll(':scope > .canvas-block')];
       const rects = boxes.map(block => block.getBoundingClientRect());
       for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
         if (boxes[i].dataset.level !== boxes[j].dataset.level) continue;
         const a = rects[i], b = rects[j];
-        const width = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-        const height = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        const width = (Math.min(a.right, b.right) - Math.max(a.left, b.left)) / scale;
+        const height = (Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / scale;
         if (width > 0.5 && height > 0.5)
           pairs.set([boxes[i].dataset.blockKey, boxes[j].dataset.blockKey].sort().join('|'), width * height);
       }
@@ -153,10 +251,11 @@
             : '') + inspector;
     const common = screens.find((s) => s.isCommon);
     const blocks = A.layoutItems(screen, common);
+    const size = A.canvasSize(screen), zoom = state.views?.[screen.id]?.zoom || 1;
     const positions = A.canvasLayout(blocks);
     const levels = A.elementLevels(blocks);
     const gridHtml = (items, target, path = []) => {
-      return `<div class="canvas-grid${target.startsWith('parent:') ? ' canvas-children' : ''}" ${target.startsWith('parent:') ? `data-drop-parent="${esc(target.slice(7))}"` : `data-drop-region="${target.slice(7)}"`}>${items.map((item) => blockHtml(item, path)).join('')}</div>`;
+      return `<div class="canvas-grid${target.startsWith('parent:') ? ' canvas-children' : ' canvas-world'}" ${target.startsWith('parent:') ? `data-drop-parent="${esc(target.slice(7))}"` : `data-drop-region="main" data-canvas-width="${size.width}" data-canvas-height="${size.height}" data-screen="${screen.id}" data-zoom="${zoom}"`}>${items.map((item) => blockHtml(item, path)).join('')}</div>`;
     };
     const blockHtml = (item, path = []) => {
       if (path.includes(item.key)) return '';
@@ -183,23 +282,20 @@
         )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>${recommendation}<button type="button" class="button secondary small" data-expand-designer aria-pressed="${Boolean(state.expanded)}" aria-controls="screen-designer">${state.expanded ? '↙ 작게 보기' : '⛶ 크게 보기'}</button></div>
       <div class="designer-workspace${state.panelCollapsed ? ' inspector-collapsed' : ''}"><section class="designer-stage" aria-label="화면 배치">
         <div class="designer-stage-heading"><div class="designer-stage-title"><h3 data-screen-title="${index}">${esc(label(screen))}</h3><p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p></div></div>
-        <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome"><span aria-hidden="true">● ● ●</span><details class="level-filter"><summary aria-label="요소 보기"><span>요소 보기</span><small data-visible-level-count>전체</small></summary><fieldset class="level-menu">${levelOptions(blocks)}</fieldset></details></div><div class="canvas-layout">
-        ${Q.layoutRegions
-          .map(
-            (region) =>
-              `<section class="canvas-region region-${region.id}" data-drop-region="${region.id}" aria-label="${region.label} 영역"><div class="canvas-region-heading"><span class="canvas-region-name">${region.label}</span><button type="button" class="canvas-add" data-add-element data-screen="${index}" data-target="region:${region.id}" aria-label="${region.label}: 요소 추가" title="이 구역에 추가">+</button></div>${region.hint ? `<span class="canvas-region-hint">${esc(region.hint)}</span>` : ''}${gridHtml(
-                blocks.filter((item) => !item.parent && item.region === region.id),
-                'region:' + region.id
-              )}</section>`
-          )
-          .join('')}
-        </div></div><p class="designer-hint">이름을 끌어 원하는 곳에 놓고, 모서리로 크기를 조절해요. 점에 가볍게 맞춰지고 다른 요소는 그대로 있어요.</p>${reason}
+        <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome">
+          <button type="button" class="button secondary small" data-add-element data-screen="${index}" data-target="region:main">+ 요소 추가</button>
+          <div class="canvas-zoom-controls"><button type="button" class="button secondary small" data-zoom-step="-1" aria-label="캔버스 축소">−</button><label class="visually-hidden" for="canvas-zoom">캔버스 확대 비율</label><select id="canvas-zoom" data-canvas-zoom>${[['fit','화면 맞춤'],[.1,'10%'],[.25,'25%'],[.5,'50%'],[.75,'75%'],[1,'100%'],[1.5,'150%'],[2,'200%']].map(([value,text])=>`<option value="${value}" ${String(zoom)===String(value)?'selected':''}>${text}</option>`).join('')}</select><button type="button" class="button secondary small" data-zoom-step="1" aria-label="캔버스 확대">+</button></div>
+          <button type="button" class="button secondary small" data-pan-canvas aria-pressed="${Boolean(state.panMode)}">화면 이동</button>
+          <span class="canvas-size-label" data-canvas-size-label>${size.width} × ${size.height}</span>
+          <div class="canvas-view-controls"><button type="button" class="button secondary small" data-toggle-minimap aria-pressed="${state.minimap !== false}" aria-controls="canvas-minimap-panel">미니맵</button><details class="level-filter"><summary aria-label="요소 보기"><span>요소 보기</span><small data-visible-level-count>전체</small></summary><fieldset class="level-menu">${levelOptions(blocks)}</fieldset></details></div>
+        </div><div class="canvas-frame"><div class="canvas-viewport${state.panMode ? ' is-panning' : ''}" tabindex="0" aria-label="화면 설계 작업면" aria-describedby="canvas-navigation-help"><div class="canvas-space">${gridHtml(blocks.filter(item=>!item.parent), 'region:main')}</div></div>
+        <div class="canvas-minimap" id="canvas-minimap-panel" ${state.minimap === false ? 'hidden' : ''}><svg id="canvas-minimap" tabindex="0" role="group" aria-label="미니맵 위치 이동. 누르거나 끌기, 방향키로 이동" preserveAspectRatio="xMidYMid meet"><g class="minimap-elements"></g><rect class="minimap-view"/></svg></div></div></div><p class="designer-hint" id="canvas-navigation-help">이름을 끌어 배치하고 모서리로 크기를 조절해요. 화면 이동 또는 가운데 버튼으로 작업면을 끌고, 미니맵으로 위치를 찾으세요.</p>${reason}
       </section><div class="designer-panel${state.panelCollapsed ? ' panel-collapsed' : ''}">${state.panelCollapsed ? '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="false" aria-label="설정 패널 펼치기" title="설정 패널 펼치기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>' : ''}<aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
         <div class="inspector-heading">${state.panelCollapsed ? '' : '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="true" aria-label="설정 패널 접기" title="설정 패널 접기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>'}<div class="inspector-tabs" role="tablist" aria-label="화면 편집 설정">${tabs.map(([id, text]) => `<button type="button" role="tab" id="inspector-tab-${id}" data-designer-panel="${id}" aria-selected="${panel === id}" aria-controls="inspector-panel-${id}" tabindex="${panel === id ? 0 : -1}">${text}</button>`).join('')}</div></div>
         <div class="inspector-body" id="designer-inspector-body">${tabs.map(([id, text]) => `<section role="tabpanel" id="inspector-panel-${id}" aria-labelledby="inspector-tab-${id}" ${panel === id ? '' : 'hidden'}>${panel === id ? `<h4 class="visually-hidden" tabindex="-1" id="inspector-title">${text}</h4>${content}` : ''}</section>`).join('')}</div>
       </aside></div></div></div>`;
   }
-  const api = { selection, elementName, references, applySizes, applyVisibility, collisions, updateLevels, render };
+  const api = { selection, elementName, references, applySizes, applyVisibility, collisions, updateLevels, captureView, mountViewport, zoomTo, drawMinimap, navigateMap, focusBlock, render };
   root.BriefDesigner = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

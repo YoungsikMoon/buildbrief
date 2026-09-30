@@ -293,10 +293,11 @@
       field('실패했을 때', row.error);
       field('휴대폰에서의 사용', row.mobile);
       field('이 화면의 선택 이유·메모', row.reason);
+      if (row.canvas) field('캔버스 크기 · 기준', `${row.canvas.width} × ${row.canvas.height}px (요소가 아래로 늘어나면 확장)`);
       if (layout.length) {
         const outline = [];
-        for (const region of Q.layoutRegions) {
-          const entries = layout.filter((item) => item.region === region.id);
+        for (const region of row.canvas ? [{ id: 'main', label: '캔버스' }] : Q.layoutRegions) {
+          const entries = row.canvas ? layout : layout.filter((item) => item.region === region.id);
           if (!entries.length) continue;
           outline.push(region.label);
           for (const item of entries)
@@ -326,7 +327,7 @@
         const placement = elementPlacement(owner, key);
         const parent = layout.find((item) => item.key === entry.parent);
         const path = [
-          Q.layoutRegions.find((item) => item.id === region).label,
+          row.canvas ? '캔버스' : Q.layoutRegions.find((item) => item.id === region).label,
           ...ancestors.map((id) => {
             const item = layout.find((item) => item.key === id);
             return elementLabel(item.owner, id);
@@ -347,7 +348,7 @@
           '포함 대상',
           parent
             ? elementName(parent.owner, parent.key)
-            : Q.layoutRegions.find((item) => item.id === region).label
+            : row.canvas ? '캔버스' : Q.layoutRegions.find((item) => item.id === region).label
         );
         field('겹침 레벨 · 숫자가 높을수록 앞', String(levels.get(key)));
         if (placement.position) {

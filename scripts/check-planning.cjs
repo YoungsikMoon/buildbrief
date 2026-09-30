@@ -521,6 +521,30 @@ const onlyStale=A.normalizeAnswers({features:[emptyFeature],screens:[{id:'only',
 for(const output of [R.report(onlyStale),R.report(onlyStale,true),V.report(onlyStale)])for(const text of ['연결한 기능','실행할 기능','이름 미정','F01','서비스에 필요한 기능은 무엇인가요?','사용자는 어떤 순서로 목적을 달성하나요?','동작 번호'])assert(!output.includes(text),text);
 const unnamed=A.normalizeAnswers({features:[{id:'note',category:'custom',notes:'이름 없이 적은 설명은 보존'},{id:'request',category:'custom',recommendPermission:true}]});
 for(const output of [R.report(unnamed),R.report(unnamed,true),V.report(unnamed)])for(const text of ['이름 없이 적은 설명은 보존','이전에 작성한 기능','기능별 권한 추천'])assert(output.includes(text),text);
+// Virtual canvas migration is deterministic and keeps owned/inherited relationships intact.
+const canvasLegacy = clone(handoff), canvasBefore = clone(canvasLegacy);
+assert.equal(A.prepareCanvases(canvasLegacy.screens), true);
+for (const screen of canvasLegacy.screens) {
+  assert.deepEqual(screen.canvas, {width:1920,height:1080});
+  assert.deepEqual(screen.customElements, canvasBefore.screens.find(row=>row.id===screen.id).customElements);
+  for (const item of A.layoutItems(screen,canvasLegacy.screens.find(row=>row.isCommon)).filter(item=>item.owner===screen)) {
+    assert.equal(screen.placements[item.key].region,'main');
+    const old=A.elementPlacement(canvasBefore.screens.find(row=>row.id===screen.id),item.key);
+    assert.equal(screen.placements[item.key].parent,old.parent);
+    assert.equal(screen.placements[item.key].level,old.level);
+    assert(Number.isFinite(screen.placements[item.key].position.x));
+  }
+}
+const migratedCanvas=clone(canvasLegacy);
+assert.equal(A.prepareCanvases(canvasLegacy.screens),false);
+assert.deepEqual(canvasLegacy,migratedCanvas);
+const normalizedCanvas=A.normalizeAnswers(canvasLegacy);
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...P.createProject({answers:normalizedCanvas})}).projects[0].answers,normalizedCanvas);
+assert(R.report(normalizedCanvas).includes('1920 × 1080px'));
+for(const canvas of [null,[],{}, {width:319,height:1080},{width:8193,height:1080},{width:1920,height:239},{width:1920,height:100001},{width:'1920',height:1080},{width:1920.5,height:1080},{width:NaN,height:1080},{width:1920,height:Infinity},{width:1920,height:1080,zoom:2}])
+  assert.throws(()=>A.normalizeAnswers({screens:[{id:'invalid-canvas',canvas}]}));
+for(const canvas of [{width:320,height:240},{width:8192,height:100000}])
+  assert.deepEqual(A.normalizeAnswers({screens:[{id:'canvas-boundary',canvas}]}).screens[0].canvas,canvas);
 console.log('Connected planning checks passed: migration, visual layouts, roles, scoped actions, safe exports and backup validation.');
 
 module.exports = staleAnswers;
