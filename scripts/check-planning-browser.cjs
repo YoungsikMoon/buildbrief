@@ -95,7 +95,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('[data-add-element][data-target="region:top"]').click();
       let state=await stored();const common=state.answers.screens[0].id,top='custom:'+state.answers.screens[0].customElements[0].id;
       await name().fill('상단 메뉴');await describe().fill('왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.');
-      assert.equal(await page.locator('.natural-element-settings input:not([data-element-level]),.natural-element-settings textarea').count(),2);
+      assert.equal(await page.locator('.natural-element-settings input:not([data-element-level]):not([data-parent-name]),.natural-element-settings textarea').count(),2);
       assert(!(await page.locator('.canvas-paper').innerText()).includes(await describe().inputValue()),'Descriptions stay in the settings panel after editing');
       await choose(common,top);
       assert.equal(await describe().inputValue(),'왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.','Selecting an element restores its description in the panel');
@@ -175,8 +175,8 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('.inspector-add').click();state=await stored();const second='custom:'+state.answers.screens[0].customElements[2].id;
       await name().fill('회원 메뉴');await describe().fill('로그인한 사람에게 내 신청과 로그아웃 버튼을 보여 줘요.');
       assert.equal((await stored()).answers.screens[0].placements[second].parent,top);
-      assert.equal((await stored()).answers.screens[0].placements[second].level,1);
-      await page.locator('[data-level-move="1"]').click();assert.equal((await stored()).answers.screens[0].placements[second].level,2);
+      assert.equal((await stored()).answers.screens[0].placements[second].level,2);
+      await page.locator('[data-level-move="1"]').click();assert.equal((await stored()).answers.screens[0].placements[second].level,3);
       await page.locator('[data-level-move="-1"]').click();
       const beforeResize=(await stored()).answers.screens[0].placements[second];const resize=page.locator(`[data-resize-element="${second}"]`);await resize.focus();await resize.press('ArrowLeft');await resize.press('ArrowDown');
       const keyboardWidth=(await stored()).answers.screens[0].placements[second].width;assert(keyboardWidth<beforeResize.width);
@@ -199,6 +199,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       }
       await choose(common,top);acceptDialog=false;await page.locator('[data-designer-remove-element]').click();assert.equal((await stored()).answers.screens[0].customElements.length,3);acceptDialog=true;
       await page.locator('[data-designer-remove-element]').click();state=await stored();assert.equal(state.answers.screens[0].customElements.length,2);assert(!state.answers.screens[0].placements[first].parent);assert.equal(state.answers.screens[0].placements[first].region,'top');
+      await choose(common,first);await page.locator('[data-element-level]').fill('3');await page.locator('[data-element-level]').press('Enter');
       await page.locator('[data-add="screens"]').click();state=await stored();const own=state.answers.screens[1].id;
       await edit(1,'name').fill('신청 화면');await edit(1,'purpose').fill('원하는 수업을 찾아 신청');
       await page.locator('.role-picker > summary').click();await page.locator('[data-role-option] input').first().check();
@@ -248,6 +249,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await require('./check-template-browser.cjs')({page,context,go,validate,width});
       await require('./check-grid-browser.cjs')({page,go,width,shot});
       await require('./check-layers-browser.cjs')({page,go,width,shot});
+      await require('./check-hierarchy-browser.cjs')({page,go,width,shot});
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
       console.log(`Natural-language designer browser checks passed: ${width}px`);

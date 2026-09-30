@@ -246,7 +246,9 @@
     return prefix + (number + 1);
   }
   function nextName(rows, prefix) {
-    const names = new Set(rows.map((row) => numberedName(rows, row, prefix).trim()));
+    const names = new Set(rows.map((row) =>
+      numberedName(rows, row, prefix).normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase()
+    ));
     const numbers = [...names]
       .filter((name) => name.startsWith(prefix))
       .map((name) => Number(name.slice(prefix.length)))
@@ -335,6 +337,24 @@
   }
   function elementLevels(items) {
     return new Map(items.map((item) => [item.key, elementPlacement(item.owner, item.key).level ?? 1]));
+  }
+  function namePeers(screens, screen, key) {
+    if (!key) return screens.filter(row => row !== screen).map(row => screenLabel(screens, row));
+    const common = screens.find(row => row.isCommon);
+    const views = screen.isCommon
+      ? screens.filter(row => row === screen || row.useCommonLayout !== false)
+      : [screen];
+    return views.flatMap(row => layoutItems(row, common))
+      .filter(item => item.owner !== screen || item.key !== key)
+      .map(item => elementLabel(item.owner, item.key));
+  }
+  function nameError(screens, screen, key, value) {
+    const compare = text => text.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!value.trim()) return '이름을 입력해 주세요. 기존 이름은 유지돼요.';
+    if (value.length > MAX_TEXT) return `이름은 ${MAX_TEXT}자 이내로 입력해 주세요.`;
+    return namePeers(screens, screen, key).some(name => compare(name) === compare(value))
+      ? (key ? '같은 화면에 이미 있는 요소 이름이에요. 다른 이름을 입력해 주세요.' : '이미 있는 화면 이름이에요. 다른 이름을 입력해 주세요.')
+      : '';
   }
   function gridLayout(items, preferred = '') {
     const positions = new Map(),
@@ -791,6 +811,8 @@
     screenLabel,
     numberedName,
     nextName,
+    namePeers,
+    nameError,
     canContain,
     layoutItems,
     elementLevels,

@@ -407,9 +407,33 @@ assert.deepEqual(['one','empty','space'].map(id=>A.elementLabel(unnamedElements,
 assert.equal(A.nextName(unnamedElements.customElements,'요소'),'요소4');
 assert.equal(A.nextName([{name:'요소2'}],'요소'),'요소3','Deletion cannot duplicate a surviving default name');
 assert.equal(A.nextName([{name:'요소9'}],'요소'),'요소10');
+assert.equal(A.nextName([{name:'새  화면 2'}],'새 화면 '),'새 화면 3','Generated names follow the same whitespace comparison');
+assert.equal(A.nextName([{name:'요소9'.normalize('NFD')}],'요소'),'요소10','Generated names compare normalized Korean');
 assert.deepEqual(unnamedElements,unnamedBefore);
 }
 // Levels are explicit values; legacy order remains a tie-breaker, never a level counter.
+{
+  const screens=A.normalizeAnswers({screens:[
+    {id:'common-name',isCommon:true,customElements:[{id:'menu-name',name:'공통 메뉴'}]},
+    {id:'name-one',name:'첫 화면',elements:['button'],customElements:[{id:'a-name',name:'카드'},{id:'b-name',name:'Name Test'}]},
+    {id:'name-two',name:'다른 화면',useCommonLayout:false,customElements:[{id:'c-name',name:'카드'}]}
+  ]}).screens;
+  const before=clone(screens), [common,one,two]=screens;
+  assert(A.nameError(screens,one,'custom:a-name',' 공통 메뉴 '));
+  assert(A.nameError(screens,one,'custom:a-name',' name  TEST '));
+  assert(A.nameError(screens,common,'custom:menu-name','카드'));
+  assert(A.nameError(screens,one,'custom:a-name',A.elementLabel(one,'button')));
+  assert.equal(A.nameError(screens,two,'custom:c-name','공통 메뉴'),'');
+  assert.equal(A.nameError(screens,one,'custom:a-name','카드'),'');
+  assert(A.nameError(screens,one,'','다른 화면'));
+  assert(A.nameError(screens,one,'','기본 공통 화면'));
+  assert(A.nameError(screens,one,'custom:a-name',''));
+  assert(A.nameError(screens,one,'custom:a-name','x'.repeat(A.MAX_TEXT+1)));
+  one.customElements[1].name='가';
+  assert(A.nameError(screens,one,'custom:a-name','\u1100\u1161'));
+  one.customElements[1].name=before[1].customElements[1].name;
+  assert.deepEqual(screens,before,'Name checks do not rewrite legacy names or references');
+}
 {
   const rows=A.normalizeAnswers({screens:[{id:'levels',customElements:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'}],placements:{'custom:c':{region:'main',parent:'custom:a',width:50}}}]}).screens;
   const before=clone(rows),items=A.layoutItems(rows[0]);

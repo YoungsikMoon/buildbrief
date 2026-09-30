@@ -91,6 +91,22 @@
     if (count)
       count.textContent = visible === checks.length ? '전체' : `${visible}/${checks.length}`;
   }
+  function collisions() {
+    const pairs = new Map();
+    for (const grid of document.querySelectorAll('.canvas-grid')) {
+      const boxes = [...grid.querySelectorAll(':scope > .canvas-block')];
+      const rects = boxes.map(block => block.getBoundingClientRect());
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        if (boxes[i].dataset.level !== boxes[j].dataset.level) continue;
+        const a = rects[i], b = rects[j];
+        const width = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const height = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (width > 0.5 && height > 0.5)
+          pairs.set([boxes[i].dataset.blockKey, boxes[j].dataset.blockKey].sort().join('|'), width * height);
+      }
+    }
+    return pairs;
+  }
   function levelOptions(items) {
     const counts = new Map();
     for (const level of A.elementLevels(items).values()) counts.set(level, (counts.get(level) || 0) + 1);
@@ -183,7 +199,7 @@
         <div class="inspector-body" id="designer-inspector-body">${tabs.map(([id, text]) => `<section role="tabpanel" id="inspector-panel-${id}" aria-labelledby="inspector-tab-${id}" ${panel === id ? '' : 'hidden'}>${panel === id ? `<h4 class="visually-hidden" tabindex="-1" id="inspector-title">${text}</h4>${content}` : ''}</section>`).join('')}</div>
       </aside></div></div></div>`;
   }
-  const api = { selection, elementName, references, applySizes, applyVisibility, updateLevels, render };
+  const api = { selection, elementName, references, applySizes, applyVisibility, collisions, updateLevels, render };
   root.BriefDesigner = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -225,17 +225,33 @@
       delete screen.placements[key].grid;
     }
   }
+  const overlapMessage = '같은 부모 안의 같은 레벨 요소는 겹칠 수 없어요. 위치를 바꾸거나 레벨을 변경해 주세요.';
+  function hasNewCollision(before) {
+    return [...D.collisions()].some(([pair, area]) => area > (before.get(pair) || 0) + 1);
+  }
+  function finishPlacement(screen, previous, before) {
+    if (hasNewCollision(before)) {
+      screen.placements = previous;
+      renderStep(currentStep);
+      toast(overlapMessage);
+      return false;
+    }
+    changed();
+    return true;
+  }
   function moveCanvasElement(key, target, position = null) {
     const { screen } = D.selection(answers, designerState);
     const order = A.elementKeys(screen);
     const positions = canvasPositions(screen);
+    const before = D.collisions(), previous = structuredClone(screen.placements || {});
     if (!order.includes(key) || !placeElement(screen, key, target)) return;
     positions.delete(key);
     keepCanvasPositions(screen, positions);
     if (position) screen.placements[key].position = position;
     designerState.element = key;
     designerState.panel = 'element';
-    changed(true);
+    renderStep(currentStep);
+    finishPlacement(screen, previous, before);
   }
   function toggleExpandedDesigner() {
     designerState.expanded = !designerState.expanded;
@@ -373,6 +389,7 @@
       .join('');
     D.applySizes();
     D.applyVisibility(designerState, D.selection(answers, designerState).screen.id);
+    for (const input of document.querySelectorAll('[data-designer-name]')) validateName(input);
     for (const [id, open] of states) {
       const el = document.getElementById(id);
       if (el) el.open = open;
@@ -404,23 +421,63 @@
     else updateProgress();
   }
   function setElementLevel(level) {
-    if (!Number.isInteger(level) || level < 1 || level > A.MAX_ELEMENT_LEVEL) return false;
+    if (!Number.isInteger(level) || level < 1 || level > A.MAX_ELEMENT_LEVEL)
+      return `1~${A.MAX_ELEMENT_LEVEL} 사이의 정수를 입력해 주세요.`;
     const { screen, element } = D.selection(answers, designerState);
-    if (!A.elementKeys(screen).includes(element)) return false;
+    if (!A.elementKeys(screen).includes(element)) return '요소를 다시 선택해 주세요.';
+    const before = D.collisions(), previous = screen.placements?.[element];
     screen.placements ||= {};
     screen.placements[element] = { ...A.elementPlacement(screen, element), level };
+    D.updateLevels(answers, designerState);
+    if (hasNewCollision(before)) {
+      if (previous) screen.placements[element] = previous;
+      else delete screen.placements[element];
+      D.updateLevels(answers, designerState);
+      return overlapMessage;
+    }
     if (designerState.hiddenLevels?.[screen.id])
       designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(value => value !== level);
     changed();
     D.updateLevels(answers, designerState);
-    return true;
+    return '';
   }
   function commitElementLevel(input) {
-    if (setElementLevel(input.valueAsNumber)) return;
-    input.setAttribute('aria-invalid', 'true');
-    const error = $('#element-level-error');
-    error.textContent = `1~${A.MAX_ELEMENT_LEVEL} 사이의 정수를 입력해 주세요.`;
-    error.hidden = false;
+    setFieldError(input, setElementLevel(input.valueAsNumber));
+  }
+  function setFieldError(input, message) {
+    const id = input.id + '-error';
+    let error = document.getElementById(id);
+    if (!error && message) {
+      error = document.createElement('p');
+      error.id = id;
+      error.className = 'field-error';
+      error.setAttribute('role', 'status');
+      input.insertAdjacentElement('afterend', error);
+      input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), id].filter(Boolean).join(' '));
+    }
+    if (error) { error.textContent = message; error.hidden = !message; }
+    if (message) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+    return !message;
+  }
+  function validateName(input) {
+    const screen = rowsOf('screens')[Number(input.dataset.row)];
+    const key = input.dataset.custom !== undefined
+      ? 'custom:' + screen.customElements[Number(input.dataset.custom)].id
+      : input.dataset.element || '';
+    return setFieldError(input, A.nameError(rowsOf('screens'), screen, key, input.value));
+  }
+  function parentElement() {
+    const { screen, element } = D.selection(answers, designerState);
+    const items = A.layoutItems(screen, rowsOf('screens').find(row => row.isCommon));
+    return items.find(item => item.key === items.find(item => item.key === element)?.parent);
+  }
+  function saveParentName() {
+    const parent = parentElement(), input = $('[data-parent-name]');
+    if (!parent || !input || !setFieldError(input, A.nameError(rowsOf('screens'), parent.owner, parent.key, input.value))) return;
+    flowTarget(parent.owner, parent.key).name = input.value.trim();
+    changed(true);
+    $('[data-edit-parent]')?.focus({ preventScroll: true });
   }
   function showHelp(title, guide, elementId = '') {
     $('#help-title').textContent = title;
@@ -585,6 +642,7 @@
   }
   document.addEventListener('input', (event) => {
     const el = event.target;
+    if (el.matches('[data-designer-name]')) return validateName(el);
     if (el.id === 'prompt-preview-text') {
       const mode = planningTemplate?.enabled ? 'advanced' : 'basic';
       if (el.value === R.report(answers, true, notes, recommendations, planningTemplate))
@@ -621,6 +679,7 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-designer-name]')) return edit(el);
     if (el.matches('[data-element-level]')) return commitElementLevel(el);
     if (el.id === 'planning-template-enabled') {
       planningTemplate = {
@@ -688,6 +747,17 @@
     const { q: qid, row, field, element, custom, property, item, flowScope, flowRow } = el.dataset;
     const object = row === undefined ? answers : rowsOf(qid)[Number(row)];
     if (!object) return;
+    if (el.matches('[data-designer-name]') && !validateName(el)) return;
+    if (field === 'useCommonLayout' && el.checked) {
+      const previous = object.useCommonLayout;
+      object.useCommonLayout = true;
+      const duplicate = A.elementKeys(object).some(key => A.nameError(rowsOf('screens'), object, key, A.elementLabel(object, key)));
+      object.useCommonLayout = previous;
+      if (duplicate) {
+        el.checked = false;
+        return toast('공통 요소와 이름이 겹쳐요. 요소 이름을 바꾼 뒤 공통 화면을 적용해 주세요.');
+      }
+    }
     const key = field || qid;
     if (qid === 'screens' && ['flow', 'recommendFlow'].includes(field)) {
       const plan = flowTarget(object, flowScope);
@@ -874,7 +944,8 @@
     block.dataset.height = size.height;
     D.applySizes(block);
   }
-  function saveElementSize(screen, key, size, positions = canvasPositions(screen)) {
+  function saveElementSize(screen, key, size, positions = canvasPositions(screen), before = D.collisions()) {
+    const previous = structuredClone(screen.placements || {});
     keepCanvasPositions(screen, positions);
     screen.placements ||= {};
     screen.placements[key] = { ...A.elementPlacement(screen, key), ...size };
@@ -888,7 +959,10 @@
       }
     }
     D.applySizes();
-    changed();
+    const saved = finishPlacement(screen, previous, before);
+    if (!saved) [...document.querySelectorAll('[data-resize-element]')]
+      .find(handle => handle.dataset.resizeElement === key)?.focus({ preventScroll: true });
+    return saved;
   }
   function finishResize(commit) {
     if (!resizing) return;
@@ -902,7 +976,7 @@
       rowsOf('screens').includes(state.screen) &&
       state.handle.isConnected
     )
-      saveElementSize(state.screen, state.key, state.size, state.positions);
+      saveElementSize(state.screen, state.key, state.size, state.positions, state.collisions);
     else if (state.handle.isConnected) showElementSize(state.handle, state.before);
   }
   document.addEventListener('pointerdown', (event) => {
@@ -924,6 +998,7 @@
       screen,
       key,
       before,
+      collisions: D.collisions(),
       positions: canvasPositions(screen),
       size: { ...before },
       pointer: event.pointerId,
@@ -978,6 +1053,22 @@
     if (resizing?.pointer === event.pointerId) finishResize(false);
   });
   document.addEventListener('keydown', (event) => {
+    if (event.isComposing) return;
+    if (event.target.matches('[data-parent-name]') && ['Enter', 'Escape'].includes(event.key)) {
+      event.preventDefault();
+      if (event.key === 'Enter') saveParentName();
+      else $('[data-cancel-parent]').click();
+      return;
+    }
+    if (event.target.matches('[data-designer-name]') && ['Enter', 'Escape'].includes(event.key)) {
+      event.preventDefault();
+      if (event.key === 'Enter') edit(event.target);
+      else {
+        renderStep(currentStep);
+        $('[data-designer-name]')?.focus({ preventScroll: true });
+      }
+      return;
+    }
     if (event.target.matches('[data-element-level]') && ['Enter', 'Escape'].includes(event.key)) {
       event.preventDefault();
       if (event.key === 'Enter') commitElementLevel(event.target);
@@ -1047,9 +1138,8 @@
         size.height + (event.key === 'ArrowUp' ? -8 : event.key === 'ArrowDown' ? 8 : 0)
       )
     );
-    showElementSize(handle, size);
-    saveElementSize(screen, key, size);
-    toast(`너비 ${Math.round(size.width)}%, 최소 높이 ${size.height}px`);
+    if (saveElementSize(screen, key, size))
+      toast(`너비 ${Math.round(size.width)}%, 최소 높이 ${size.height}px`);
   });
   document.addEventListener('dragstart', (event) => {
     const block = event.target.closest('[data-canvas-element][draggable="true"]');
@@ -1162,6 +1252,18 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.editParent !== undefined || d.cancelParent !== undefined) {
+      const editing = d.editParent !== undefined;
+      $('[data-parent-editor]').hidden = !editing;
+      $('.parent-name-row').hidden = editing;
+      const input = $('[data-parent-name]');
+      input.value = A.elementLabel(parentElement().owner, parentElement().key);
+      setFieldError(input, '');
+      (editing ? input : $('[data-edit-parent]')).focus({ preventScroll: true });
+      if (editing) input.select();
+      return;
+    }
+    if (d.saveParent !== undefined) return saveParentName();
     if (d.expandDesigner !== undefined) return toggleExpandedDesigner();
     if (d.gridMove || d.gridWidth) {
       const { screen, element } = D.selection(answers, designerState);
@@ -1258,14 +1360,14 @@
     if (d.levelHelp !== undefined)
       return showHelp('요소 레벨', {
         meaning:
-          '같은 부모 안에서는 레벨 숫자가 높을수록 앞에 표시돼요. 같은 레벨은 기존 배치 순서를 유지하며, 나중에 추가한 요소가 앞에 놓여요. 선택만으로 순서가 바뀌지는 않아요.',
+          '같은 부모 안에서는 레벨 숫자가 높을수록 앞에 표시돼요. 같은 레벨끼리는 겹칠 수 없고, 부모가 자식을 포함하는 관계는 예외예요. 레벨이 같아도 부모가 같다는 뜻은 아니에요.',
         fit: `숫자를 직접 입력하거나 ↑·↓로 1씩 바꿀 수 있어요. 범위는 1~${A.MAX_ELEMENT_LEVEL}이고 Enter 또는 입력칸 밖을 누르면 적용해요. 요소 보기에서는 같은 레벨을 함께 켜고 끄며, 변경한 레벨은 자동으로 보여요.`,
         avoid:
-          '구역에 추가하면 1레벨, 요소 안에 추가하면 부모의 현재 레벨로 시작해요. 이후 레벨 변경은 선택한 요소에만 적용돼요. 자식은 부모 묶음 안에서 겹치며, 공통 요소는 기본 공통 화면에서 조절하세요.'
+          '구역에 추가하면 1레벨, 요소 안에 추가하면 부모보다 1 높은 레벨로 시작해요. 이후 레벨 변경은 선택한 요소에만 적용돼요. 자식은 부모 묶음 안에서 겹치며, 부모 이름은 요소 설정에서 확인해요.'
       });
     if (d.levelMove) {
       const { screen, element } = D.selection(answers, designerState);
-      setElementLevel((A.elementPlacement(screen, element).level ?? 1) + Number(d.levelMove));
+      setFieldError($('[data-element-level]'), setElementLevel((A.elementPlacement(screen, element).level ?? 1) + Number(d.levelMove)));
       (
         document.querySelector(`[data-level-move="${d.levelMove}"]:not(:disabled)`) ||
         document.querySelector('[data-level-move]:not(:disabled)')
@@ -1414,17 +1516,23 @@
       screen.customElements ||= [];
       if (screen.customElements.length >= A.MAX_ROWS)
         return toast('한 화면에 추가할 수 있는 요소 수를 초과했어요.');
-      const item = { id: P.newId(), name: A.nextName(screen.customElements, '요소'), purpose: '' };
+      const item = { id: P.newId(), name: A.nextName(A.namePeers(rowsOf('screens'), screen, '@new').map(name => ({ name })), '요소'), purpose: '' };
       const selected = D.selection(answers, designerState).element;
       const placement = selected ? A.elementPlacement(screen, selected) : { region: 'main' };
+      const target = d.target || (placement.parent ? 'parent:' + placement.parent : 'region:' + placement.region);
+      const parent = target.startsWith('parent:') ? target.slice(7) : '';
+      const levels = A.elementLevels(A.layoutItems(screen, rowsOf('screens').find(row => row.isCommon)));
+      const level = parent ? (levels.get(parent) ?? 1) + 1 : 1;
+      if (level > A.MAX_ELEMENT_LEVEL)
+        return toast('부모가 최대 레벨이에요. 부모 레벨을 낮춘 뒤 안에 요소를 추가해 주세요.');
+      const before = D.collisions(), previous = structuredClone(screen.placements || {}), previousState = designerState;
       const positions = canvasPositions(screen);
       screen.customElements.push(item);
       if (
         !placeElement(
           screen,
           'custom:' + item.id,
-          d.target ||
-            (placement.parent ? 'parent:' + placement.parent : 'region:' + placement.region)
+          target
         )
       ) {
         screen.customElements.pop();
@@ -1432,10 +1540,7 @@
       }
       keepCanvasPositions(screen, positions);
       const created = screen.placements['custom:' + item.id];
-      const items = A.layoutItems(screen, rowsOf('screens').find(row => row.isCommon));
-      created.level = A.elementLevels(items).get(created.parent) ?? 1;
-      if (designerState.hiddenLevels?.[screen.id])
-        designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(level => level !== created.level);
+      created.level = level;
       const canvas = [...document.querySelectorAll('.canvas-grid')].find((grid) =>
         created.parent
           ? grid.dataset.dropParent === created.parent
@@ -1450,7 +1555,18 @@
         panel: 'element',
         panelCollapsed: false
       };
-      changed(true);
+      renderStep(currentStep);
+      if (hasNewCollision(before)) {
+        screen.customElements.pop();
+        screen.placements = previous;
+        designerState = previousState;
+        renderStep(currentStep);
+        return toast(overlapMessage);
+      }
+      if (designerState.hiddenLevels?.[screen.id])
+        designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(level => level !== created.level);
+      D.applyVisibility(designerState, screen.id);
+      changed();
       const nameInput = $('#designer-inspector-body')?.querySelector('[data-property="name"]');
       nameInput?.focus({ preventScroll: true });
       nameInput?.select();

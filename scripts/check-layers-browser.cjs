@@ -86,32 +86,24 @@ module.exports = async ({ page, go, width, shot }) => {
   await summary.click();
   await page.locator('[data-property="name"]').fill('뒤쪽 요소');
   await page.locator('[data-level-move="1"]').click();
-  assert.equal(await box('back').getAttribute('data-level'), '2');
-  if (width > 800) assert.equal(await frontAtOverlap(),'custom:front','Equal levels retain the previous order');
-  await page.locator('[data-level-move="1"]').click();
+  assert.equal(await box('back').getAttribute('data-level'), '1', 'An overlapping equal level is rejected');
+  assert(await page.locator('#element-level-error').isVisible());
+  await page.locator('[data-element-level]').fill('3');
+  await page.locator('[data-element-level]').press('Enter');
   assert.equal(await box('front').getAttribute('data-level'),'2','Other levels never shift');
-  if (width > 800)
-    assert.equal(
-      await frontAtOverlap(),
-      'custom:back',
-      'The level control changes the visible stacking'
-    );
-  await page.locator('[data-level-move="-1"]').click();
-  await page.locator('[data-level-move="-1"]').click();
-  assert.equal(await box('back').getAttribute('data-level'), '1');
+  if (width > 800) assert.equal(await frontAtOverlap(),'custom:back');
+  await page.locator('[data-element-level]').fill('1');
+  await page.locator('[data-element-level]').press('Enter');
   await page.locator('[data-level-help]').click();
   assert((await page.locator('#help-content').innerText()).includes('숫자가 높을수록 앞'));
   await page.keyboard.press('Escape');
-  for (const direction of [1, -1]) {
-    await open();
-    await all.uncheck();
-    await page.keyboard.press('Escape');
-    await page.locator(`[data-level-move="${direction}"]`).click();
+  for (const level of [3, 1]) {
+    await open(); await all.uncheck(); await page.keyboard.press('Escape');
+    await page.locator('[data-element-level]').fill(String(level));
+    await page.locator('[data-element-level]').press('Enter');
     assert(await box('back').isVisible(), 'Changing a hidden element level reveals it');
-    assert(await check(direction===1 ? 2 : 1).isChecked(), 'The destination level is checked');
-    assert.equal(await box('front').isVisible(),direction===1,'All elements on the revealed level become visible');
-    assert.equal(await box('back').getAttribute('data-level'), direction === 1 ? '2' : '1');
-    assert.equal(await page.locator('[data-property="name"]').inputValue(), '뒤쪽 요소');
+    assert(await check(level).isChecked());
+    assert(await box('front').isHidden(), 'Unrelated levels stay hidden');
   }
   await open();
   await all.check();
@@ -218,26 +210,26 @@ module.exports = async ({ page, go, width, shot }) => {
   await setLevel(7);
   await page.locator('[data-add-element][data-target="parent:custom:back"]').click();
   const childKey = await page.locator('.canvas-block.selected').getAttribute('data-block-key');
-  assert.equal(await input.inputValue(), '7', 'New children copy their parent level');
+  assert.equal(await input.inputValue(), '8', 'New children start one level above their parent');
   await page.locator('.inspector-add').click();
   const siblingKey = await page.locator('.canvas-block.selected').getAttribute('data-block-key');
-  assert.equal(await input.inputValue(), '7', 'Inspector additions copy the shared parent level');
+  assert.equal(await input.inputValue(), '8', 'Inspector siblings use the shared parent level plus one');
   await select('back'); await setLevel(9);
   const childBox = page.locator(`[data-block-key="${childKey}"]`);
   const siblingBox = page.locator(`[data-block-key="${siblingKey}"]`);
-  assert.equal(await childBox.getAttribute('data-level'), '7', 'Parent changes do not silently rewrite children');
+  assert.equal(await childBox.getAttribute('data-level'), '8', 'Parent changes do not silently rewrite children');
   await page.locator('[data-add-element][data-target="region:right"]').click();
   assert.equal(await input.inputValue(), '1', 'A region addition always starts at level one');
   await page.locator('[data-add-element][data-target="region:right"]').click();
   assert.equal(await input.inputValue(), '1', 'Repeated additions never auto-increment levels');
   await open();
   assert.equal(await check(1).count(), 1, 'A shared level has only one menu row');
-  await check(7).uncheck();
+  await check(8).uncheck();
   assert(await childBox.isHidden()); assert(await siblingBox.isHidden());
   await page.keyboard.press('Escape');
-  await setLevel(7);
+  await setLevel(8);
   assert(await childBox.isVisible()); assert(await siblingBox.isVisible());
-  assert(await check(7).isChecked(), 'Direct entry also reveals the destination level');
+  assert(await check(8).isChecked(), 'Direct entry also reveals the destination level');
   const beforeInvalid = await stored();
   for (const invalid of ['', '0', '-1', '1.5', '1000']) {
     await input.fill(invalid); await input.press('Enter');
@@ -246,7 +238,7 @@ module.exports = async ({ page, go, width, shot }) => {
     assert.deepEqual(await stored(), beforeInvalid, 'Invalid levels never enter saved data');
   }
   await input.press('Escape');
-  assert.equal(await input.inputValue(), '7');
+  assert.equal(await input.inputValue(), '8');
   assert(await page.locator('body').evaluate(n=>n.classList.contains('designer-expanded')), 'Escape cancels input before leaving expanded mode');
   await input.fill('12');
   await page.locator('[data-level-move="1"]').click();
@@ -262,12 +254,12 @@ module.exports = async ({ page, go, width, shot }) => {
   await shot('editable-level');
   await page.locator('[data-designer-screen="layers-own"]').click();
   await page.locator('[data-add-element][data-target="parent:custom:back"]').click();
-  assert.equal(await input.inputValue(), '9', 'Children in individual screens copy the inherited parent level');
+  assert.equal(await input.inputValue(), '10', 'Children in individual screens start one level above the inherited parent');
   await page.locator('[data-designer-screen="layers-common"]').click();
   await select('back');
   await page.locator('[data-designer-remove-element]').click();
-  assert.equal(await childBox.getAttribute('data-level'), '7', 'Deleting a parent preserves child levels');
-  assert.equal(await siblingBox.getAttribute('data-level'), '7');
+  assert.equal(await childBox.getAttribute('data-level'), '8', 'Deleting a parent preserves child levels');
+  assert.equal(await siblingBox.getAttribute('data-level'), '8');
   assert.equal(await box('front').getAttribute('data-level'), '2', 'Deletion never renumbers other elements');
   const edited = await stored();
   await page.reload(); await go(4);
