@@ -897,12 +897,10 @@ a.app-version:focus-visible {
   flex: 0 0 auto;
 }
 .canvas-block {
-  position: relative;
+  position: absolute;
   display: flex;
   flex-direction: column;
   text-align: left;
-  align-self: start;
-  margin-inline: 2px;
   max-width: 100%;
   min-width: 0;
   min-height: var(--block-height, 120px);
@@ -927,35 +925,19 @@ a.app-version:focus-visible {
   cursor: grab;
 }
 .canvas-grid {
-  display: grid;
+  display: block;
   position: relative;
   min-width: 0;
-  padding-bottom: 12px;
-  grid-template-columns: repeat(20, minmax(0, 1fr));
-  grid-auto-rows: minmax(64px, auto);
-  align-content: start;
-  row-gap: 8px;
-  background-image: linear-gradient(to right, #cbd5e160 1px, transparent 1px);
-  background-size: 5% 100%;
+  background-image: radial-gradient(circle, #94a3b88c 1px, transparent 1px);
+  background-size: 8px 8px;
+  background-position: -4px -4px;
 }
 .canvas-region > .canvas-grid {
   flex: 1;
   min-height: 32px;
 }
-.canvas-grid:not(:has(> .canvas-block)) {
-  background-image:
-    linear-gradient(to right, #cbd5e160 1px, transparent 1px),
-    linear-gradient(to bottom, #cbd5e160 1px, transparent 1px);
-  background-size:
-    5% 100%,
-    100% 72px;
-}
-.canvas-grid-row {
-  grid-column: 1 / -1;
-  border-top: 1px dashed #cbd5e1;
-  pointer-events: none;
-}
 .canvas-drop-preview {
+  position: absolute;
   z-index: 2;
   min-height: 64px;
   border: 2px dashed var(--blue);
@@ -963,9 +945,7 @@ a.app-version:focus-visible {
   pointer-events: none;
 }
 .canvas-children {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #cad5e4;
+  margin-top: 8px;
 }
 .canvas-children:empty {
   display: none;
@@ -999,6 +979,7 @@ a.app-version:focus-visible {
   cursor: pointer;
 }
 .canvas-block.selected {
+  z-index: 1;
   border: 2px solid var(--blue);
   padding: 3px 3px 23px;
   box-shadow: 0 0 0 3px #1d4ed814;

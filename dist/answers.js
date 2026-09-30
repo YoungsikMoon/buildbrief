@@ -6,6 +6,7 @@
   const questions = new Map([...allQuestions, ...Q.retiredQuestions].map((q) => [q.id, q]));
   const MAX_ROWS = 80,
     MAX_GRID_ROWS = MAX_ROWS * 4,
+    MAX_CANVAS_Y = 100000,
     MAX_TEXT = 6000,
     MIN_ELEMENT_HEIGHT = 64;
   const EXCLUSIVE = [UNKNOWN, '특별한 방법 없음', '추가 정보 없음', '기기 기능이 필요하지 않음'];
@@ -344,6 +345,51 @@
     }
     return positions;
   }
+  function canvasLayout(items) {
+    const legacy = gridLayout(
+      items.filter((item) => !elementPlacement(item.owner, item.key).position)
+    );
+    const positions = new Map(),
+      heights = new Map();
+    const place = (siblings) => {
+      const rows = new Map();
+      for (const item of siblings) {
+        const children = items.filter((child) => child.parent === item.key);
+        place(children);
+        const ownChildren = item.inherited
+          ? children.filter((child) => child.owner === item.owner)
+          : children;
+        const height = Math.max(
+          elementSize(item.owner, item.key).height,
+          ownChildren.length
+            ? 84 +
+                Math.max(
+                  ...ownChildren.map((child) => positions.get(child.key).y + heights.get(child.key))
+                )
+            : 0
+        );
+        heights.set(item.key, height);
+        const cell = legacy.get(item.key);
+        if (cell) rows.set(cell.row, Math.max(rows.get(cell.row) || 64, height));
+      }
+      for (const item of siblings) {
+        const saved = elementPlacement(item.owner, item.key).position;
+        const cell = legacy.get(item.key);
+        let y = saved?.y || 0;
+        if (!saved) for (let row = 1; row < cell.row; row++) y += (rows.get(row) || 64) + 8;
+        positions.set(item.key, {
+          x: Math.min(
+            saved?.x ?? (cell.column - 1) * 5,
+            100 - elementSize(item.owner, item.key).width
+          ),
+          y
+        });
+      }
+    };
+    for (const region of Q.layoutRegions)
+      place(items.filter((item) => !item.parent && item.region === region.id));
+    return positions;
+  }
   const HTTP_URL_HELP =
     'http:// 또는 https://로 시작하는 주소 하나를 입력하세요. 계정·비밀번호가 포함된 주소는 사용하지 마세요.';
   // For reference text only: this does not check DNS, redirects or private networks.
@@ -493,7 +539,7 @@
             !Q.layoutRegions.some((region) => region.id === placement.region) ||
             !(
               ['full', 'half'].includes(placement.width) ||
-              (Number.isInteger(placement.width) && placement.width >= 20 && placement.width <= 100)
+              (Number.isFinite(placement.width) && placement.width >= 1 && placement.width <= 100)
             ) ||
             (placement.height !== undefined &&
               (!Number.isSafeInteger(placement.height) || placement.height < MIN_ELEMENT_HEIGHT))
@@ -501,6 +547,17 @@
             fail(label + ' 배치');
           if (placement.parent !== undefined && typeof placement.parent !== 'string')
             fail(label + ' 포함 관계');
+          if (
+            placement.position !== undefined &&
+            (!plain(placement.position) ||
+              !Number.isFinite(placement.position.x) ||
+              placement.position.x < 0 ||
+              placement.position.x > 100 ||
+              !Number.isSafeInteger(placement.position.y) ||
+              placement.position.y < 0 ||
+              placement.position.y > MAX_CANVAS_Y)
+          )
+            fail(label + ' 자유 배치 위치');
           if (
             placement.grid !== undefined &&
             (!plain(placement.grid) ||
@@ -516,6 +573,9 @@
             region: placement.region,
             width: placement.width,
             ...(placement.height !== undefined ? { height: placement.height } : {}),
+            ...(placement.position
+              ? { position: { x: placement.position.x, y: placement.position.y } }
+              : {}),
             ...(placement.grid
               ? { grid: { column: placement.grid.column, row: placement.grid.row } }
               : {}),
@@ -658,6 +718,7 @@
     EXCLUSIVE,
     MAX_ROWS,
     MAX_GRID_ROWS,
+    MAX_CANVAS_Y,
     MAX_TEXT,
     HTTP_URL_HELP,
     allQuestions,
@@ -679,6 +740,7 @@
     elementPlacement,
     elementSize,
     gridLayout,
+    canvasLayout,
     MIN_ELEMENT_HEIGHT,
     elementLabel,
     canContain,

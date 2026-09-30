@@ -14,6 +14,7 @@
     elementPlacement,
     layoutItems,
     gridLayout,
+    canvasLayout,
     linkedFeatureIds,
     HTTP_URL_HELP
   } = root.BriefAnswers || require('./answers.js');
@@ -335,8 +336,16 @@
             : Q.layoutRegions.find((item) => item.id === region).label
         );
         field('같은 위치 안의 순서', String(order));
-        if (placement.grid) {
-          const position = gridLayout(layout).get(key);
+        if (placement.position) {
+          const position = canvasLayout(layout).get(key);
+          field(
+            '자유 배치 위치 · 기획용',
+            `왼쪽에서 ${Number(position.x.toFixed(2))}% · 위에서 ${position.y}px`
+          );
+        } else if (placement.grid) {
+          const position = gridLayout(
+            layout.filter((item) => !elementPlacement(item.owner, item.key).position)
+          ).get(key);
           field('격자 위치 · 기획용', `${position.row}행 · ${position.column}열 / 20열`);
         }
         field(

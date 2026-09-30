@@ -54,28 +54,18 @@
     );
   }
   function applySizes(container = document) {
-    for (const block of container.matches?.('.canvas-block[data-width]')
-      ? [container]
-      : container.querySelectorAll('.canvas-block[data-width]')) {
-      const span = Math.ceil(Number(block.dataset.width) / 5);
-      block.style.gridColumn = `${Math.min(Number(block.dataset.column) || 1, 21 - span)} / span ${span}`;
-      block.style.gridRow = block.dataset.row || 'auto';
+    const scope = container.ownerDocument || container;
+    for (const block of scope.querySelectorAll('.canvas-block[data-width]')) {
+      block.style.width = block.dataset.width + '%';
+      block.style.left = block.dataset.x + '%';
+      block.style.top = block.dataset.y + 'px';
       block.style.setProperty('--block-height', block.dataset.height + 'px');
     }
-    for (const grid of container.querySelectorAll('.canvas-grid')) {
+    for (const grid of [...scope.querySelectorAll('.canvas-grid')].reverse()) {
       const blocks = [...grid.querySelectorAll(':scope > .canvas-block')];
-      const count = blocks.length
-        ? Math.max(...blocks.map((block) => Number(block.dataset.row)))
-        : 0;
-      grid.querySelectorAll(':scope > .canvas-grid-row').forEach((row) => row.remove());
-      for (let index = 1; index <= count; index++) {
-        const row = document.createElement('div');
-        row.className = 'canvas-grid-row';
-        row.dataset.gridRow = index;
-        row.style.gridRow = String(index);
-        row.setAttribute('aria-hidden', 'true');
-        grid.prepend(row);
-      }
+      grid.style.minHeight =
+        Math.max(32, ...blocks.map((block) => Number(block.dataset.y) + block.offsetHeight + 16)) +
+        'px';
     }
   }
   function render(answers, state, inspector, reason, recommendation = '') {
@@ -83,7 +73,7 @@
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
     const common = screens.find((s) => s.isCommon);
     const blocks = A.layoutItems(screen, common);
-    const positions = A.gridLayout(blocks);
+    const positions = A.canvasLayout(blocks);
     const gridHtml = (items, target, path = []) => {
       return `<div class="canvas-grid${target.startsWith('parent:') ? ' canvas-children' : ''}" ${target.startsWith('parent:') ? `data-drop-parent="${esc(target.slice(7))}"` : `data-drop-region="${target.slice(7)}"`}>${items.map((item) => blockHtml(item, path)).join('')}</div>`;
     };
@@ -93,7 +83,7 @@
       const size = A.elementSize(owner, key);
       const position = positions.get(key);
       const children = blocks.filter((child) => child.parent === key);
-      return `<div class="canvas-block${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-block-key="${esc(key)}" data-width="${size.width}" data-height="${size.height}" data-column="${position.column}" data-row="${position.row}">
+      return `<div class="canvas-block${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-block-key="${esc(key)}" data-width="${size.width}" data-height="${size.height}" data-x="${position.x}" data-y="${position.y}">
         <div class="canvas-block-heading"><button type="button" class="canvas-block-select" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && key === element}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span></button>${A.canContain(key) ? `<button type="button" class="canvas-add-child" data-add-element data-screen="${index}" data-target="parent:${esc(key)}" data-drop-parent="${esc(key)}" aria-label="${esc(elementName(owner, key))} 안에 요소 추가" title="이 요소 안에 추가">+</button>` : ''}</div>
         ${A.canContain(key) ? gridHtml(children, 'parent:' + key, [...path, key]) : ''}
         ${inherited ? '' : `<button type="button" class="canvas-resize" data-resize-element="${esc(key)}" data-resize-owner="${owner.id}" aria-label="${esc(elementName(owner, key))} 크기 조절" title="끌어서 크기 조절 · 방향키로도 조절할 수 있어요"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20 20 8M14 20l6-6"/></svg></button>`}
@@ -121,7 +111,7 @@
               )}</section>`
           )
           .join('')}
-        </div></div><p class="designer-hint">이름을 끌어 격자에 놓고, 모서리로 크기를 조절해요. 설정의 방향 버튼으로도 이동할 수 있어요.</p>${reason}
+        </div></div><p class="designer-hint">이름을 끌어 원하는 곳에 놓고, 모서리로 크기를 조절해요. 점에 가볍게 맞춰지고 다른 요소는 그대로 있어요.</p>${reason}
       </section><div class="designer-panel${state.panelCollapsed ? ' panel-collapsed' : ''}">${state.panelCollapsed ? '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="false" aria-label="설정 패널 펼치기" title="설정 패널 펼치기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>' : ''}<aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
         <div class="inspector-heading">${state.panelCollapsed ? '' : '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="true" aria-label="설정 패널 접기" title="설정 패널 접기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><span class="inspector-toggle-label">설정 접기</span></button>'}<h4 tabindex="-1" id="inspector-title">${state.referenceOpen ? '참고 자료' : '설정'}</h4>${state.referenceOpen ? '<button type="button" class="button secondary small" data-close-reference>← 설정으로</button>' : '<button type="button" class="option-help" data-open-reference aria-label="요소·기능 참고 자료 보기" title="요소·기능 참고 자료">?</button>'}</div>
         <div class="inspector-body" id="designer-inspector-body">${state.referenceOpen ? references(state.referenceCategory) : `<button type="button" class="button secondary inspector-add" data-add-element data-screen="${index}">+ 요소 추가</button>${inspector}`}</div>

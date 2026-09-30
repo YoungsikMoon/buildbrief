@@ -422,10 +422,23 @@ for(const height of [64,80,119,801,1600,10000]) {
   assert.equal(A.elementSize(sized.screens[0],'button').height,height);
   assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...project}).projects[0].answers,sized);
 }
-for(const bad of [{width:19},{width:101},{width:'65%'},{width:NaN},{width:50.5},{height:63},{height:0},{height:-1},{height:64.5},{height:'240px'},{height:Infinity},{height:Number.MAX_SAFE_INTEGER+1}]) {
+for(const bad of [{width:0},{width:0.5},{width:101},{width:'65%'},{width:NaN},{width:Infinity},{height:63},{height:0},{height:-1},{height:64.5},{height:'240px'},{height:Infinity},{height:Number.MAX_SAFE_INTEGER+1}]) {
   const raw={screens:[{id:'s',placements:{button:{region:'main',width:50,...bad}}}]},before=clone(raw);
   assert.throws(()=>A.normalizeAnswers(raw));assert.deepEqual(clone(raw),before);
 }
+const free=A.normalizeAnswers({screens:[{id:'free',elements:['button','search'],placements:{button:{region:'main',width:19.25,height:120,position:{x:24.5,y:56}},search:{region:'main',width:33.3333,height:64,position:{x:24.5,y:56}}}}]});
+const freeBefore=clone(free), freePositions=A.canvasLayout(A.layoutItems(free.screens[0]));
+assert.deepEqual(freePositions.get('button'),{x:24.5,y:56});
+assert.deepEqual(freePositions.get('search'),{x:24.5,y:56},'Free placement permits intentional overlap');
+const grown=clone(free);grown.screens[0].placements.button.height=500;
+assert.deepEqual(A.canvasLayout(A.layoutItems(grown.screens[0])).get('search'),freePositions.get('search'),'Resizing a positioned box does not move its neighbor');
+assert(R.report(free).includes('왼쪽에서 24.5% · 위에서 56px'));
+assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...P.createProject({answers:free})}).projects[0].answers,free);
+assert.deepEqual(free,freeBefore);
+for(const position of [null,[],{}, {x:-1,y:0},{x:101,y:0},{x:'2',y:0},{x:Infinity,y:0},{x:NaN,y:0},{x:0,y:-1},{x:0,y:1.5},{x:0,y:A.MAX_CANVAS_Y+1},{x:0,y:Infinity}])
+  assert.throws(()=>A.normalizeAnswers({screens:[{id:'bad-position',elements:['button'],placements:{button:{region:'main',width:50,position}}}]}));
+for(const width of [1,12.5,19,33.3333,100]) assert.equal(A.normalizeAnswers({screens:[{id:'narrow',elements:['button'],placements:{button:{region:'main',width}}}]}).screens[0].placements.button.width,width);
+assert.deepEqual(A.canvasLayout(flowing).get('search'),{x:0,y:128},'Previous rows retain their order and vertical spacing on first display');
 assert.throws(()=>A.normalizeAnswers({screens:[{id:'s',elementContents:{button:{name:'x'.repeat(A.MAX_TEXT+1)}}}]}));
 // Old deleted links and untouched cards must not become requirements in any export.
 const missingIds=['deadbeef-0000-4000-8000-000000000001','deadbeef-0000-4000-8000-000000000002'];

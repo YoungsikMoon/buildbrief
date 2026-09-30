@@ -118,11 +118,11 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal(Math.round((await block(top).boundingBox()).height),64,'The box can visibly shrink below the former 120px minimum');
       await topResize.press('ArrowUp');assert.equal((await stored()).answers.screens[0].placements[top].height,64,'The control remains usable at its minimum height');
       if(width===1440){
-        for(let i=0;i<47;i++)await topResize.press('ArrowDown');
+        for(let i=0;i<94;i++)await topResize.press('ArrowDown');
         assert.equal((await stored()).answers.screens[0].placements[top].height,816,'Height can exceed the former 800px maximum');
         await page.reload();await go(4);
         assert.equal(Math.round((await block(top).boundingBox()).height),816,'Large heights survive reload');
-        for(let i=0;i<47;i++)await topResize.press('ArrowUp');
+        for(let i=0;i<94;i++)await topResize.press('ArrowUp');
       }
       await page.evaluate(()=>window.scrollTo(0,0));await shot('inline-add-controls');
       await addChild.focus();await addChild.press('Enter');
@@ -176,13 +176,13 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal((await stored()).answers.screens[0].placements[second].parent,top);
       await page.locator('[data-designer-move="-1"]').click();assert.equal((await stored()).answers.screens[0].layoutOrder.indexOf(second)<(await stored()).answers.screens[0].layoutOrder.indexOf(first),true);
       await page.locator('[data-designer-move="1"]').click();
-      const resize=page.locator(`[data-resize-element="${second}"]`);await resize.focus();await resize.press('ArrowLeft');await resize.press('ArrowDown');
-      assert.equal((await stored()).answers.screens[0].placements[second].width,95);
-      assert.equal((await stored()).answers.screens[0].placements[second].height,136);
+      const beforeResize=(await stored()).answers.screens[0].placements[second];const resize=page.locator(`[data-resize-element="${second}"]`);await resize.focus();await resize.press('ArrowLeft');await resize.press('ArrowDown');
+      const keyboardWidth=(await stored()).answers.screens[0].placements[second].width;assert(keyboardWidth<beforeResize.width);
+      assert.equal((await stored()).answers.screens[0].placements[second].height,128);
       await resize.scrollIntoViewIfNeeded();const box=await resize.boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
       if(width>800){await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x-65,y+64,{steps:8});await page.mouse.up();}
       else{const cdp=await context.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-25,y:y+64}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await cdp.detach();}
-      const resized=(await stored()).answers.screens[0].placements[second];assert(resized.width<95);assert(resized.height>136);
+      const resized=(await stored()).answers.screens[0].placements[second];assert(resized.width<keyboardWidth);assert(resized.height>128);
       if(width<800){const beforeCancel=(await stored()).answers;await resize.scrollIntoViewIfNeeded();const b=await resize.boundingBox(),cdp=await context.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+12,y:b.y+12}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:b.x-20,y:b.y+42}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await cdp.detach();assert.deepEqual((await stored()).answers,beforeCancel);}
       assert.equal(await block(second).evaluate(n=>parseInt(n.style.getPropertyValue('--block-height'))),resized.height);
       if(width>800){

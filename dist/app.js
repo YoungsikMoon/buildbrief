@@ -142,11 +142,29 @@
       region = ancestor?.region || region;
     }
     if (!Q.layoutRegions.some((r) => r.id === region)) return false;
+    const positions = A.canvasLayout(items);
+    const siblings = items.filter(
+      (item) => item.key !== key && item.parent === parent && (parent || item.region === region)
+    );
+    const bottom = Math.max(
+      0,
+      ...siblings.map((item) => {
+        const block = [...document.querySelectorAll('.canvas-block')].find(
+          (block) => block.dataset.blockKey === item.key
+        );
+        return (
+          positions.get(item.key).y +
+          (block?.offsetHeight || A.elementSize(item.owner, item.key).height) +
+          16
+        );
+      })
+    );
     screen.placements ||= {};
     const previous = screen.placements[key];
     screen.placements[key] = {
       region,
       width: current.width,
+      position: { x: 0, y: Math.min(A.MAX_CANVAS_Y, bottom) },
       ...(current.height !== undefined ? { height: current.height } : {}),
       ...(parent ? { parent } : {})
     };
@@ -170,34 +188,37 @@
         )
           placeElement(row, childKey, 'region:' + placement.region);
   }
-  function moveCanvasElement(key, target, before = '', grid = null) {
+  function canvasPositions(screen) {
+    const positions = new Map();
+    for (const block of document.querySelectorAll('.canvas-block')) {
+      const owner = block.querySelector(':scope > .canvas-block-heading > [data-canvas-owner]');
+      if (owner?.dataset.canvasOwner === screen.id)
+        positions.set(block.dataset.blockKey, {
+          x: Number(block.dataset.x),
+          y: Math.min(A.MAX_CANVAS_Y, Number(block.dataset.y))
+        });
+    }
+    return positions;
+  }
+  function keepCanvasPositions(screen, positions) {
+    screen.placements ||= {};
+    for (const [key, position] of positions) {
+      screen.placements[key] = { ...A.elementPlacement(screen, key), position };
+      delete screen.placements[key].grid;
+    }
+  }
+  function moveCanvasElement(key, target, before = '', position = null) {
     const { screen } = D.selection(answers, designerState);
     const order = A.elementKeys(screen);
-    if (before === key || !order.includes(key) || !placeElement(screen, key, target)) return;
+    const positions = canvasPositions(screen);
+    if (!order.includes(key) || !placeElement(screen, key, target)) return;
+    positions.delete(key);
+    keepCanvasPositions(screen, positions);
     const next = order.filter((id) => id !== key);
     next.splice(before && next.includes(before) ? next.indexOf(before) : next.length, 0, key);
     screen.layoutOrder = next;
-    if (grid) {
-      screen.placements[key].grid = grid;
-      const items = A.layoutItems(
-        screen,
-        rowsOf('screens').find((s) => s.isCommon)
-      );
-      const current = items.find((item) => item.key === key);
-      const positions = A.gridLayout(items, key);
-      for (const item of items.filter(
-        (item) =>
-          !item.inherited &&
-          item.parent === current.parent &&
-          (current.parent || item.region === current.region)
-      )) {
-        const { row, column } = positions.get(item.key);
-        screen.placements[item.key] = {
-          ...A.elementPlacement(screen, item.key),
-          grid: { row, column }
-        };
-      }
-    }
+    if (position) screen.placements[key].position = position;
+    designerState.element = key;
     changed(true);
   }
   function toggleExpandedDesigner() {
@@ -691,6 +712,7 @@
             ?.setAttribute('aria-label', name + ' 크기 조절');
         }
       });
+      D.applySizes();
     }
     if (rerender)
       [...document.querySelectorAll('[data-q]')]
@@ -753,24 +775,17 @@
     block.dataset.height = size.height;
     D.applySizes(block);
   }
-  function saveElementSize(screen, key, size) {
+  function saveElementSize(screen, key, size, positions = canvasPositions(screen)) {
+    keepCanvasPositions(screen, positions);
     screen.placements ||= {};
     screen.placements[key] = { ...A.elementPlacement(screen, key), ...size };
-    const positions = A.gridLayout(
-      A.layoutItems(
-        screen,
-        rowsOf('screens').find((s) => s.isCommon)
-      )
-    );
+    const position = screen.placements[key].position;
+    if (position) position.x = Math.min(position.x, 100 - size.width);
     for (const block of document.querySelectorAll('.canvas-block')) {
-      const position = positions.get(block.dataset.blockKey);
-      if (position) {
-        block.dataset.row = position.row;
-        block.dataset.column = position.column;
-      }
       if (block.dataset.blockKey === key) {
         block.dataset.width = size.width;
         block.dataset.height = size.height;
+        if (position) block.dataset.x = position.x;
       }
     }
     D.applySizes();
@@ -788,7 +803,7 @@
       rowsOf('screens').includes(state.screen) &&
       state.handle.isConnected
     )
-      saveElementSize(state.screen, state.key, state.size);
+      saveElementSize(state.screen, state.key, state.size, state.positions);
     else if (state.handle.isConnected) showElementSize(state.handle, state.before);
   }
   document.addEventListener('pointerdown', (event) => {
@@ -810,6 +825,7 @@
       screen,
       key,
       before,
+      positions: canvasPositions(screen),
       size: { ...before },
       pointer: event.pointerId,
       x: event.clientX,
@@ -827,17 +843,29 @@
     if (Math.abs(dx) + Math.abs(dy) < 3 && !resizing.moved) return;
     resizing.moved = true;
     resizing.size = {
-      width: Math.max(
-        20,
-        Math.min(
-          100,
-          Math.round((resizing.before.width + (dx / resizing.parentWidth) * 100) / 5) * 5
-        )
-      ),
-      height: Math.max(
-        A.MIN_ELEMENT_HEIGHT,
-        Math.min(Number.MAX_SAFE_INTEGER, Math.round((resizing.height + dy) / 8) * 8)
-      )
+      width:
+        Math.abs(dx) < 3
+          ? resizing.before.width
+          : Number(
+              Math.max(
+                1,
+                Math.min(100, 6400 / resizing.parentWidth),
+                Math.min(
+                  100 - resizing.positions.get(resizing.key).x,
+                  ((Math.round(((resizing.before.width / 100) * resizing.parentWidth + dx) / 8) *
+                    8) /
+                    resizing.parentWidth) *
+                    100
+                )
+              ).toFixed(4)
+            ),
+      height:
+        Math.abs(dy) < 3
+          ? resizing.before.height
+          : Math.max(
+              A.MIN_ELEMENT_HEIGHT,
+              Math.min(Number.MAX_SAFE_INTEGER, Math.round((resizing.height + dy) / 8) * 8)
+            )
     };
     showElementSize(resizing.handle, resizing.size);
   });
@@ -873,28 +901,40 @@
     if (!screen || !A.elementKeys(screen).includes(key)) return;
     event.preventDefault();
     const size = A.elementSize(screen, key);
-    size.width = Math.max(
-      20,
-      Math.min(
-        100,
-        size.width + (event.key === 'ArrowLeft' ? -5 : event.key === 'ArrowRight' ? 5 : 0)
-      )
-    );
+    const parentWidth = handle.closest('.canvas-block').parentElement.clientWidth;
+    const x = Number(handle.closest('.canvas-block').dataset.x);
+    if (['ArrowLeft', 'ArrowRight'].includes(event.key))
+      size.width = Number(
+        Math.max(
+          1,
+          Math.min(100, 6400 / parentWidth),
+          Math.min(
+            100 - x,
+            size.width + (event.key === 'ArrowLeft' ? -800 / parentWidth : 800 / parentWidth)
+          )
+        ).toFixed(4)
+      );
     size.height = Math.max(
       A.MIN_ELEMENT_HEIGHT,
       Math.min(
         Number.MAX_SAFE_INTEGER,
-        size.height + (event.key === 'ArrowUp' ? -16 : event.key === 'ArrowDown' ? 16 : 0)
+        size.height + (event.key === 'ArrowUp' ? -8 : event.key === 'ArrowDown' ? 8 : 0)
       )
     );
     showElementSize(handle, size);
     saveElementSize(screen, key, size);
-    toast(`너비 ${size.width}%, 최소 높이 ${size.height}px`);
+    toast(`너비 ${Math.round(size.width)}%, 최소 높이 ${size.height}px`);
   });
   document.addEventListener('dragstart', (event) => {
     const block = event.target.closest('[data-canvas-element][draggable="true"]');
     if (!block) return;
-    draggedElement = { screenId: block.dataset.canvasOwner, key: block.dataset.canvasElement };
+    const rect = block.closest('.canvas-block').getBoundingClientRect();
+    draggedElement = {
+      screenId: block.dataset.canvasOwner,
+      key: block.dataset.canvasElement,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', draggedElement.key);
   });
@@ -907,44 +947,33 @@
     if (!grid || !draggedElement) return null;
     const { screen } = D.selection(answers, designerState);
     const rect = grid.getBoundingClientRect();
-    const span = Math.ceil(A.elementSize(screen, draggedElement.key).width / 5);
-    const rows = [...grid.querySelectorAll(':scope > .canvas-grid-row')].sort(
-      (a, b) => Number(a.dataset.gridRow) - Number(b.dataset.gridRow)
-    );
-    const row = rows.find((line) => event.clientY <= line.getBoundingClientRect().bottom + 4);
-    const position = {
-      column: Math.max(
-        1,
-        Math.min(21 - span, Math.floor(((event.clientX - rect.left) / rect.width) * 20) + 1)
-      ),
-      row: Math.min(A.MAX_GRID_ROWS, row ? Number(row.dataset.gridRow) : rows.length + 1)
-    };
+    const width = A.elementSize(screen, draggedElement.key).width;
     const items = A.layoutItems(
       screen,
       rowsOf('screens').find((s) => s.isCommon)
     );
     const parent = zone.dataset.dropParent || '';
     if (parent && !A.canNest(items, draggedElement.key, parent)) return null;
-    const preview = items.map((item) =>
-      item.key !== draggedElement.key
-        ? item
-        : {
-            ...item,
-            parent,
-            region: zone.dataset.dropRegion || item.region,
-            owner: {
-              ...screen,
-              placements: {
-                ...screen.placements,
-                [item.key]: { ...A.elementPlacement(screen, item.key), grid: position }
-              }
-            }
-          }
-    );
-    const { row: targetRow, column } = A.gridLayout(preview, draggedElement.key).get(
-      draggedElement.key
-    );
-    return { row: targetRow, column };
+    return {
+      x: Number(
+        Math.max(
+          0,
+          Math.min(
+            100 - width,
+            ((Math.round((event.clientX - rect.left - draggedElement.offsetX) / 8) * 8) /
+              rect.width) *
+              100
+          )
+        ).toFixed(4)
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          A.MAX_CANVAS_Y,
+          Math.round((event.clientY - rect.top - draggedElement.offsetY) / 8) * 8
+        )
+      )
+    };
   }
   document.addEventListener('dragover', (event) => {
     const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
@@ -964,8 +993,11 @@
       const preview = document.createElement('div');
       preview.className = 'canvas-drop-preview';
       preview.setAttribute('aria-hidden', 'true');
-      preview.style.gridColumn = `${position.column} / span ${Math.ceil(A.elementSize(screen, draggedElement.key).width / 5)}`;
-      preview.style.gridRow = String(position.row);
+      const size = A.elementSize(screen, draggedElement.key);
+      preview.style.left = position.x + '%';
+      preview.style.top = position.y + 'px';
+      preview.style.width = size.width + '%';
+      preview.style.height = size.height + 'px';
       zone.append(preview);
     }
   });
@@ -1022,26 +1054,32 @@
           rowsOf('screens').find((s) => s.isCommon)
         );
         const current = items.find((item) => item.key === element);
-        const position = A.gridLayout(items).get(element);
-        const column = Math.max(
-          1,
-          Math.min(
-            21 - position.span,
-            position.column + (d.gridMove === 'left' ? -1 : d.gridMove === 'right' ? 1 : 0)
-          )
+        const position = canvasPositions(screen).get(element);
+        const block = [...document.querySelectorAll('.canvas-block')].find(
+          (block) => block.dataset.blockKey === element
         );
-        const row = Math.max(
-          1,
+        const stepX = 800 / block.parentElement.clientWidth;
+        const x = Number(
+          Math.max(
+            0,
+            Math.min(
+              100 - A.elementSize(screen, element).width,
+              position.x + (d.gridMove === 'left' ? -stepX : d.gridMove === 'right' ? stepX : 0)
+            )
+          ).toFixed(4)
+        );
+        const y = Math.max(
+          0,
           Math.min(
-            A.MAX_GRID_ROWS,
-            position.row + (d.gridMove === 'up' ? -1 : d.gridMove === 'down' ? 1 : 0)
+            A.MAX_CANVAS_Y,
+            position.y + (d.gridMove === 'up' ? -8 : d.gridMove === 'down' ? 8 : 0)
           )
         );
         moveCanvasElement(
           element,
           current.parent ? 'parent:' + current.parent : 'region:' + current.region,
           '',
-          { column, row }
+          { x, y }
         );
       }
       document
@@ -1116,18 +1154,7 @@
         to = order.indexOf(neighbor);
       if (from < 0 || to < 0) return;
       [order[from], order[to]] = [order[to], order[from]];
-      const firstGrid = screen.placements?.[element]?.grid;
-      const secondGrid = screen.placements?.[neighbor]?.grid;
-      if (firstGrid || secondGrid) {
-        const positions = A.gridLayout(items);
-        for (const [key, other] of [
-          [element, neighbor],
-          [neighbor, element]
-        ]) {
-          const { row, column } = positions.get(other);
-          screen.placements[key] = { ...A.elementPlacement(screen, key), grid: { row, column } };
-        }
-      }
+      keepCanvasPositions(screen, canvasPositions(screen));
       screen.layoutOrder = order;
       changed(true);
       (
@@ -1141,11 +1168,15 @@
       if (!element) return;
       if (element.startsWith('custom:')) {
         if (!window.confirm('이 요소와 작성한 내용을 삭제할까요?')) return;
+        keepCanvasPositions(screen, canvasPositions(screen));
         detachChildren(screen, element);
         screen.customElements = screen.customElements.filter((el) => el.id !== element.slice(7));
         screen.layoutOrder = (screen.layoutOrder || []).filter((key) => key !== element);
         if (screen.placements) delete screen.placements[element];
-      } else screen.elements = screen.elements.filter((id) => id !== element);
+      } else {
+        keepCanvasPositions(screen, canvasPositions(screen));
+        screen.elements = screen.elements.filter((id) => id !== element);
+      }
       designerState.element = '';
       designerState.referenceOpen = false;
       designerState.panel = 'settings';
@@ -1278,6 +1309,7 @@
       const item = { id: P.newId(), name: '', purpose: '' };
       const selected = D.selection(answers, designerState).element;
       const placement = selected ? A.elementPlacement(screen, selected) : { region: 'main' };
+      const positions = canvasPositions(screen);
       screen.customElements.push(item);
       if (
         !placeElement(
@@ -1290,6 +1322,15 @@
         screen.customElements.pop();
         return toast('추가할 위치를 다시 선택해 주세요.');
       }
+      keepCanvasPositions(screen, positions);
+      const created = screen.placements['custom:' + item.id];
+      const canvas = [...document.querySelectorAll('.canvas-grid')].find((grid) =>
+        created.parent
+          ? grid.dataset.dropParent === created.parent
+          : grid.dataset.dropRegion === created.region
+      );
+      if (canvas?.clientWidth)
+        created.width = Number(Math.max(1, Math.min(100, 24000 / canvas.clientWidth)).toFixed(4));
       designerState = {
         ...designerState,
         screenId: screen.id,
@@ -1622,6 +1663,7 @@
       toast('자동 저장을 멈췄어요. 이 탭의 답변을 백업한 뒤 새로고침해 주세요.');
     }
   });
+  window.addEventListener('resize', () => D.applySizes());
   for (const [selector, property] of [
     ['.topbar', '--topbar-height'],
     ['.mobile-navigation', '--mobile-nav-height'],

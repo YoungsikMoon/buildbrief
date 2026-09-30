@@ -39,7 +39,11 @@ module.exports = async ({ page, go, width, shot }) => {
   await page.reload();
   await go(4);
   const block = (key) => page.locator(`[data-block-key="custom:${key}"]`);
-  const select = (key) => page.locator(`[data-canvas-element="custom:${key}"]`).click();
+  const select = async (key) => {
+    const button = page.locator(`[data-canvas-element="custom:${key}"]`);
+    await button.focus();
+    await button.press('Enter');
+  };
   const stored = () =>
     page.evaluate(() => {
       const w = JSON.parse(localStorage.getItem(BriefProjects.KEY));
@@ -59,8 +63,8 @@ module.exports = async ({ page, go, width, shot }) => {
   };
   await assertSeparate();
   assert.equal(
-    await block('a').getAttribute('data-row'),
-    await block('b').getAttribute('data-row'),
+    await block('a').getAttribute('data-y'),
+    await block('b').getAttribute('data-y'),
     'Half-width elements sit side by side'
   );
   const expand = page.locator('[data-expand-designer]');
@@ -81,46 +85,66 @@ module.exports = async ({ page, go, width, shot }) => {
   assert(await page.locator('.site-footer').isHidden());
   assert((await page.locator('.canvas-paper').boundingBox()).width > oldWidth);
   assert.deepEqual(await stored(), before, 'Expanding does not change answers');
+  const aPosition = await block('a').evaluate((n) => ({ x: n.dataset.x, y: n.dataset.y }));
+  const checkA = async () =>
+    assert.deepEqual(
+      await block('a').evaluate((n) => ({ x: n.dataset.x, y: n.dataset.y })),
+      aPosition,
+      'Moving or resizing a neighbor leaves this box in place'
+    );
   await select('b');
   await page.locator('[data-grid-move="left"]').click();
-  assert.deepEqual((await stored()).screens[0].placements['custom:b'].grid, { row: 1, column: 10 });
-  assert.equal(
-    (await stored()).screens[0].placements['custom:a'].grid.row,
-    2,
-    'A collision moves the other box to the next row'
+  let moved = (await stored()).screens[0].placements['custom:b'];
+  assert(moved.position.x < 50 && moved.position.x > 0);
+  assert.equal(moved.position.y, 0);
+  await checkA();
+  const aBox = await block('a').boundingBox(),
+    bBox = await block('b').boundingBox();
+  assert(
+    bBox.x < aBox.x + aBox.width && bBox.y === aBox.y,
+    'Free placement permits overlap without pushing other boxes'
   );
-  await assertSeparate();
   await page.locator('[data-grid-move="down"]').click();
-  assert.equal((await stored()).screens[0].placements['custom:b'].grid.row, 2);
+  assert.equal((await stored()).screens[0].placements['custom:b'].position.y, 8);
   await page.locator('[data-grid-move="up"]').click();
   await page.locator('[data-grid-move="right"]').click();
-  assert.deepEqual((await stored()).screens[0].placements['custom:b'].grid, { row: 1, column: 11 });
+  assert(Math.abs((await stored()).screens[0].placements['custom:b'].position.x - 50) < 0.001);
   await page.locator('[data-grid-width="100"]').click();
-  await assertSeparate();
+  await checkA();
   await page.locator('[data-grid-width="50"]').click();
   assert.equal(await block('b').getAttribute('data-width'), '50');
+  await checkA();
   if (width > 800) {
+    await select('a');
     const grid = page.locator('.region-main > .canvas-grid');
-    const rect = await grid.boundingBox(),
-      row = await grid.locator('[data-grid-row="2"]').boundingBox();
-    await page
-      .locator('[data-canvas-element="custom:a"]')
-      .dragTo(grid, { targetPosition: { x: rect.width * 0.56, y: row.y - rect.y + 12 } });
-    assert.deepEqual(
-      (await stored()).screens[0].placements['custom:a'].grid,
-      { row: 2, column: 11 },
-      'Pointer drops persist the chosen grid cell'
+    const rect = await grid.boundingBox();
+    const beforeB = (await stored()).screens[0].placements['custom:b'];
+    await page.locator('[data-canvas-element="custom:a"]').dragTo(grid, {
+      sourcePosition: { x: 8, y: 8 },
+      targetPosition: { x: rect.width * 0.3 + 12, y: 84 }
+    });
+    const position = (await stored()).screens[0].placements['custom:a'].position;
+    assert(
+      position.x > 0 && position.y > 0 && position.y < 96,
+      'Pointer drops save a free position between former rows'
     );
+    assert.equal(position.y % 8, 0, 'Drops lightly snap to dots');
+    assert.deepEqual((await stored()).screens[0].placements['custom:b'], beforeB);
     assert.equal(await page.locator('.canvas-drop-preview,.drop-active').count(), 0);
-    await assertSeparate();
+    const beforeSizeB = await block('b').boundingBox();
+    await page.locator('[data-resize-element="custom:a"]').press('ArrowDown');
+    assert.deepEqual(
+      await block('b').boundingBox(),
+      beforeSizeB,
+      'Resizing does not shift neighbors'
+    );
   }
   await page.locator('[data-designer-screen="grid-own"]').click();
   await select('child');
   await page.locator('[data-grid-move="right"]').click();
-  assert.deepEqual((await stored()).screens[1].placements['custom:child'].grid, {
-    row: 1,
-    column: 2
-  });
+  const childPosition = (await stored()).screens[1].placements['custom:child'].position;
+  assert(childPosition.x > 0);
+  assert.equal(childPosition.y, 0);
   assert.equal((await stored()).screens[1].placements['custom:child'].parent, 'custom:container');
   assert(
     await page.locator('body').evaluate((n) => n.classList.contains('designer-expanded')),
@@ -153,7 +177,7 @@ module.exports = async ({ page, go, width, shot }) => {
     await page.setViewportSize({ width, height: 1000 });
   }
   await page.locator('#screen-designer').evaluate((n) => (n.scrollTop = 0));
-  await shot('expanded-grid');
+  await shot('free-canvas');
   await page.keyboard.press('Escape');
   assert.equal(await expand.getAttribute('aria-pressed'), 'false');
   assert(await expand.evaluate((n) => n === document.activeElement));
@@ -162,7 +186,10 @@ module.exports = async ({ page, go, width, shot }) => {
   await page.reload();
   await go(4);
   assert.deepEqual(await stored(), saved, 'Grid positions survive reload');
-  await assertSeparate();
+  assert.deepEqual(
+    await block('a').evaluate((n) => ({ x: Number(n.dataset.x), y: Number(n.dataset.y) })),
+    saved.screens[0].placements['custom:a'].position
+  );
   assert.equal(await expand.getAttribute('aria-pressed'), 'false', 'Expanded mode is temporary');
   await page.evaluate(() => {
     const w = JSON.parse(localStorage.getItem(BriefProjects.KEY));
@@ -177,7 +204,7 @@ module.exports = async ({ page, go, width, shot }) => {
       JSON.stringify(BriefAnswers.normalizeAnswers(project.answers))
     )
       throw new Error('Grid backup mismatch');
-    if (!BriefReport.report(restored.answers).includes('격자 위치'))
+    if (!BriefReport.report(restored.answers).includes('자유 배치 위치'))
       throw new Error('Grid positions missing from report');
   });
   console.log(`Grid and expanded editor browser checks passed: ${width}px`);
