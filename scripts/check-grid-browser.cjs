@@ -116,14 +116,23 @@ module.exports = async ({ page, go, width, shot }) => {
   await checkA();
   if (width > 800) {
     await select('a');
+    await page.locator('.level-filter summary').click();
+    await page.locator('[data-level-key="custom:b"]').uncheck();
+    await page.keyboard.press('Escape');
     const grid = page.locator('.region-main > .canvas-grid');
     const rect = await grid.boundingBox();
     const beforeB = (await stored()).screens[0].placements['custom:b'];
+    const beforeLevel = await block('a').getAttribute('data-level');
     await page.locator('[data-canvas-element="custom:a"]').dragTo(grid, {
       sourcePosition: { x: 8, y: 8 },
       targetPosition: { x: rect.width * 0.3 + 12, y: 84 }
     });
     const position = (await stored()).screens[0].placements['custom:a'].position;
+    assert.equal(
+      await block('a').getAttribute('data-level'),
+      beforeLevel,
+      'Moving a box does not change its level'
+    );
     assert(
       position.x > 0 && position.y > 0 && position.y < 96,
       'Pointer drops save a free position between former rows'
@@ -131,6 +140,9 @@ module.exports = async ({ page, go, width, shot }) => {
     assert.equal(position.y % 8, 0, 'Drops lightly snap to dots');
     assert.deepEqual((await stored()).screens[0].placements['custom:b'], beforeB);
     assert.equal(await page.locator('.canvas-drop-preview,.drop-active').count(), 0);
+    await page.locator('.level-filter summary').click();
+    await page.locator('[data-level-key="custom:b"]').check();
+    await page.keyboard.press('Escape');
     const beforeSizeB = await block('b').boundingBox();
     await page.locator('[data-resize-element="custom:a"]').press('ArrowDown');
     assert.deepEqual(
@@ -150,14 +162,14 @@ module.exports = async ({ page, go, width, shot }) => {
     await page.locator('body').evaluate((n) => n.classList.contains('designer-expanded')),
     'Screen and selection changes keep expanded mode'
   );
-  await page.locator('[data-open-reference]').click();
+  await page.locator('[data-designer-panel="reference"]').click();
   await page.locator('.insert-element button').first().click();
   await page.keyboard.press('Escape');
   assert(
     await page.locator('body').evaluate((n) => n.classList.contains('designer-expanded')),
     'Closing a help dialog does not exit expanded mode'
   );
-  await page.locator('[data-close-reference]').click();
+  await page.locator('[data-designer-panel="element"]').click();
   await page.locator('[data-designer-screen="grid-common"]').click();
   await page.locator('[data-toggle-inspector]').click();
   if (width > 800) {
@@ -207,5 +219,83 @@ module.exports = async ({ page, go, width, shot }) => {
     if (!BriefReport.report(restored.answers).includes('자유 배치 위치'))
       throw new Error('Grid positions missing from report');
   });
+  await page.evaluate(() => {
+    const workspace = JSON.parse(localStorage.getItem(BriefProjects.KEY));
+    workspace.projects.find((p) => p.id === workspace.activeId).answers = {};
+    localStorage.setItem(BriefProjects.KEY, JSON.stringify(workspace));
+  });
+  await page.reload();
+  await go(4);
+  const tab = (id) => page.locator('[data-designer-panel="' + id + '"]');
+  assert.deepEqual(await page.locator('.inspector-tabs [role="tab"]').allTextContents(), [
+    '화면',
+    '요소',
+    '참고'
+  ]);
+  assert.equal(
+    await page
+      .locator('[data-designer-settings],[data-open-reference],[data-close-reference]')
+      .count(),
+    0
+  );
+  await tab('element').click();
+  assert(
+    (await page.locator('#designer-inspector-body').innerText()).includes('배치한 요소를 선택')
+  );
+  await page.locator('[data-add="screens"]').click();
+  assert.equal(await tab('screen').getAttribute('aria-selected'), 'true');
+  assert.equal((await stored()).screens[1].name, '새 화면 1');
+  await page.locator('[data-add="screens"]').click();
+  assert.equal((await stored()).screens[2].name, '새 화면 2');
+  const owner = (await stored()).screens[2].id;
+  await page.locator('[data-add-element][data-target="region:main"]').click();
+  assert.equal(await tab('element').getAttribute('aria-selected'), 'true');
+  const first = (await stored()).screens[2].customElements[0];
+  assert.equal(first.name, '요소1');
+  await page.locator('.inspector-add').click();
+  const second = (await stored()).screens[2].customElements[1];
+  assert.equal(second.name, '요소2');
+  await page.locator('[data-property="purpose"]').fill('탭을 바꿔도 남아 있는 설명');
+  const original = await stored();
+  await tab('screen').click();
+  assert(await page.getByLabel('화면 이름', { exact: true }).isVisible());
+  assert.equal(await page.locator('.natural-element-settings').count(), 0);
+  await tab('screen').press('ArrowRight');
+  assert.equal(await tab('element').getAttribute('aria-selected'), 'true');
+  assert(await tab('element').evaluate((n) => n === document.activeElement));
+  assert.equal(await page.locator('[data-property="name"]').inputValue(), '요소2');
+  assert.equal(
+    await page.locator('[data-property="purpose"]').inputValue(),
+    '탭을 바꿔도 남아 있는 설명'
+  );
+  await tab('element').press('End');
+  assert(await page.getByLabel('참고할 분류', { exact: true }).isVisible());
+  await tab('reference').press('Home');
+  assert.equal(await tab('screen').getAttribute('aria-selected'), 'true');
+  assert.deepEqual(await stored(), original, 'Tab switching does not change saved work');
+  await page.locator('[data-canvas-element="custom:' + first.id + '"]').click();
+  assert.equal(await tab('element').getAttribute('aria-selected'), 'true');
+  await page.locator('[data-designer-remove-element]').click();
+  await page.locator('.inspector-add').click();
+  assert.equal((await stored()).screens[2].customElements.at(-1).name, '요소3');
+  await tab('screen').click();
+  await page.getByLabel('화면 이름', { exact: true }).fill('');
+  assert.equal(
+    await page.locator('[data-designer-screen="' + owner + '"]').innerText(),
+    '새 화면 2'
+  );
+  assert.equal(await page.locator('.designer-stage-title h3').innerText(), '새 화면 2');
+  await page.reload();
+  await go(4);
+  await page.locator('[data-designer-screen="' + owner + '"]').click();
+  assert.deepEqual(
+    (await stored()).screens[2].customElements.map((el) => el.name),
+    ['요소2', '요소3']
+  );
+  assert.equal(await page.locator('#designer-inspector [role="tabpanel"]:visible').count(), 1);
+  await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.evaluate(() => (document.documentElement.style.fontSize = ''));
+  await shot('inspector-tabs');
   console.log(`Grid and expanded editor browser checks passed: ${width}px`);
 };

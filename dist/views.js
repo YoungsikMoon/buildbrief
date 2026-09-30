@@ -5,6 +5,7 @@
   const R = root.BriefReport || require('./report.js');
   const P = root.BriefProjects || require('./projects.js');
   const G = root.BriefGuides || require('./guides.js');
+  const T = root.BriefPlanningTemplate || require('./planning-template.js');
   const { featureTypes, uiElements } = Q;
   const { priorities } = A;
   const D = root.BriefDesigner || require('./designer.js');
@@ -521,10 +522,12 @@ ${esc(value)}</textarea
   }
 
   function screenEditor(q, answers, state = {}, recommendations = []) {
-    const { screen: row, index: i, element } = D.selection(answers, state);
+    const { screen: row, index: i, element, panel } = D.selection(answers, state);
     let inspector = '';
     if (i < 0) inspector = '<p class="field-help">기본 공통 화면부터 구성하세요.</p>';
-    else if (element) {
+    else if (panel === 'element' && !element)
+      inspector = '<p class="field-help">배치한 요소를 선택하거나 새 요소를 추가하세요.</p>';
+    else if (panel === 'element') {
       const items = A.layoutItems(
         row,
         rowsOf(answers, 'screens').find((s) => s.isCommon)
@@ -561,7 +564,8 @@ ${esc(value)}</textarea
         input(
           '요소 이름',
           custom ? custom.name : plan.name === undefined ? A.elementLabel(row, element) : plan.name,
-          nameAttrs
+          nameAttrs,
+          { placeholder: A.elementLabel(row, element) }
         ) +
         input(
           '어떤 용도로 쓰나요?',
@@ -569,14 +573,20 @@ ${esc(value)}</textarea
           descriptionAttrs,
           { type: 'textarea', help: '보여 줄 정보, 사용할 기능과 동작을 자유롭게 적어 주세요.' }
         ) +
-        '<div class="placement-controls"><div class="grid-controls" role="group" aria-label="자유 배치"><span>위치</span><button type="button" class="button secondary small" data-grid-move="left" aria-label="왼쪽으로 이동">←</button><button type="button" class="button secondary small" data-grid-move="up" aria-label="위로 이동">↑</button><button type="button" class="button secondary small" data-grid-move="down" aria-label="아래로 이동">↓</button><button type="button" class="button secondary small" data-grid-move="right" aria-label="오른쪽으로 이동">→</button></div><div class="grid-controls" role="group" aria-label="요소 너비"><span>너비</span><button type="button" class="button secondary small" data-grid-width="50">절반</button><button type="button" class="button secondary small" data-grid-width="100">전체</button></div><div class="inline-actions"><button type="button" class="button secondary small" data-designer-move="-1" ' +
-        (siblings[0]?.key === element ? 'disabled' : '') +
-        '>앞으로</button><button type="button" class="button secondary small" data-designer-move="1" ' +
+        '<div class="placement-controls"><div class="grid-controls" role="group" aria-label="자유 배치"><span>위치</span><button type="button" class="button secondary small" data-grid-move="left" aria-label="왼쪽으로 이동">←</button><button type="button" class="button secondary small" data-grid-move="up" aria-label="위로 이동">↑</button><button type="button" class="button secondary small" data-grid-move="down" aria-label="아래로 이동">↓</button><button type="button" class="button secondary small" data-grid-move="right" aria-label="오른쪽으로 이동">→</button></div><div class="grid-controls" role="group" aria-label="요소 너비"><span>너비</span><button type="button" class="button secondary small" data-grid-width="50">절반</button><button type="button" class="button secondary small" data-grid-width="100">전체</button></div><div class="inline-actions level-controls" role="group" aria-label="요소 레벨"><span>' +
+        A.elementLevels(items).get(element) +
+        '레벨</span><button type="button" class="button secondary small" data-level-move="1" aria-label="레벨 높이기" ' +
         (siblings.at(-1)?.key === element ? 'disabled' : '') +
-        '>뒤로</button><button type="button" class="button secondary element-delete" data-designer-remove-element aria-label="요소 삭제" title="요소 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div></div></div>';
-    } else {
+        '>↑</button><button type="button" class="button secondary small" data-level-move="-1" aria-label="레벨 낮추기" ' +
+        (siblings[0]?.key === element ? 'disabled' : '') +
+        '>↓</button><button type="button" class="option-help" data-level-help aria-label="요소 레벨 안내">?</button><button type="button" class="button secondary element-delete" data-designer-remove-element aria-label="요소 삭제" title="요소 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div></div></div>';
+    } else if (panel === 'screen') {
       inspector =
-        (row.isCommon ? '' : input('화면 이름', row.name, attrs('screens', i, 'name'))) +
+        (row.isCommon
+          ? ''
+          : input('화면 이름', row.name, attrs('screens', i, 'name'), {
+              placeholder: A.screenLabel(rowsOf(answers, 'screens'), row)
+            })) +
         input(
           row.isCommon ? '공통 화면의 용도' : '화면의 목적',
           row.purpose,
@@ -788,6 +798,150 @@ ${esc(value)}</textarea
         : ''}</fieldset
     >`;
   }
+  function planningTemplateStatus(template) {
+    if (!template?.enabled) return '아이디어 정리와 빠진 질문을 중심으로 요청해요.';
+    return '설계·보안·검증 계획과 공식 지침까지 함께 요청해요.';
+  }
+  function renderPrompt(
+    answers = {},
+    notes = {},
+    recommendations = [],
+    template = null,
+    promptDrafts = {}
+  ) {
+    const saved = template || { enabled: false, version: T.version, text: T.text };
+    const text = R.report(answers, true, notes, recommendations, saved, promptDrafts);
+    const edited = Object.hasOwn(promptDrafts, saved.enabled ? 'advanced' : 'basic');
+    return /* HTML */ `<div class="prompt-header">
+        <h2 id="prompt-title" tabindex="-1">AI에 전달할 프롬프트</h2>
+        <button
+          type="button"
+          class="button secondary small"
+          id="close-prompt"
+          aria-label="프롬프트 창 닫기"
+          >닫기 ×</button
+        >
+      </div>
+      <div class="prompt-body">
+        <div class="prompt-mode-bar">
+          <label class="prompt-mode-switch">
+            <span>기본</span>
+            <input
+              type="checkbox"
+              role="switch"
+              id="planning-template-enabled"
+              aria-label="고급 프롬프트"
+              aria-describedby="planning-template-status"
+              ${saved.enabled ? 'checked' : ''}
+            />
+            <span>고급</span>
+          </label>
+          <button
+            type="button"
+            class="option-help"
+            id="prompt-mode-help"
+            aria-label="기본·고급 프롬프트 차이"
+            aria-expanded="false"
+            aria-controls="prompt-mode-comparison"
+            >?</button
+          >
+          <button
+            type="button"
+            class="button secondary small"
+            id="reset-prompt"
+            title="현재 답변과 원래 템플릿으로 복원"
+            ${edited || (saved.enabled && (saved.text !== T.text || saved.version !== T.version))
+              ? ''
+              : 'hidden'}
+            >복원하기</button
+          >
+        </div>
+        <p class="field-help" id="planning-template-status" role="status"
+          >${esc(planningTemplateStatus(saved))}</p
+        >
+        <section
+          class="prompt-comparison"
+          id="prompt-mode-comparison"
+          aria-label="기본·고급 프롬프트 비교"
+          hidden
+        >
+          <table>
+            <caption class="visually-hidden">기본과 고급 프롬프트의 요청 범위·장단점</caption>
+            <thead
+              ><tr>
+                <th scope="col">비교 항목</th>
+                <th scope="col"><strong>기본</strong><span>아이디어 정리</span></th>
+                <th scope="col"><strong>고급</strong><span>개발 준비까지</span></th>
+              </tr></thead
+            >
+            <tbody>
+              <tr>
+                <th scope="row">요청 범위</th>
+                <td
+                  ><span class="prompt-comparison-mode" aria-hidden="true">기본</span
+                  ><span>답변 정리와 빠진 질문 확인</span></td
+                >
+                <td
+                  ><span class="prompt-comparison-mode" aria-hidden="true">고급</span
+                  ><span>기본 요청 + 구조·보안·데이터·검증 계획, 공식 지침</span></td
+                >
+              </tr>
+              <tr>
+                <th scope="row">장점</th>
+                <td
+                  ><span class="prompt-comparison-mode" aria-hidden="true">기본</span
+                  ><span>짧은 요청으로 기획의 핵심에 집중할 수 있어요.</span></td
+                >
+                <td
+                  ><span class="prompt-comparison-mode" aria-hidden="true">고급</span
+                  ><span>개발 전에 놓치기 쉬운 기준까지 함께 검토해요.</span></td
+                >
+              </tr>
+              <tr>
+                <th scope="row">고려할 점</th>
+                <td
+                  ><span class="prompt-comparison-mode" aria-hidden="true">기본</span
+                  ><span>구체적인 개발 설계는 후속 대화가 필요해요.</span></td
+                >
+                <td
+                  ><span class="prompt-comparison-mode" aria-hidden="true">고급</span
+                  ><span>요청문이 길어지고, 검토할 답변과 결정도 늘어날 수 있어요.</span></td
+                >
+              </tr>
+            </tbody>
+          </table>
+          <p class="prompt-comparison-note"
+            ><strong>공통</strong
+            ><span
+              >두 방식 모두 기획·설계를 위한 요청이에요. 코딩·배포는 별도로 요청하세요.</span
+            ></p
+          >
+        </section>
+        <label class="visually-hidden" for="prompt-preview-text">AI에게 전달할 전체 프롬프트</label>
+        <textarea
+          id="prompt-preview-text"
+          rows="14"
+          maxlength="${P.MAX_PROMPT_LENGTH}"
+          spellcheck="false"
+        >
+${esc(text)}</textarea
+        >
+      </div>
+      <div class="prompt-footer">
+        <p id="prompt-copy-status" role="status"
+          >${edited
+            ? '수정본 저장됨 · 답변 변경은 복원하기로 반영해요.'
+            : '바로 수정할 수 있어요. 변경 내용은 이 브라우저에 저장돼요.'}</p
+        >
+        <button
+          type="button"
+          class="button primary"
+          id="copy-prompt"
+          ${text.trim() ? '' : 'disabled'}
+          >프롬프트 복사</button
+        >
+      </div>`;
+  }
   function renderReport(answers = {}, notes = {}, recommendations = []) {
     // Only our heading/list prefixes become HTML; all user text remains escaped.
     const readable = (value) =>
@@ -916,20 +1070,24 @@ ${esc(value)}</textarea
       ><div class="report-actions"
         ><button type="button" class="button secondary" id="back-to-form"
           >← 작성으로 돌아가기</button
-        ><button type="button" class="button primary" id="copy-prompt"
-          >AI와 기획 다듬기 · 복사</button
+        ><button
+          type="button"
+          class="button primary"
+          id="show-prompt"
+          aria-haspopup="dialog"
+          aria-controls="prompt-dialog"
+          >AI에 전달할 프롬프트 보기</button
         ><button type="button" class="button secondary" id="download-report"
           >기획 초안 내려받기</button
         ></div
-      ><p class="field-help"
-        >복사한 내용을 원하는 AI 대화에 붙여 넣으세요. 자료를 검토하고 추가 질문을 거쳐 기획을
-        보완하도록 안내해요. 이 사이트에서 AI가 자동 실행되지는 않아요.</p
       ><article class="report-document">${body}</article>`;
   }
   const api = {
     escapeHtml: esc,
     question: renderQuestion,
     report: renderReport,
+    prompt: renderPrompt,
+    planningTemplateStatus,
     elementExample,
     roleSelectionLabel
   };

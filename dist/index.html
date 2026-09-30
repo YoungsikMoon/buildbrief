@@ -7,16 +7,17 @@
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231d4ed8'/%3E%3Cpath d='M18 17h17a9 9 0 0 1 0 18H18zm0 18h20a7 7 0 0 1 0 14H18z' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=6f4953fbc69f">
+  <link rel="stylesheet" href="styles.css?v=a216d84b66c4">
   <script src="questions.js?v=8d3a1b1db035" defer></script>
-  <script src="answers.js?v=0a4d95b0fa3d" defer></script>
-  <script src="report.js?v=aca097865bc3" defer></script>
-  <script src="projects.js?v=7356d8367234" defer></script>
+  <script src="answers.js?v=9153e30d842a" defer></script>
+  <script src="planning-template.js?v=aed18553980d" defer></script>
+  <script src="report.js?v=c52dede91a1b" defer></script>
+  <script src="projects.js?v=20ff0357386f" defer></script>
   <script src="guides.js?v=1d70fd493705" defer></script>
   <script src="storage.js?v=40fe4282c410" defer></script>
-  <script src="designer.js?v=36005b6e5dd8" defer></script>
-  <script src="views.js?v=a0514456e1ec" defer></script>
-  <script src="app.js?v=619490add6b5" defer></script>
+  <script src="designer.js?v=0d6b55de3a4b" defer></script>
+  <script src="views.js?v=11e954ffbf64" defer></script>
+  <script src="app.js?v=51863f138bc0" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -184,8 +185,8 @@
                 <li>
                   <div class="walkthrough-heading"><span aria-hidden="true">04</span><h3>초안과 AI 요청문을 함께 복사해요</h3></div>
                   <div class="walkthrough-body">
-                    <div class="walkthrough-copy"><p>기획 초안 화면 위쪽에서 <strong>‘AI와 기획 다듬기 · 복사’</strong>를 누르세요.</p><p>내 초안에 <strong>빠진 내용과 모순을 확인하고 추가 질문으로 기획을 보완해 달라는 요청</strong>이 함께 복사돼요. AI에게 무엇을 부탁할지 처음부터 다시 쓸 필요가 없어요.</p><p class="walkthrough-tip">브라우저에서 복사를 허용하지 않으면 요청문 파일이 대신 내려받아져요. 파일의 내용을 AI에 전달하면 돼요.</p></div>
-                    <figure class="walkthrough-scene"><figcaption>초안 화면의 복사 기능</figcaption><div class="scene-button scene-primary">AI와 기획 다듬기 · 복사</div><div class="scene-prompt"><strong>함께 복사되는 내용</strong><p>기획을 검토하고 보완해 달라는 요청</p><span aria-hidden="true">+</span><p>내 답변 · 선택 이유 · 미정 사항</p></div><p class="scene-note">빌드브리프에서 AI가 자동 실행되지는 않아요.</p></figure>
+                    <div class="walkthrough-copy"><p>기획 초안 화면 위쪽에서 <strong>‘AI에 전달할 프롬프트 보기’</strong>를 누르세요.</p><p>창에서 <strong>기본·고급</strong>을 고르고 내용을 확인한 뒤 <strong>‘프롬프트 복사’</strong>를 누르세요. 기본은 기획 정리와 빠진 질문을, 고급은 설계·보안·검증 계획까지 함께 요청해요. 토글 옆 ?에서 차이를 볼 수 있어요.</p><p class="walkthrough-tip">브라우저에서 복사를 허용하지 않으면 요청문 파일이 대신 내려받아져요. 파일의 내용을 AI에 전달하면 돼요.</p></div>
+                    <figure class="walkthrough-scene"><figcaption>초안 화면의 프롬프트 창</figcaption><div class="scene-button scene-primary">AI에 전달할 프롬프트 보기</div><div class="scene-prompt"><strong>기본 · 고급 선택</strong><p>기획을 검토하고 보완해 달라는 요청</p><span aria-hidden="true">+</span><p>내 답변 · 선택 이유 · 미정 사항</p></div><p class="scene-note">내용을 확인하고 ‘프롬프트 복사’를 눌러요.</p></figure>
                   </div>
                 </li>
                 <li>
@@ -213,7 +214,7 @@
             <details><summary>내 아이디어가 서버나 AI로 전송되나요?</summary><p>작성한 답변은 이 브라우저에 저장되며, 빌드브리프가 서버나 외부 AI로 자동 전송하지 않아요. 초안이나 백업을 다른 사람에게 보내거나 외부 AI에 붙여 넣는 것은 직접 선택해요. 브라우저 저장은 암호화된 개인 금고가 아니므로 공용 기기에서는 사용과 보관에 주의해 주세요.</p></details>
             <details><summary>모든 질문에 답해야 하나요?</summary><p>아는 내용만 적어도 괜찮아요. 순서를 건너뛰거나 답변을 바꿀 수 있고, 작성한 내용만으로 초안을 볼 수 있어요. 작성 현황은 답한 질문의 비율이며, 100%가 기획의 완성도를 뜻하지는 않아요.</p></details>
             <details><summary>작성한 내용은 어디에 저장되나요?</summary><p>지금 사용하는 브라우저에 자동 저장돼요. 같은 기기·브라우저에서 이어 쓸 수 있지만, 사이트 데이터를 삭제하면 사라질 수 있어요. 오래 보관하거나 다른 기기로 옮길 때는 ‘백업 내려받기’와 ‘백업 불러오기’를 사용하세요.</p></details>
-            <details><summary>여기서 AI가 기획이나 개발을 해주나요?</summary><p>빌드브리프는 내가 작성한 답변을 기획 초안으로 모아 줘요. ‘AI와 기획 다듬기 · 복사’로 초안과 요청문을 복사한 뒤, 원하는 AI 서비스에 직접 붙여 넣어 대화를 이어갈 수 있어요. 이 사이트에서 AI를 실행하거나 개발을 자동으로 진행하지는 않아요.</p></details>
+            <details><summary>여기서 AI가 기획이나 개발을 해주나요?</summary><p>빌드브리프는 내가 작성한 답변을 기획 초안으로 모아 줘요. ‘AI에 전달할 프롬프트 보기’에서 내용을 확인하고 복사한 뒤, 원하는 AI 서비스에 직접 붙여 넣어 대화를 이어갈 수 있어요. 이 사이트에서 AI를 실행하거나 개발을 자동으로 진행하지는 않아요.</p></details>
           </div>
         </section>
         <div class="guide-invite"><div><h2>이제, 내 아이디어를 적어 볼까요?</h2><p>아직 이름이 없어도 괜찮아요. 임시 이름으로 시작하세요.</p></div><button type="button" class="button primary" data-step="0">바로 시작하기 <span aria-hidden="true">→</span></button></div>
@@ -240,6 +241,7 @@
     </div>
   </footer>
   <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="prompt-dialog" class="prompt-dialog" aria-labelledby="prompt-title"></dialog>
   <dialog id="storage-help-dialog" class="option-help-dialog storage-help-dialog" aria-labelledby="storage-help-title">
     <div class="help-top"><span class="eyebrow">저장과 백업 안내</span><button type="button" class="button secondary small" id="close-storage-help" autofocus>닫기 ×</button></div>
     <h2 id="storage-help-title">답변은 어디에 저장되나요?</h2>

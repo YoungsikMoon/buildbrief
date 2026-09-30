@@ -6,13 +6,14 @@
     P = window.BriefProjects,
     S = window.BriefStorage,
     V = window.BriefViews,
+    T = window.BriefPlanningTemplate,
     D = window.BriefDesigner;
   const { steps, featureTypes, uiElements } = Q;
   const $ = (selector) => document.querySelector(selector);
   const esc = V.escapeHtml;
   const questions = new Map([...A.allQuestions, ...Q.retiredQuestions].map((q) => [q.id, q]));
   const storage = S.load();
-  let answers, drafts, notes, recommendations, currentStep;
+  let answers, drafts, notes, recommendations, planningTemplate, promptDrafts, currentStep;
   let designerState = {},
     draggedElement = null;
   let toastTimer,
@@ -20,7 +21,14 @@
   activateProject();
   function activateProject() {
     const p = storage.workspace.projects.find((p) => p.id === storage.workspace.activeId);
-    ({ answers, drafts, notes, recommendations = [] } = p);
+    ({
+      answers,
+      drafts,
+      notes,
+      recommendations = [],
+      planningTemplate = null,
+      promptDrafts = {}
+    } = p);
     currentStep = p.step;
     designerState = {};
   }
@@ -32,7 +40,17 @@
       ...storage.workspace,
       projects: storage.workspace.projects.map((p) =>
         p.id === storage.workspace.activeId
-          ? { ...p, answers, drafts, notes, recommendations, step: currentStep, topic: '' }
+          ? {
+              ...p,
+              answers,
+              drafts,
+              notes,
+              recommendations,
+              planningTemplate,
+              promptDrafts,
+              step: currentStep,
+              topic: ''
+            }
           : p
       )
     };
@@ -113,7 +131,6 @@
       screenId: screenId || selected.screen.id,
       element: element === undefined ? selected.element : element,
       panel,
-      referenceOpen: false,
       panelCollapsed: screenId && element === '' ? designerState.panelCollapsed : false
     };
     renderStep(currentStep);
@@ -207,18 +224,16 @@
       delete screen.placements[key].grid;
     }
   }
-  function moveCanvasElement(key, target, before = '', position = null) {
+  function moveCanvasElement(key, target, position = null) {
     const { screen } = D.selection(answers, designerState);
     const order = A.elementKeys(screen);
     const positions = canvasPositions(screen);
     if (!order.includes(key) || !placeElement(screen, key, target)) return;
     positions.delete(key);
     keepCanvasPositions(screen, positions);
-    const next = order.filter((id) => id !== key);
-    next.splice(before && next.includes(before) ? next.indexOf(before) : next.length, 0, key);
-    screen.layoutOrder = next;
     if (position) screen.placements[key].position = position;
     designerState.element = key;
+    designerState.panel = 'element';
     changed(true);
   }
   function toggleExpandedDesigner() {
@@ -275,7 +290,11 @@
         designerState.element !== (scope || '') ||
         designerState.screenId !== screen.id)
     ) {
-      designerState = { screenId: screen.id, element: scope || '', panel: 'settings' };
+      designerState = {
+        screenId: screen.id,
+        element: scope || '',
+        panel: scope ? 'element' : 'screen'
+      };
       renderStep(currentStep);
     }
     const card = document.getElementById(`feature-${screenIndex}${scope ? '-' + scope : ''}-${id}`);
@@ -333,26 +352,26 @@
     $('#step-badge').textContent = `${currentStep + 1} / ${steps.length}`;
     renderNavigation();
     const groups = A.activeGroups(step, answers, notes);
-    $('#question-groups').innerHTML =
-      groups
-        .map(
-          (g) =>
-            /* HTML */ `<section class="question-group"
-              >${groups.length > 1 && g.title
-                ? /* HTML */ `<div class="group-heading"
-                    ><h2>${esc(g.title)}</h2>${g.description
-                      ? /* HTML */ `<p>${esc(g.description)}</p>`
-                      : ''}</div
-                  >`
-                : ''}<div class="group-body"
-                >${g.questions
-                  .map((q) => V.question(q, answers, notes, recommendations, designerState))
-                  .join('')}</div
-              ></section
-            >`
-        )
-        .join('');
+    $('#question-groups').innerHTML = groups
+      .map(
+        (g) =>
+          /* HTML */ `<section class="question-group"
+            >${groups.length > 1 && g.title
+              ? /* HTML */ `<div class="group-heading"
+                  ><h2>${esc(g.title)}</h2>${g.description
+                    ? /* HTML */ `<p>${esc(g.description)}</p>`
+                    : ''}</div
+                >`
+              : ''}<div class="group-body"
+              >${g.questions
+                .map((q) => V.question(q, answers, notes, recommendations, designerState))
+                .join('')}</div
+            ></section
+          >`
+      )
+      .join('');
     D.applySizes();
+    D.applyVisibility(designerState, D.selection(answers, designerState).screen.id);
     for (const [id, open] of states) {
       const el = document.getElementById(id);
       if (el) el.open = open;
@@ -435,6 +454,31 @@
     $('#report-view').innerHTML = V.report(answers, notes, recommendations);
     window.scrollTo({ top: 0, behavior: 'instant' });
     $('#report-title').focus({ preventScroll: true });
+  }
+  function updatePrompt(refreshText = true) {
+    if (refreshText)
+      $('#prompt-preview-text').value = R.report(
+        answers,
+        true,
+        notes,
+        recommendations,
+        planningTemplate,
+        promptDrafts
+      );
+    $('#planning-template-status').textContent = V.planningTemplateStatus(planningTemplate);
+    const edited = Object.hasOwn(promptDrafts, planningTemplate?.enabled ? 'advanced' : 'basic');
+    $('#reset-prompt').hidden =
+      !edited &&
+      !(
+        planningTemplate?.enabled &&
+        (planningTemplate.text !== T.text || planningTemplate.version !== T.version)
+      );
+    $('#copy-prompt').disabled = !$('#prompt-preview-text').value.trim();
+    $('#prompt-copy-status').textContent = save()
+      ? edited
+        ? '수정본 저장됨 · 답변 변경은 복원하기로 반영해요.'
+        : '바로 수정할 수 있어요. 변경 내용은 이 브라우저에 저장돼요.'
+      : '저장하지 못했어요. 프롬프트를 복사하거나 프로젝트를 백업해 주세요.';
   }
   function jumpToQuestion(questionId) {
     const stepIndex = steps.findIndex((step) =>
@@ -521,6 +565,14 @@
   }
   document.addEventListener('input', (event) => {
     const el = event.target;
+    if (el.id === 'prompt-preview-text') {
+      const mode = planningTemplate?.enabled ? 'advanced' : 'basic';
+      if (el.value === R.report(answers, true, notes, recommendations, planningTemplate))
+        delete promptDrafts[mode];
+      else promptDrafts[mode] = el.value;
+      updatePrompt(false);
+      return;
+    }
     if (el.matches('[data-role-search]')) {
       const picker = el.closest('.role-picker');
       const query = el.value.trim().toLocaleLowerCase();
@@ -549,6 +601,25 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.id === 'planning-template-enabled') {
+      planningTemplate = {
+        ...(planningTemplate || { version: T.version, text: T.text }),
+        enabled: el.checked
+      };
+      updatePrompt();
+      return;
+    }
+    if (el.matches('[data-all-levels],[data-level-key]')) {
+      const { screen } = D.selection(answers, designerState);
+      const checks = [...document.querySelectorAll('[data-level-key]')];
+      if (el.matches('[data-all-levels]')) for (const check of checks) check.checked = el.checked;
+      designerState.hiddenElements ||= {};
+      designerState.hiddenElements[screen.id] = checks
+        .filter((check) => !check.checked)
+        .map((check) => check.dataset.levelKey);
+      D.applyVisibility(designerState, screen.id);
+      return;
+    }
     if (el.matches('[data-reference-category]')) {
       designerState.referenceCategory = el.value;
       document.querySelectorAll('[data-reference-group]').forEach((group) => {
@@ -657,7 +728,8 @@
             : '';
       if (selector)
         document.querySelectorAll(selector).forEach((title) => {
-          title.textContent = el.value || (qid === 'features' ? '새 기능' : '새 화면');
+          title.textContent =
+            qid === 'features' ? el.value || '새 기능' : A.screenLabel(rowsOf('screens'), object);
         });
       if (qid === 'features')
         document
@@ -685,22 +757,32 @@
     changed(rerender);
     if (!rerender && qid === 'screens') {
       const current = D.selection(answers, designerState);
-      const tab = document.querySelector(`[data-designer-screen="${object.id}"]`);
-      if (tab && !object.isCommon && field === 'name') {
-        tab.textContent = object.name || '새 화면';
-        tab.parentElement
-          .querySelector('.screen-tab-close')
-          ?.setAttribute('aria-label', `${object.name || '새 화면'} 삭제`);
-      }
-      if (current.screen.id === object.id && field === 'name')
-        document.querySelector('.canvas-chrome span:last-child').textContent =
-          object.name || '새 화면';
+      if (field === 'name')
+        for (const row of rowsOf('screens')) {
+          const name = A.screenLabel(rowsOf('screens'), row);
+          const tab = document.querySelector('[data-designer-screen="' + row.id + '"]');
+          if (tab && !row.isCommon) {
+            tab.textContent = name;
+            tab.parentElement
+              .querySelector('.screen-tab-close')
+              ?.setAttribute('aria-label', name + ' 삭제');
+          }
+          if (current.screen.id === row.id) {
+            document
+              .querySelector('.canvas-paper')
+              .setAttribute('aria-label', name + ' 구성 미리보기');
+          }
+        }
       document.querySelectorAll('[data-canvas-element]').forEach((block) => {
         if (block.dataset.canvasOwner !== object.id) return;
         const scope = block.dataset.canvasElement;
         if (!block.closest('.canvas-block').classList.contains('inherited')) {
           const name = D.elementName(object, scope);
           block.querySelector('.canvas-block-title').textContent = name;
+          const menuName = [...document.querySelectorAll('[data-level-name]')].find(
+            (node) => node.dataset.levelName === scope
+          );
+          if (menuName) menuName.textContent = name;
           block.setAttribute('aria-label', name + ' 선택');
           block
             .closest('.canvas-block')
@@ -884,6 +966,13 @@
       finishResize(false);
       return;
     }
+    const filter = document.querySelector('.level-filter[open]');
+    if (event.key === 'Escape' && filter && !document.querySelector('dialog[open]')) {
+      event.preventDefault();
+      filter.open = false;
+      filter.querySelector('summary').focus({ preventScroll: true });
+      return;
+    }
     if (
       event.key === 'Escape' &&
       designerState.expanded &&
@@ -892,6 +981,20 @@
     ) {
       event.preventDefault();
       toggleExpandedDesigner();
+      return;
+    }
+    const tab = event.target.closest('[data-designer-panel]');
+    if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const tabs = [...tab.parentElement.querySelectorAll('[data-designer-panel]')];
+      const index =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? tabs.length - 1
+            : (tabs.indexOf(tab) + (event.key === 'ArrowLeft' ? -1 : 1) + tabs.length) %
+              tabs.length;
+      tabs[index].click();
       return;
     }
     const handle = event.target.closest('[data-resize-element]');
@@ -1010,13 +1113,11 @@
     )
       return;
     event.preventDefault();
-    const before = event.target.closest('[data-canvas-element]');
     moveCanvasElement(
       draggedElement.key,
       zone.dataset.dropParent
         ? 'parent:' + zone.dataset.dropParent
         : 'region:' + zone.dataset.dropRegion,
-      before?.dataset.canvasOwner === draggedElement.screenId ? before.dataset.canvasElement : '',
       gridDrop(event, zone)
     );
     draggedElement = null;
@@ -1027,7 +1128,7 @@
     clearDropPreview();
   });
   document.addEventListener('click', async (event) => {
-    document.querySelectorAll('.role-picker[open]').forEach((picker) => {
+    document.querySelectorAll('.role-picker[open], .level-filter[open]').forEach((picker) => {
       if (!picker.contains(event.target)) picker.open = false;
     });
     const b = event.target.closest('button');
@@ -1078,7 +1179,6 @@
         moveCanvasElement(
           element,
           current.parent ? 'parent:' + current.parent : 'region:' + current.region,
-          '',
           { x, y }
         );
       }
@@ -1089,11 +1189,12 @@
         ?.focus({ preventScroll: true });
       return;
     }
-    if (d.openReference !== undefined || d.closeReference !== undefined) {
-      designerState.referenceOpen = d.openReference !== undefined;
-      designerState.panelCollapsed = false;
-      renderStep(currentStep);
-      $('#inspector-title')?.focus({ preventScroll: true });
+    if (d.designerPanel !== undefined) {
+      if (!['screen', 'element', 'reference'].includes(d.designerPanel)) return;
+      showDesigner(d.designerPanel);
+      document
+        .querySelector('[data-designer-panel="' + d.designerPanel + '"]')
+        ?.focus({ preventScroll: true });
       return;
     }
     if (d.toggleInspector !== undefined) {
@@ -1121,7 +1222,7 @@
       if (!type) return;
       d.feature = type.id;
     }
-    if (d.designerScreen !== undefined) return showDesigner('settings', '', d.designerScreen);
+    if (d.designerScreen !== undefined) return showDesigner('screen', '', d.designerScreen);
     if (d.createCommon !== undefined) {
       if (rowsOf('screens').length >= A.MAX_ROWS)
         return toast('공통 화면을 추가하려면 사용하지 않는 화면 하나를 먼저 삭제해 주세요.');
@@ -1130,9 +1231,16 @@
       return;
     }
 
-    if (d.designerSettings !== undefined) return showDesigner('settings', '');
-    if (d.canvasElement) return showDesigner('settings', d.canvasElement, d.canvasOwner);
-    if (d.designerMove) {
+    if (d.canvasElement) return showDesigner('element', d.canvasElement, d.canvasOwner);
+    if (d.levelHelp !== undefined)
+      return showHelp('요소 레벨', {
+        meaning:
+          '레벨 숫자가 높을수록 앞에 표시돼요. 요소를 선택하거나 같은 구역 안에서 위치를 옮겨도 겹침 순서는 바뀌지 않아요.',
+        fit: '↑로 레벨을 높이고 ↓로 낮춰요. 요소 보기에서 전체를 끄고 필요한 레벨만 켜면 가려진 요소를 편집하기 쉬워요. 보기 선택은 화면마다 따로 유지되고 초안·백업에는 영향을 주지 않아요.',
+        avoid:
+          '같은 구역·같은 부모 안에서 순서를 바꿔요. 안에 넣은 요소는 부모 묶음 안에서 겹쳐져요. 공통 요소는 기본 공통 화면에서 조절하세요.'
+      });
+    if (d.levelMove) {
       const { screen, element } = D.selection(answers, designerState),
         order = A.elementKeys(screen);
       const items = A.layoutItems(
@@ -1149,17 +1257,21 @@
             (current.parent || item.region === current.region)
         )
         .map((item) => item.key);
-      const neighbor = siblings[siblings.indexOf(element) + Number(d.designerMove)];
+      const neighbor = siblings[siblings.indexOf(element) + Number(d.levelMove)];
       const from = order.indexOf(element),
         to = order.indexOf(neighbor);
       if (from < 0 || to < 0) return;
       [order[from], order[to]] = [order[to], order[from]];
       keepCanvasPositions(screen, canvasPositions(screen));
       screen.layoutOrder = order;
+      if (designerState.hiddenElements?.[screen.id])
+        designerState.hiddenElements[screen.id] = designerState.hiddenElements[screen.id].filter(
+          (key) => key !== element
+        );
       changed(true);
       (
-        document.querySelector(`[data-designer-move="${d.designerMove}"]:not(:disabled)`) ||
-        document.querySelector('[data-designer-move]:not(:disabled)')
+        document.querySelector(`[data-level-move="${d.levelMove}"]:not(:disabled)`) ||
+        document.querySelector('[data-level-move]:not(:disabled)')
       )?.focus({ preventScroll: true });
       return;
     }
@@ -1178,8 +1290,7 @@
         screen.elements = screen.elements.filter((id) => id !== element);
       }
       designerState.element = '';
-      designerState.referenceOpen = false;
-      designerState.panel = 'settings';
+      designerState.panel = 'element';
       changed(true);
       $('#inspector-title')?.focus({ preventScroll: true });
       return;
@@ -1306,7 +1417,7 @@
       screen.customElements ||= [];
       if (screen.customElements.length >= A.MAX_ROWS)
         return toast('한 화면에 추가할 수 있는 요소 수를 초과했어요.');
-      const item = { id: P.newId(), name: '', purpose: '' };
+      const item = { id: P.newId(), name: A.nextName(screen.customElements, '요소'), purpose: '' };
       const selected = D.selection(answers, designerState).element;
       const placement = selected ? A.elementPlacement(screen, selected) : { region: 'main' };
       const positions = canvasPositions(screen);
@@ -1335,14 +1446,13 @@
         ...designerState,
         screenId: screen.id,
         element: 'custom:' + item.id,
-        panel: 'settings',
-        referenceOpen: false,
+        panel: 'element',
         panelCollapsed: false
       };
       changed(true);
-      $('#designer-inspector-body')
-        ?.querySelector('[data-property="name"]')
-        ?.focus({ preventScroll: true });
+      const nameInput = $('#designer-inspector-body')?.querySelector('[data-property="name"]');
+      nameInput?.focus({ preventScroll: true });
+      nameInput?.select();
       if (window.matchMedia('(max-width:800px)').matches)
         $('#designer-inspector-body')?.scrollIntoView({ block: 'start' });
       return;
@@ -1372,7 +1482,10 @@
       if (qid === 'screens')
         row = {
           ...row,
-          name: '',
+          name: A.nextName(
+            rows.filter((row) => !row.isCommon),
+            '새 화면 '
+          ),
           purpose: '',
           roles: '',
           featureIds: [],
@@ -1392,7 +1505,13 @@
       if (screen && !connectFeature(screen, d.flowScope, row.id)) return;
       answers[qid] = [...rows, row];
       if (qid === 'screens')
-        designerState = { ...designerState, screenId: row.id, element: '', panel: 'settings' };
+        designerState = {
+          ...designerState,
+          screenId: row.id,
+          element: '',
+          panel: 'screen',
+          panelCollapsed: false
+        };
       changed(true);
       if (screen) {
         focusFeature(d.screen, d.flowScope, row.id);
@@ -1407,6 +1526,7 @@
       );
       card?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       card?.querySelector('input,textarea,select')?.focus({ preventScroll: true });
+      if (qid === 'screens') card?.querySelector('[data-field="name"]')?.select();
       return;
     }
     if (d.remove) {
@@ -1419,7 +1539,7 @@
           : d.remove === 'features'
             ? '이 기능을 삭제할까요? 모든 화면·요소의 연결에 영향을 줘요. 한 곳에서만 빼려면 연결 해제를 사용하세요.'
             : d.remove === 'screens'
-              ? `‘${rows[index]?.name || '새 화면'}’ 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.`
+              ? `‘${A.screenLabel(rows, rows[index] || {})}’ 화면과 요소 설정을 삭제할까요? 연결했던 기능은 남겨 두어요.`
               : '이 항목을 삭제할까요? 작성한 내용도 함께 삭제돼요.';
       if (rows[index] && window.confirm(message)) {
         let returnTo =
@@ -1438,7 +1558,7 @@
               ...designerState,
               screenId: next?.id || '',
               element: '',
-              panel: 'settings'
+              panel: 'screen'
             };
           if (next) returnTo = `[data-designer-screen="${next.id}"]`;
         }
@@ -1468,6 +1588,39 @@
       return $('#delete-project-dialog').showModal();
     }
     switch (b.id) {
+      case 'show-prompt':
+        $('#prompt-dialog').innerHTML = V.prompt(
+          answers,
+          notes,
+          recommendations,
+          planningTemplate,
+          promptDrafts
+        );
+        updatePrompt(false);
+        $('#prompt-dialog').showModal();
+        $('#prompt-title').focus({ preventScroll: true });
+        return;
+      case 'close-prompt':
+        return $('#prompt-dialog').close();
+      case 'prompt-mode-help': {
+        const panel = $('#prompt-mode-comparison');
+        panel.hidden = !panel.hidden;
+        b.setAttribute('aria-expanded', String(!panel.hidden));
+        return;
+      }
+      case 'reset-prompt':
+        if (
+          !window.confirm(
+            '이 모드의 수정 내용을 지우고 현재 답변과 원래 템플릿으로 복원할까요? 다른 모드의 수정 내용과 질문 답변은 유지돼요.'
+          )
+        )
+          return;
+        delete promptDrafts[planningTemplate?.enabled ? 'advanced' : 'basic'];
+        if (planningTemplate?.enabled)
+          planningTemplate = { enabled: true, version: T.version, text: T.text };
+        updatePrompt();
+        $('#prompt-preview-text').focus();
+        return;
       case 'guide-button':
         return showGuide();
       case 'start-planning':
@@ -1546,15 +1699,19 @@
         return $('#import-file').click();
       case 'download-report':
         return download(R.report(answers, false, notes, recommendations), 'md', '기획초안');
-      case 'copy-prompt':
+      case 'copy-prompt': {
+        if (b.disabled) return;
+        const text = $('#prompt-preview-text').value;
         try {
-          await navigator.clipboard.writeText(R.report(answers, true, notes, recommendations));
-          toast('기획 초안과 AI에게 전달할 요청을 복사했어요.');
+          await navigator.clipboard.writeText(text);
+          $('#prompt-copy-status').textContent = '복사했어요. 원하는 AI 대화에 붙여 넣으세요.';
         } catch {
-          download(R.report(answers, true, notes, recommendations), 'md', 'AI기획요청');
-          toast('복사가 허용되지 않아 파일로 내려받았어요.');
+          download(text, 'md', 'AI기획요청');
+          $('#prompt-copy-status').textContent =
+            '복사가 허용되지 않아 프롬프트를 파일로 내려받았어요.';
         }
         return;
+      }
     }
   });
   $('#import-file').addEventListener('change', async (event) => {

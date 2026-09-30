@@ -3,6 +3,7 @@
   const A = root.BriefAnswers || require('./answers.js');
   const { steps } = root.BriefQuestions || require('./questions.js');
   const KEY = 'buildbrief.ideas.v1';
+  const MAX_PROMPT_LENGTH = 1000000;
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
   const validDate = (value) =>
@@ -24,7 +25,39 @@
     ) {
       throw new Error('프로젝트의 답변·추천 전 입력·메모 형식이 올바르지 않아요.');
     }
-    return A.normalizeProject(input);
+    const template = Object.hasOwn(input, 'planningTemplate') ? input.planningTemplate : null;
+    const promptDrafts = Object.hasOwn(input, 'promptDrafts') ? input.promptDrafts : {};
+    if (
+      !isObject(promptDrafts) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(promptDrafts)) ||
+      Reflect.ownKeys(promptDrafts).some((key) =>
+        !['basic', 'advanced'].includes(key) ||
+        typeof promptDrafts[key] !== 'string' ||
+        promptDrafts[key].length > MAX_PROMPT_LENGTH
+      )
+    ) throw new Error('프로젝트의 수정한 프롬프트 형식이 올바르지 않아요.');
+    if (
+      template !== null &&
+      (!isObject(template) ||
+        ![Object.prototype, null].includes(Object.getPrototypeOf(template)) ||
+        Reflect.ownKeys(template).some((key) => !['enabled', 'version', 'text'].includes(key)) ||
+        !['enabled', 'version', 'text'].every((key) => Object.hasOwn(template, key)) ||
+        typeof template.enabled !== 'boolean' ||
+        typeof template.version !== 'string' ||
+        template.version.length > 40 ||
+        typeof template.text !== 'string' ||
+        template.text.length > 30000)
+    ) {
+      throw new Error('프로젝트의 기획 요청 템플릿 형식이 올바르지 않아요.');
+    }
+    return {
+      ...A.normalizeProject(input),
+      promptDrafts: { ...promptDrafts },
+      planningTemplate:
+        template === null
+          ? null
+          : { enabled: template.enabled, version: template.version, text: template.text }
+    };
   }
 
   function newId() {
@@ -45,11 +78,13 @@
     drafts = {},
     notes = {},
     recommendations = [],
+    planningTemplate = null,
+    promptDrafts = {},
     step = 0,
     topic = '',
     started = true
   } = {}) {
-    const data = projectData({ answers, drafts, notes, recommendations });
+    const data = projectData({ answers, drafts, notes, recommendations, planningTemplate, promptDrafts });
     const now = new Date().toISOString();
     return {
       id: newId(),
@@ -149,7 +184,7 @@
   }
 
   const projectTitle = (project) => A.display(project?.answers?.project_name) || '새로운 아이디어';
-  const api = { KEY, newId, createProject, normalizeWorkspace, importBackup, projectTitle };
+  const api = { KEY, MAX_PROMPT_LENGTH, newId, createProject, normalizeWorkspace, importBackup, projectTitle };
   root.BriefProjects = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

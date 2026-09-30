@@ -54,7 +54,7 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','guides.js','idea-examples','index.html','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','guides.js','idea-examples','index.html','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
     assert(['element-examples', 'idea-examples'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and the image directories may be published');
@@ -82,9 +82,9 @@ test('The public bundle contains only reviewed static files and local scripts', 
     assert(html.includes(`src="idea-examples/${file}"`));
   }
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
+  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','planning-template.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
   for (const [, attributes, body] of scripts) {
-    assert.match(attributes, /^ src="(?:answers|app|designer|guides|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
+    assert.match(attributes, /^ src="(?:answers|app|designer|guides|planning-template|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
     assert.equal(body.trim(), '', 'No inline script');
   }
   for (const [tag] of html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/g)) assert(tag.includes('rel="noopener noreferrer"'));
@@ -94,7 +94,7 @@ test('The public bundle contains only reviewed static files and local scripts', 
 
 test('The page references the exact current assets', () => {
   const html = fs.readFileSync('dist/index.html', 'utf8');
-  for (const file of ['app.js', 'designer.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css']) {
+  for (const file of ['app.js', 'designer.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css', 'planning-template.js']) {
     const source = fs.readFileSync(`dist/${file}`, 'utf8').replace(/\r\n/g, '\n');
     const hash = createHash('sha256').update(source).digest('hex').slice(0, 12);
     assert(html.includes(`${file}?v=${hash}`), `Stale asset reference: ${file}`);
@@ -330,7 +330,7 @@ test('Feature priorities stay with their original cards instead of a second revi
 
 test('Closing memo is optional while retired review answers survive reload, backups and safe reports', () => {
   const last = Q.steps.at(-1);
-  assert.equal(last.title, '마무리 메모');
+ assert.equal(last.title, '마무리 메모');
   assert.deepEqual(last.groups.flatMap(g => g.questions.map(q => q.id)), ['open_questions']);
   const q = question('open_questions');
   assert.equal(q.optional, true);
@@ -772,6 +772,50 @@ test('Retired situation choices and their custom answers survive backup and expo
  assert(!activeIds({...base,booking_rules:'기존 자유 입력'}).includes('booking_rules'));
  assert(!V.question(question('features'), base).includes('나중에 다시 확인할 정보 (선택)'));
 });
+test('Planning template bundle stays in sync with its reviewed source', () => {
+  require('node:child_process').execFileSync(process.execPath, ['scripts/planning-template.cjs', '--check']);
+  const T = require('./dist/planning-template.js');
+  assert(T.text.length <= 30000);
+  for (const required of ['AGENTS.md', 'ROOT.md', 'ASVS 5.0.0', 'SSDF 1.1', 'https://www.iso.org/standard/72089.html']) assert(T.text.includes(required));
+});
+test('Planning requests stay separate from answers, progress and plain reports', () => {
+  const T = require('./dist/planning-template.js');
+  const enabled = { enabled: true, version: T.version, text: T.text };
+  assert(V.planningTemplateStatus(null).includes('아이디어 정리'));
+  assert(V.planningTemplateStatus(enabled).includes('공식 지침'));
+  const answers = { project_name: '예약 앱', open_questions: '모바일을 먼저 검토' };
+  const notes = { project_name: '기억하기 쉬운 이름' };
+  const plain = R.report(answers, false, notes);
+  const prompt = R.report(answers, true, notes, [], enabled);
+  assert(prompt.includes(T.text));
+  assert(prompt.endsWith(plain));
+  assert.equal(R.report(answers, false, notes, [], enabled), plain);
+  for (const omitted of [null, { ...enabled, enabled: false }, { ...enabled, text: '  \n' }])
+    assert.equal(R.report(answers, true, notes, [], omitted), R.report(answers, true, notes));
+  const project = P.createProject({ answers, notes, planningTemplate: enabled });
+  assert.deepEqual(A.progress(project.answers), A.progress(answers));
+  assert.equal(project.answers.open_questions, '모바일을 먼저 검토');
+  assert.equal(R.report({}, true, {}, [], { ...enabled, text: 'one\r\ntwo\rthree' }).includes('one\ntwo\nthree'), true);
+});
+test('Template editors and exact-copy previews escape imported content', () => {
+  const attack = '</textarea><img src=x onerror=alert(1)><script>bad</script>';
+  const value = { enabled: true, version: attack.slice(0, 40), text: attack };
+  for (const html of [V.prompt({}, {}, [], value)]) {
+    assert(!/<(?:script|img)\b/i.test(html));
+    assert(html.includes('&lt;img'));
+  }
+  assert(V.prompt({}, {}, [], value).includes(`maxlength="${P.MAX_PROMPT_LENGTH}"`));
+  assert(V.prompt({}, {}, [], value).includes('id="prompt-preview-text"'));
+  assert(!V.prompt({}, {}, [], value).includes('readonly'));
+  const custom = { basic: attack, advanced: '고급 수정본' };
+  assert(V.prompt({}, {}, [], null, custom).includes('&lt;img'));
+  assert.equal(R.report({}, true, {}, [], null, custom), attack);
+  assert.equal(R.report({}, true, {}, [], value, custom), '고급 수정본');
+  assert.equal(R.report({}, false, {}, [], value, custom), R.report({}));
+  assert(V.report({}).includes('id="show-prompt"'));
+  assert(!V.report({}).includes('id="copy-prompt"'));
+});
+require('./scripts/check-template-storage.cjs');
 require('./scripts/check-runtime.cjs');
 require('./scripts/check-planning.cjs');
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);

@@ -232,9 +232,46 @@
         }[key] || 'main',
       width: 'full'
     };
+  function numberedName(rows, row, prefix) {
+    if (row?.name?.trim()) return row.name;
+    const names = new Set(rows.map((item) => item.name?.trim()));
+    let number = 0;
+    for (const item of rows) {
+      if (item.name?.trim()) continue;
+      do number++;
+      while (names.has(prefix + number));
+      if (item === row) return prefix + number;
+    }
+    return prefix + (number + 1);
+  }
+  function nextName(rows, prefix) {
+    const names = new Set(rows.map((row) => numberedName(rows, row, prefix).trim()));
+    const numbers = [...names]
+      .filter((name) => name.startsWith(prefix))
+      .map((name) => Number(name.slice(prefix.length)))
+      .filter(
+        (number) =>
+          Number.isSafeInteger(number) && number >= 0 && number < Number.MAX_SAFE_INTEGER - MAX_ROWS
+      );
+    let number = Math.max(rows.length, ...numbers) + 1;
+    while (names.has(prefix + number)) number++;
+    return prefix + number;
+  }
+  const screenLabel = (screens, screen) =>
+    screen.isCommon
+      ? '기본 공통 화면'
+      : numberedName(
+          screens.filter((row) => !row.isCommon),
+          screen,
+          '새 화면 '
+        );
   const elementLabel = (screen, key) =>
     key.startsWith('custom:')
-      ? screen.customElements?.find((el) => el.id === key.slice(7))?.name || '이름 없는 요소'
+      ? numberedName(
+          screen.customElements || [],
+          screen.customElements?.find((el) => el.id === key.slice(7)),
+          '요소'
+        )
       : screen.elementContents?.[key]?.name ||
         Q.uiElements.find((el) => el.id === key)?.label ||
         key;
@@ -294,6 +331,17 @@
       seen.add(next);
     }
     return true;
+  }
+  function elementLevels(items) {
+    const levels = new Map();
+    const visit = (parent) => {
+      for (const item of items.filter((item) => item.parent === parent)) {
+        levels.set(item.key, levels.size + 1);
+        visit(item.key);
+      }
+    };
+    visit('');
+    return levels;
   }
   function gridLayout(items, preferred = '') {
     const positions = new Map(),
@@ -743,8 +791,12 @@
     canvasLayout,
     MIN_ELEMENT_HEIGHT,
     elementLabel,
+    screenLabel,
+    numberedName,
+    nextName,
     canContain,
     layoutItems,
+    elementLevels,
     canNest
   };
   root.BriefAnswers = api;

@@ -73,8 +73,9 @@ assert(!html.includes('<img src=x'));
 assert(!R.report(attack,true).includes('<img src=x'));
 assert(!V.report(attack).includes('<img src=x'));
 assert(html.includes('요소 이름') && html.includes('어떤 용도로 쓰나요?'));
-assert(!html.includes('data-designer-placement') && !html.includes('data-designer-panel'));
-const library=V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'history',element:'table',referenceOpen:true});
+assert(!html.includes('data-designer-placement'));
+assert.equal((html.match(/role="tab"/g)||[]).length,3);
+const library=V.question(A.allQuestions.find(q=>q.id==='screens'),attack,{},[],{screenId:'history',element:'table',panel:'reference'});
 assert(library.includes('data-reference-category') && !library.includes('예시와 설명 보기'));
 assert.equal((library.match(/data-element-help=/g)||[]).length,Q.uiElements.length);
 assert.equal((library.match(/data-feature-help=/g)||[]).length,Q.featureTypes.filter(f=>f.id!=='custom').length);
@@ -392,9 +393,30 @@ for(const value of ['문의하기','실패하면 입력한 검색어를 유지�
 assert(!naturalReport.includes('<img src=x'));
 const naturalHtml=V.question(screenQ,natural,{},[],{screenId:'natural',element:'custom:search'});
 assert(naturalHtml.includes('data-resize-element="custom:search"') && naturalHtml.includes('data-width="65"'));
-assert(naturalHtml.includes('data-open-reference') && !naturalHtml.includes('data-feature-choice'));
+assert(naturalHtml.includes('data-designer-panel="reference"') && !naturalHtml.includes('data-feature-choice'));
 const naturalProject=P.createProject({answers:natural});
 assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...naturalProject}).projects[0].answers,natural);
+// Generated labels identify unnamed items without changing imported answers.
+{
+const unnamed=[{id:'common',isCommon:true},{id:'one',name:'새 화면 1'},{id:'empty',name:''},{id:'space',name:'   '}];
+assert.deepEqual(unnamed.map(row=>A.screenLabel(unnamed,row)),['기본 공통 화면','새 화면 1','새 화면 2','새 화면 3']);
+assert.equal(A.nextName(unnamed.filter(row=>!row.isCommon),'새 화면 '),'새 화면 4');
+const unnamedElements={customElements:[{id:'one',name:'요소1'},{id:'empty',name:''},{id:'space',name:'  '}]};
+const unnamedBefore=clone(unnamedElements);
+assert.deepEqual(['one','empty','space'].map(id=>A.elementLabel(unnamedElements,'custom:'+id)),['요소1','요소2','요소3']);
+assert.equal(A.nextName(unnamedElements.customElements,'요소'),'요소4');
+assert.equal(A.nextName([{name:'요소2'}],'요소'),'요소3','Deletion cannot duplicate a surviving default name');
+assert.equal(A.nextName([{name:'요소9'}],'요소'),'요소10');
+assert.deepEqual(unnamedElements,unnamedBefore);
+}
+// Levels follow saved order, grouping children without changing the source.
+{
+  const rows=A.normalizeAnswers({screens:[{id:'levels',customElements:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'}],placements:{'custom:c':{region:'main',parent:'custom:a',width:50}}}]}).screens;
+  const before=clone(rows),items=A.layoutItems(rows[0]);
+  assert.deepEqual([...A.elementLevels(items)], [['custom:a',1],['custom:c',2],['custom:b',3]]);
+  assert.deepEqual(rows,before);
+  assert(R.report({screens:rows}).includes('겹침 레벨'));
+}
 // Grid positions share normalization, preview, export and backup paths.
 const gridAnswers=A.normalizeAnswers({screens:[{id:'grid',elements:['button','search','form'],placements:{button:{region:'main',width:50,grid:{column:11,row:2}},search:{region:'main',width:50,grid:{column:11,row:2}},form:{region:'main',width:100,grid:{column:20,row:160}}}}]});
 const gridBefore=clone(gridAnswers), gridItems=A.layoutItems(gridAnswers.screens[0]);

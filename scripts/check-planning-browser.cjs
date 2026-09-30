@@ -37,7 +37,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         assert.equal(await page.locator('#next-button #step-badge').innerText(),`${step+1} / 6`);
         assert((await page.locator('#next-button').getAttribute('aria-label')).includes(`현재 6단계 중 ${step+1}단계`));
         assert.equal(await page.locator('#form-view h1').count(),1);
-        const headings=await page.locator('.question-group > .group-heading').count();
+        const headings=await page.locator('.question-group:not(.planning-template) > .group-heading').count();
         if(step===2)assert(headings>1,'Distinct user/environment groups retain their headings');
         else assert.equal(headings,0,'Single-topic pages use only the page heading');
         await validate();
@@ -58,7 +58,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('[data-q="login_need"][value="로그인 필요"]').check();
       for(const value of ['카카오','Google'])await page.locator(`[data-q="login_methods"][value="${value}"]`).check();
       await page.locator('[data-role-preset="1"]').click();await go(4);
-      assert.equal(await page.locator('[data-designer-panel],[data-designer-placement],[data-insert-element]').count(),0);
+      assert.equal(await page.locator('[data-designer-placement],[data-insert-element]').count(),0);
       assert.equal(await page.locator('#field-features,.designer-related').count(),0);
       for(const region of await page.locator('.canvas-region-heading').all()){
         const label=await region.locator('.canvas-region-name').boundingBox(),add=region.locator('.canvas-add'),button=await add.boundingBox();
@@ -81,6 +81,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         assert(paper.y-stageHeading.y<85,'Screen title and guidance share a compact row');
         if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,'wide-editor-1920.png')});}
         await page.setViewportSize({width:2536,height:1306});await validate();
+        await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
         const tallPaper=await page.locator('.canvas-paper').boundingBox(),next=await page.locator('#next-button').boundingBox();
         assert(tallPaper.height>paper.height+150,'Extra desktop height goes to the canvas');
         assert(next.y+next.height>1266&&next.y+next.height<=1306,'Navigation uses the bottom of the available workspace');
@@ -131,7 +132,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal((await stored()).answers.screens[0].placements[first].parent,top);
       assert(await block(top).locator(':scope > .canvas-children').isVisible(),'Nested content opens only when it exists');
       const beforeHelp=(await stored()).answers;
-      await page.locator('[data-open-reference]').click();
+      await page.locator('[data-designer-panel="reference"]').click();
       assert.equal(await page.locator('.reference-category:visible').count(),1);
       assert(!(await page.locator('#designer-inspector').innerText()).includes('예시와 설명 보기'));
       const categories=await page.evaluate(()=>BriefQuestions.uiElementGroups.map(g=>g.id));
@@ -169,13 +170,13 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       if(width<800)assert((await page.locator('#designer-inspector-body').boundingBox()).height<=650,'Mobile references stay within a bounded panel');
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();await page.evaluate(()=>document.documentElement.style.fontSize='');
       assert.deepEqual((await stored()).answers,beforeHelp,'Reference browsing never inserts or changes data');
-      await validate();await shot('references');await page.locator('[data-close-reference]').click();
+      await validate();await shot('references');await page.locator('[data-designer-panel="element"]').click();
       assert.equal(await name().inputValue(),'검색');
       await page.locator('.inspector-add').click();state=await stored();const second='custom:'+state.answers.screens[0].customElements[2].id;
       await name().fill('회원 메뉴');await describe().fill('로그인한 사람에게 내 신청과 로그아웃 버튼을 보여 줘요.');
       assert.equal((await stored()).answers.screens[0].placements[second].parent,top);
-      await page.locator('[data-designer-move="-1"]').click();assert.equal((await stored()).answers.screens[0].layoutOrder.indexOf(second)<(await stored()).answers.screens[0].layoutOrder.indexOf(first),true);
-      await page.locator('[data-designer-move="1"]').click();
+      await page.locator('[data-level-move="-1"]').click();assert.equal((await stored()).answers.screens[0].layoutOrder.indexOf(second)<(await stored()).answers.screens[0].layoutOrder.indexOf(first),true);
+      await page.locator('[data-level-move="1"]').click();
       const beforeResize=(await stored()).answers.screens[0].placements[second];const resize=page.locator(`[data-resize-element="${second}"]`);await resize.focus();await resize.press('ArrowLeft');await resize.press('ArrowDown');
       const keyboardWidth=(await stored()).answers.screens[0].placements[second].width;assert(keyboardWidth<beforeResize.width);
       assert.equal((await stored()).answers.screens[0].placements[second].height,128);
@@ -214,7 +215,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       const jumpTarget=await reportJump.getAttribute('data-report-jump');await reportJump.click();assert(await page.locator('#form-view').isVisible());assert(await page.locator('#field-'+jumpTarget).isVisible(),'Report jump lands on its question');
       await go(5);await page.locator('#next-button').click();
       await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
-      await page.locator('#copy-prompt').click();const copied=await page.evaluate(()=>window.testCopiedPrompt);
+      await page.locator('#show-prompt').click();await page.locator('#copy-prompt').click();const copied=await page.evaluate(()=>window.testCopiedPrompt);await page.locator('#close-prompt').click();
       const download=page.waitForEvent('download');await page.locator('#download-report').click();const markdown=fs.readFileSync(await (await download).path(),'utf8');assert(copied.endsWith(markdown));assert(copied.includes('별도 기능 번호나 필드 목록이 없다는 이유로 누락하지 마세요'));
       const nav=page.locator('#export-answers');if(!await nav.isVisible())await page.locator('#toggle-navigation').click();
       const backupDownload=page.waitForEvent('download');await nav.click();const backup=JSON.parse(fs.readFileSync(await (await backupDownload).path(),'utf8'));assert.deepEqual(backup.answers,before.answers);
@@ -235,7 +236,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert((await form.innerText()).includes('기초\n심화'));assert((await form.innerText()).includes('중복이면 기존 신청 안내'));assert.equal(await page.locator('.report-document img,.report-document script').count(),0);
       const legacyReport=await page.locator('.report-document').innerText();
       await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
-      await page.locator('#copy-prompt').click();const legacyPrompt=await page.evaluate(()=>window.testCopiedPrompt);
+      await page.locator('#show-prompt').click();await page.locator('#copy-prompt').click();const legacyPrompt=await page.evaluate(()=>window.testCopiedPrompt);await page.locator('#close-prompt').click();
       const legacyDownload=page.waitForEvent('download');await page.locator('#download-report').click();const legacyMarkdown=fs.readFileSync(await (await legacyDownload).path(),'utf8');
       assert(legacyPrompt.endsWith(legacyMarkdown));
       for(const output of [legacyReport,legacyPrompt,legacyMarkdown]){
@@ -243,7 +244,9 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         for(const text of ['작성한 기록을 그대로 보여 줘요.','원본을 유지해요.','신청 결과를 확인하고 돌아와요.'])assert(output.includes(text),text);
       }
       assert.deepEqual((await stored()).answers,legacyBeforeExport,'Filtering obsolete links is display-only');
+      await require('./check-template-browser.cjs')({page,context,go,validate,width});
       await require('./check-grid-browser.cjs')({page,go,width,shot});
+      await require('./check-layers-browser.cjs')({page,go,width,shot});
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
       console.log(`Natural-language designer browser checks passed: ${width}px`);

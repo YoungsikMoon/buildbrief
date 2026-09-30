@@ -16,6 +16,7 @@ HTML·CSS·JavaScript로 만든 정적 사이트입니다. 앱 실행에 백엔�
 
 ```sh
 node check.cjs
+node scripts/planning-template.cjs --check
 node scripts/release.cjs --test
 node scripts/build.cjs --test
 ```
@@ -30,13 +31,14 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 
 ## 파일 구성
 
-`scripts/check-grid-browser.cjs`는 화면 편집 브라우저 검사에서 함께 실행합니다. 점 격자 좌우·상하 배치, 의도적인 겹침 허용과 이웃 좌표 보존, 너비·높이 조절, 실제 끌어 놓기의 자유 좌표 저장, 중첩·공통 요소, 크게 보기·Escape·도움말·초점 복원, 1024×768 작업 공간, 새로고침·초안·백업 왕복을 확인합니다.
+`scripts/check-grid-browser.cjs`는 화면 편집 브라우저 검사에서 함께 실행합니다. 점 격자 좌우·상하 배치, 의도적인 겹침 허용과 이웃 좌표 보존, 너비·높이 조절, 실제 끌어 놓기의 자유 좌표 저장, 중첩·공통 요소, 크게 보기·Escape·도움말·초점 복원, 1024×768 작업 공간, 새로고침·초안·백업 왕복을 확인합니다. 화면·요소 기본 이름 번호, 삭제 후 이름 충돌 방지, 화면·요소·참고 탭 전환·키보드·선택과 입력 보존도 같은 검사에서 확인합니다. `scripts/check-layers-browser.cjs`는 실제 겹침 지점의 앞 요소, 선택/이동 시 순서 보존, 레벨 변경·초안·백업, 전체/부분 보기·화면별 독립 상태·중첩 요소·Escape·200% 글자 확대를 확인합니다.
 
 | 파일 | 역할 |
 | --- | --- |
 | [dist/index.html](../dist/index.html) | 페이지 구조, 대화 상자, 자산 참조와 버전 표시 영역 |
 | [dist/questions.js](../dist/questions.js) | 6단계 질문, 표시 조건, 기능 후보, 화면 요소 |
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
+| [dist/planning-template.js](../dist/planning-template.js) | 문서 원본에서 생성한 개발 준비 템플릿의 버전·본문 |
 | [dist/app.js](../dist/app.js) | 앱 시작, 화면 이동, 이벤트 연결, 프로젝트 관리 UI, 내보내기 |
 | [dist/answers.js](../dist/answers.js) | 답변·메모 검증, 질문 표시 조건, 진행률, 선택지·입력 상한 |
 | [dist/designer.js](../dist/designer.js) | 공통/개별 화면 배치, 요소·기능 참고 자료와 안전한 미리보기 |
@@ -52,6 +54,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [docs/security/](../docs/security/) | 주제별 ASVS 적용 범위·점검표·운영 기준·검증 이력 |
 | [check.cjs](../check.cjs) | 앱 회귀 검사, 공개 파일·스크립트 순서·자산 해시 검사 |
 | [scripts/check-planning.cjs](../scripts/check-planning.cjs) | 단계 위치 이전, 요소별 항목·추천 범위, 백업·입력 경계 검사 (`check.cjs`에 포함) |
+| [scripts/planning-template.cjs](../scripts/planning-template.cjs) | 개발 준비 요청문 정적 생성과 `--check` 최신 여부 검사 |
 | [scripts/check-planning-browser.cjs](../scripts/check-planning-browser.cjs) | PC·모바일의 로그인·역할→화면·기능·동작→초안·백업 흐름 검사 (선택 실행) |
 | [scripts/check-runtime.cjs](../scripts/check-runtime.cjs) | 저장 실패·충돌·복구와 화면 출력 검사 (`check.cjs`에서 함께 실행) |
 | [scripts/check-guide-browser.cjs](../scripts/check-guide-browser.cjs) | 시작 안내 예시의 반응형·키보드·터치·저장 분리 검사 (선택 실행) |
@@ -60,6 +63,8 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [.github/workflows/release.yml](../.github/workflows/release.yml) | Pull Request·main 검증과 자동 릴리스 |
 | [wrangler.jsonc](../wrangler.jsonc) | Pages 프로젝트 이름과 공개 디렉터리 설정 |
 
+개발 준비 템플릿의 저장·이전 백업·엄격한 형식 검증은 `check.cjs`가 `scripts/check-template-storage.cjs`와 함께 검사합니다. `scripts/check-planning-browser.cjs`는 `scripts/check-template-browser.cjs`를 통해 프롬프트 대화상자·기본/고급 전환·비교 도움말·키보드 초점 복귀·프로젝트별 편집·복원 취소/확인·새로고침·백업 왕복과 실제 클립보드·실패 시 파일·미리보기의 일치도 확인합니다. 운영체제의 클립보드 줄바꿈 변환은 비교에서 정규화합니다.
+
 ## 모듈을 수정하는 기준
 
 - 질문과 도움말의 내용·표시 조건은 `questions.js`, 답변 형식과 공통 제한은 `answers.js`에서 관리합니다. 같은 선택지나 상한을 화면 코드에 다시 선언하지 않습니다.
@@ -67,7 +72,10 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 - `report.js`는 문서 텍스트, `views.js`·`designer.js`는 HTML을 반환합니다. 이 모듈들은 저장소나 실제 DOM을 변경하지 않습니다. 시각 편집은 `designer.js`가 외곽·배치·팔레트를, `views.js`가 선택 대상의 입력을 만듭니다. 편집 중 선택한 화면·요소·패널은 `app.js`의 임시 상태이며 프로젝트 전환 때 초기화합니다. 사용자 입력의 이스케이프와 질문·답변·이유의 경계를 유지하세요.
 - 화면 초안은 편집기와 같은 `layoutItems`를 사용해 공통 요소·포함 관계·순서를 계산합니다. `report.js`의 문서 번호는 내보낼 때만 생성하며 저장 ID를 바꾸지 않습니다. `check-planning.cjs`와 브라우저 검사는 필드·동작의 소속, 공통 설정과 개별 덮어쓰기, 숨긴 요소 제외, 출력 인코딩, 실제 입력 수정 후 미리보기·복사·다운로드의 일치를 확인합니다.
 - `projects.js`는 저장·백업 형식을 검증하고, `storage.js`는 읽기·쓰기 실패와 다른 탭의 변경을 처리합니다. UI 안내와 프로젝트 전환은 `app.js`에서 연결합니다. 저장 키와 백업 버전은 기존 값을 유지합니다.
-- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
+- 개발 준비 템플릿 원본은 `docs/planning-template/request-template.md`입니다. 원문과 `scripts/planning-template.cjs`의 버전을 갱신한 뒤 `node scripts/planning-template.cjs`로 생성하고 `--check`로 일치 여부를 검사합니다. 기본 버전은 `2026-09-30.1`이며 생성 파일은 원문의 줄바꿈을 LF로 정규화하고 앞뒤 공백을 제거한 정적 모듈입니다. 브라우저는 원문을 별도 요청하거나 동적으로 실행하지 않습니다. `dist/planning-template.js`는 직접 편집하지 않으며 전체 파일 포맷을 적용했다면 다시 생성합니다.
+- 프로젝트의 `planningTemplate`은 `null` 또는 `{ enabled, version, text }`로 저장합니다. 기존 기록에 필드가 없으면 `null`로 받아 기본 모드로 시작합니다. 기존 추가 요청의 내용 상한은 30,000자이며 모드 전환·기본 버전 갱신으로 저장 문구를 지우거나 자동 교체하지 않습니다. `report.js`는 고급 모드이고 비어 있지 않은 추가 요청만 자동 생성한 AI 전달문에 포함하며, 일반 기획 초안에는 포함하지 않습니다. 전체 수정본이 있으면 아래 규칙을 우선 적용합니다.
+- 전체 프롬프트 직접 편집은 `promptDrafts`의 선택적인 `basic`·`advanced` 문자열에 따로 저장합니다. 키가 없으면 현재 답변에서 생성하고 빈 문자열은 그대로 유지합니다. `projects.js`가 모드 허용 목록·각 1,000,000자 상한·자료형을 검사하고 이전 백업은 `{}`로 보완합니다. `report.js`의 여섯 번째 인자가 수정본이며 AI 프롬프트에만 적용합니다. UI는 생성·수정본을 하나의 textarea에 표시하고 그 값을 그대로 복사합니다. 복원은 현재 모드의 수정본만 삭제하며, 고급이면 기존 추가 템플릿도 현재 원문으로 복원합니다. 수정본을 새 답변으로 자동 덮어쓰지 않습니다.
+- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → planning-template → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
 - 화면 요소 이미지는 `questions.js`의 요소 ID와 같은 이름의 WebP만 공개합니다. `check.cjs`가 정확한 목록·파일 유형·용량 상한을 확인합니다. 새 이미지는 [UI 기준](ui-guidelines.md#화면-요소-예시)에 따라 수동 검수하고, 생성 프롬프트와 원본·개발용 파일은 공개 폴더에 넣지 않습니다. 이미지 생성 도구는 빌드 의존성이 아닙니다.
 
 ## 코드 정렬
@@ -78,6 +86,6 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 npm exec --yes --package=prettier@3.6.2 -- prettier --write --single-quote --print-width 100 --trailing-comma none --html-whitespace-sensitivity strict "dist/*.js" dist/styles.css
 ```
 
-정렬 뒤에도 자산 해시를 갱신하고 검증해야 합니다. CSS는 기존 선언 순서를 유지해 화면별 우선순위가 바뀌지 않도록 합니다.
+정렬 후 `node scripts/planning-template.cjs`로 생성 파일의 형식을 복원하고 자산 해시를 갱신한 뒤 검증해야 합니다. CSS는 기존 선언 순서를 유지해 화면별 우선순위가 바뀌지 않도록 합니다.
 
 상세 문서의 역할과 진입점은 [README 목차](../README.md#문서-안내)에서 확인합니다. 동작을 바꾸면 해당 주제 문서를 갱신하고, 보안 관련 변경은 [SECURITY.md](../SECURITY.md)에서 관련 모듈을 찾아 검토합니다.

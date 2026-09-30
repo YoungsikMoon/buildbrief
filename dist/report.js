@@ -11,6 +11,8 @@
     normalizeHttpUrl,
     elementKeys,
     elementLabel,
+    elementLevels,
+    screenLabel,
     elementPlacement,
     layoutItems,
     gridLayout,
@@ -30,7 +32,16 @@
       .split(/\r?\n/)
       .map((line) => `> ${line}`)
       .join('\n');
-  function report(answers = {}, prompt = false, notes = {}, recommendations = []) {
+  function report(
+    answers = {},
+    prompt = false,
+    notes = {},
+    recommendations = [],
+    planningTemplate = null,
+    promptDrafts = {}
+  ) {
+    const mode = planningTemplate?.enabled ? 'advanced' : 'basic';
+    if (prompt && Object.hasOwn(promptDrafts, mode)) return promptDrafts[mode];
     // Old empty cards and dangling links are storage history, not requirements.
     const features = (Array.isArray(answers.features) ? answers.features : []).filter(
       (feature) =>
@@ -122,7 +133,7 @@
       if (id === '@back') return '이전 화면으로 돌아가기';
       const screen = screens.find((item) => item.id === id);
       return screen
-        ? `${screen.isCommon ? '기본 공통 화면' : screen.name || '화면 이름 미정'} [${screenLabels.get(id)}]`
+        ? `${screenLabel(screens, screen)} [${screenLabels.get(id)}]`
         : `연결할 화면 확인 필요 [${id}]`;
     };
     const common = screens.find((screen) => screen.isCommon);
@@ -164,7 +175,7 @@
         '- 각 질문 제목 아래의 답변과 선택 이유·추가 메모는 그 질문에 속합니다. 이유를 다른 질문의 근거로 옮기거나 답변 자체로 간주하지 마세요.',
         '- 사용자·문제·핵심 기능·대표 이용 과정·화면·로그인과 권한·자료를 연결하세요. 서로 맞지 않는 입력과 빠진 조건부터 질문하세요.',
         '- 화면 요소의 배치 구조와 번호를 유지하세요. S는 화면, E는 요소, P는 입력 항목·표의 열, A는 동작, F는 기능을 가리키는 이 문서 안의 번호입니다. 같은 이름이라도 번호가 다르면 다른 대상입니다. 요소 번호는 식별용이며 실제 배치 순서는 구조·순서 필드를 따릅니다. 번호를 실제 코드·DB 식별자로 간주하지 마세요.',
-        '- 요소별 포함 대상·같은 위치 안의 순서·너비와 각 입력 항목의 방식·필수 여부·선택지·제한을 함께 보존하세요. 너비는 부모 요소 또는 배치 영역 기준입니다. 박스 크기는 이 편집기의 기획용 구성안이며 실제 제품의 픽셀 크기나 반응형 규칙으로 확정하지 마세요. 기본 배치를 사용자가 직접 정한 정책으로 확대 해석하지 마세요.',
+        '- 요소별 포함 대상·겹침 레벨·같은 위치 안의 순서·너비와 각 입력 항목의 방식·필수 여부·선택지·제한을 함께 보존하세요. 너비는 부모 요소 또는 배치 영역 기준입니다. 박스 크기는 이 편집기의 기획용 구성안이며 실제 제품의 픽셀 크기나 반응형 규칙으로 확정하지 마세요. 기본 배치를 사용자가 직접 정한 정책으로 확대 해석하지 마세요.',
         '- 기본 공통 화면은 서비스의 공통 레이아웃입니다. 사용하도록 표시한 화면에만 적용하고, 각 화면의 같은 종류 요소는 해당 화면 설정을 우선합니다. 공통 레이아웃 적용을 공통 접근 권한이나 별도의 이동 화면으로 해석하지 마세요. 요소 배치의 > 표시는 포함 관계입니다. 예를 들어 상단 > 상단 바 > 일반 버튼은 상단 바 안의 버튼을 뜻합니다. 배치와 순서는 기획용 구성안입니다.',
         '- 역할 목록의 이름과 각 화면이 선택한 역할을 연결하세요. 역할이 비어 있으면 미정이며 전체 공개로 간주하지 마세요. 로그인 필요는 로그인 기능을 제공한다는 뜻이며 모든 화면에 로그인을 강제한다는 뜻이 아닙니다.',
         '- 화면·요소의 동작은 행동·상황, 실행 기능, 처리 결과와 다음 화면을 한 묶음으로 해석하세요. 다른 화면으로 이동하는 경우와 현재 화면 유지·뒤로 가기를 구분하세요. 이전에 작성한 내용은 참고 기록이며 새 답변과 충돌하면 확인하세요.',
@@ -172,6 +183,7 @@
         '- 로그인 수단과 기능별 권한을 구분하세요. 사용하는 사람과 다룰 수 있는 자료 범위를 확인하고, 버튼 숨기기를 권한 검사로 간주하지 마세요. 전역 역할 설명과 기능별 입력이 다르면 확인할 질문으로 남기세요.',
         '- 참고 URL은 아직 열람하지 않은 자료입니다. 실제로 확인한 경우에만 확인한 범위와 근거를 밝혀 주세요.',
         '- 먼저 사용자가 검토할 기획 문서와 남은 질문을 제공하세요. 별도의 구현 요청 전에는 코딩·배포를 시작하거나 기술 스택을 확정하지 마세요.',
+        '- 개발 계획에는 필요한 보안·데이터 보호·검증을 포함하고, 단순한 구조부터 비교하세요. 추가 템플릿의 포함 여부는 안전한 구현 원칙을 생략하라는 뜻이 아닙니다.',
         '- 초안을 먼저 정리한 뒤, 처음 만들 기능 범위와 아이디어의 쓸모를 간단히 확인할 방법을 제안하세요. 사용자가 정하지 않은 범위·대상·횟수는 확정하지 말고, 제안한 이유와 함께 확인하세요.',
         ...(hasRequests
           ? [
@@ -179,6 +191,11 @@
             ]
           : []),
         '',
+        ...(planningTemplate?.enabled === true &&
+        typeof planningTemplate.text === 'string' &&
+        planningTemplate.text.trim()
+          ? ['## AI에게 함께 요청할 내용', '', planningTemplate.text.replace(/\r\n?/g, '\n'), '']
+          : []),
         '---',
         ''
       );
@@ -233,6 +250,7 @@
     };
     function writeScreen(row) {
       const layout = orderedLayout(row);
+      const levels = elementLevels(layouts.get(row.id) || []);
       if (
         row.isCommon &&
         !isAnswered(row) &&
@@ -242,11 +260,7 @@
       )
         return;
       lines.push(
-        '##### ' +
-          md(row.isCommon ? '기본 공통 화면' : row.name || '화면 이름 미정') +
-          ' [' +
-          screenLabels.get(row.id) +
-          ']',
+        '##### ' + md(screenLabel(screens, row)) + ' [' + screenLabels.get(row.id) + ']',
         ''
       );
       field('화면 목적', row.purpose);
@@ -303,7 +317,7 @@
       }
       flowFields(row, row);
       for (const entry of layout) {
-        const { owner, key, inherited, ancestors, region, order } = entry;
+        const { owner, key, inherited, ancestors, region } = entry;
         const custom = key.startsWith('custom:');
         const element = Q.uiElements.find((el) => el.id === key);
         const plan = custom
@@ -335,7 +349,7 @@
             ? elementName(parent.owner, parent.key)
             : Q.layoutRegions.find((item) => item.id === region).label
         );
-        field('같은 위치 안의 순서', String(order));
+        field('겹침 레벨 · 숫자가 높을수록 앞', String(levels.get(key)));
         if (placement.position) {
           const position = canvasLayout(layout).get(key);
           field(
@@ -566,7 +580,7 @@
         ),
         ...screenRequests.map(
           (screen) =>
-            `- 화면 구성 추천 — ${md(screen.isCommon ? '기본 공통 화면' : screen.name || '화면 이름 미정')} [${screenLabels.get(screen.id)}]: ${Q.screenRecommendationScope}.`
+            `- 화면 구성 추천 — ${md(screenLabel(screens, screen))} [${screenLabels.get(screen.id)}]: ${Q.screenRecommendationScope}.`
         ),
         ...elementRequests.map(
           ({ screen, id }) =>

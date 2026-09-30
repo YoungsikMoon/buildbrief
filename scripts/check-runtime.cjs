@@ -151,7 +151,7 @@ test('Extracted views escape every question type, answer, choice reason and repo
     audience: [{ id: 'user-1', person: attack, goal: attack, context: attack }]
   };
   for (const q of A.allQuestions) {
-    const html = V.question(q, answers, { [q.id]: attack }, q.allowRecommend ? [q.id] : [], {referenceOpen:true});
+    const html = V.question(q, answers, { [q.id]: attack }, q.allowRecommend ? [q.id] : [], {panel:'reference'});
     const images = html.match(/<img\b[^>]*>/g) || [];
     assert.equal(images.length, q.type === 'screens' ? Q.uiElements.length : 0, q.id);
     for (const image of images)
