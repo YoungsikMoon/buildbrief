@@ -1,28 +1,40 @@
+@font-face {
+  font-family: 'Pretendard';
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+  src: url('fonts/pretendard-variable-1.3.9.woff2') format('woff2');
+}
 :root {
   --type-small: 0.75rem;
   --type-control: 0.875rem;
   --type-body: 1rem;
   --type-question: 1.125rem;
-  --type-section: 1.375rem;
-  --type-title: 1.75rem;
-  --topbar-height: 80px;
+  --type-section: 1.25rem;
+  --type-title: 1.625rem;
+  --topbar-height: 64px;
   --mobile-nav-height: 4.1875rem;
   --actionbar-height: 4.125rem;
   --blue: #1d4ed8;
   --ink: #0f172a;
   --body: #1f2937;
   --muted: #475569;
-  --line: #cbd5e1;
+  --line: #dce2eb;
   --control-border: #7c8ba1;
-  --surface: #f5f7fa;
-  --soft: #eaf0ff;
+  --surface: #f7f8fb;
+  --soft: #edf2ff;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo',
+    'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo',
     sans-serif;
   color: var(--body);
   background: var(--surface);
   font-size: 100%;
-  line-height: 1.65;
+  line-height: 1.6;
+  scrollbar-color: #a4afbf transparent;
+}
+::selection {
+  color: var(--ink);
+  background: #dbe7ff;
 }
 * {
   box-sizing: border-box;
@@ -63,7 +75,7 @@ summary {
   outline-offset: 3px;
 }
 :focus-visible {
-  outline: 3px solid var(--blue);
+  outline: 2px solid var(--blue);
 }
 [hidden] {
   display: none !important;
@@ -87,7 +99,7 @@ legend {
 h1 {
   font-size: var(--type-title);
   line-height: 1.4;
-  letter-spacing: -0.8px;
+  letter-spacing: -0.025em;
   margin: 0 0 10px;
 }
 h2 {
@@ -131,9 +143,10 @@ select {
   border-radius: 8px;
   background: #fff;
   color: var(--body);
-  padding: 12px 14px;
-  min-height: 48px;
+  padding: 10px 12px;
+  min-height: 44px;
   min-width: 0;
+  caret-color: var(--blue);
 }
 textarea {
   resize: vertical;
@@ -161,7 +174,7 @@ select {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
+  min-height: 44px;
   padding: 8px 16px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -176,15 +189,24 @@ select {
   color: #fff;
   background: var(--blue);
 }
+.button.primary:hover:not(:disabled) {
+  background: #1743bd;
+}
+.button.danger:hover:not(:disabled) {
+  background: #991b1b;
+}
 .button.secondary {
   border-color: var(--control-border);
   background: #fff;
 }
 .button:hover:not(:disabled) {
-  filter: brightness(0.97);
+  background: var(--soft);
+}
+.button.secondary:hover:not(:disabled) {
+  border-color: var(--blue);
 }
 .button.small {
-  min-height: 48px;
+  min-height: 44px;
   padding: 8px 12px;
   font-size: var(--type-control);
 }
@@ -242,21 +264,22 @@ select {
   position: sticky;
   top: 0;
   z-index: 20;
-  min-height: 80px;
+  min-height: 64px;
   background: #fff;
   border-bottom: 1px solid var(--line);
   display: grid;
   grid-template-columns: 1fr;
   align-items: center;
   gap: 20px;
-  padding: 14px 24px;
+  padding: 10px 24px;
 }
 .brand-group {
   grid-column: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
 }
 .action-icon {
   width: 19px;
@@ -269,7 +292,7 @@ select {
   gap: 10px;
   color: var(--ink);
   text-decoration: none;
-  font-size: 1.375rem;
+  font-size: 1.25rem;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -317,7 +340,7 @@ a.app-version:focus-visible {
   min-height: 48px;
   max-width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--control-border);
+  border: 1px solid #b5cbbf;
   border-radius: 8px;
   background: #f5faf7;
   text-align: left;
@@ -367,7 +390,7 @@ a.app-version:focus-visible {
   max-width: 1480px;
   margin: auto;
   display: grid;
-  grid-template-columns: 18.75rem minmax(0, 1fr);
+  grid-template-columns: 16.25rem minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-height));
 }
 /* Give the canvas space while keeping text-based steps at a readable width. */
@@ -572,7 +595,7 @@ a.app-version:focus-visible {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #eaf0f7;
+  background: #eef1f6;
 }
 .designer-stage-heading {
   display: flex;
@@ -654,6 +677,7 @@ a.app-version:focus-visible {
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
+  font-size: var(--type-control);
   font-weight: 600;
 }
 .inspector-tabs [aria-selected='true'] {
@@ -664,7 +688,7 @@ a.app-version:focus-visible {
   color: var(--blue);
 }
 .natural-element-settings textarea {
-  min-height: 220px;
+  min-height: 160px;
 }
 .reference-features {
   display: grid;
@@ -753,10 +777,13 @@ a.app-version:focus-visible {
 }
 .inspector-body {
   min-height: 0;
-  padding: 18px;
+  padding: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-margin-top: 160px;
+}
+.inspector-body .field-help {
+  font-size: var(--type-control);
 }
 
 .insert-elements {
@@ -837,7 +864,6 @@ a.app-version:focus-visible {
   border: 1px solid #b6c5d8;
   border-radius: 10px;
   overflow: auto;
-  box-shadow: 0 6px 18px #2234580b;
 }
 .canvas-chrome {
   position: sticky;
@@ -864,10 +890,12 @@ a.app-version:focus-visible {
   border-radius: 5px;
   color: var(--ink);
   cursor: pointer;
+  font-size: var(--type-control);
 }
 .level-filter summary small {
   margin-left: 6px;
   color: var(--muted);
+  font-size: var(--type-small);
 }
 .level-menu {
   position: absolute;
@@ -882,7 +910,7 @@ a.app-version:focus-visible {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 24px #22345826;
+  box-shadow: 0 8px 24px #0f172a26;
   font-size: var(--type-control);
 }
 .level-menu label {
@@ -962,7 +990,7 @@ a.app-version:focus-visible {
 .canvas-region-hint {
   min-width: 0;
   font-size: 11px;
-  color: #68768c;
+  color: var(--muted);
 }
 .canvas-region-hint {
   flex: 0 0 auto;
@@ -1225,7 +1253,7 @@ body.designer-expanded {
   overflow-y: auto;
   background: #fff;
   border-right: 1px solid var(--line);
-  padding: 24px 16px;
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
 }
@@ -1251,7 +1279,7 @@ body.designer-expanded {
   font-size: var(--type-body);
 }
 .answer-progress {
-  margin: 24px 2px 20px;
+  margin: 20px 2px 14px;
 }
 .progress-heading {
   display: flex;
@@ -1308,7 +1336,7 @@ body.designer-expanded {
   align-items: center;
   gap: 9px;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
   padding: 8px 12px;
   border: 0;
   border-radius: 8px;
@@ -1316,7 +1344,7 @@ body.designer-expanded {
   font-size: var(--type-control);
   text-align: left;
   color: var(--body);
-  margin: 3px 0;
+  margin: 2px 0;
 }
 .step-link .step-number,
 .step-link .step-count {
@@ -1335,7 +1363,7 @@ body.designer-expanded {
   color: var(--blue);
   background: var(--soft);
   font-weight: 700;
-  box-shadow: inset 3px 0 var(--blue);
+  box-shadow: inset 2px 0 var(--blue);
 }
 .step-link:hover {
   background: var(--surface);
@@ -1345,22 +1373,13 @@ body.designer-expanded {
 }
 main {
   min-width: 0;
-  padding: 36px 48px 48px;
-  max-width: 1140px;
+  padding: 32px 40px 40px;
+  max-width: 1040px;
   width: 100%;
   margin: 0 auto;
 }
-.page-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  color: var(--blue);
-  font-size: var(--type-small);
-  margin-bottom: 10px;
-}
 .page-heading {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 .page-heading p {
   font-size: var(--type-body);
@@ -1370,14 +1389,14 @@ main {
 }
 .project-backups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-top: 8px;
 }
 .project-backups .button {
   font-size: var(--type-control);
   padding: 8px 3px;
-  gap: 4px;
+  gap: 3px;
   min-height: 44px;
   white-space: normal;
 }
@@ -1406,7 +1425,7 @@ main {
   overflow: hidden;
 }
 .group-heading {
-  padding: 24px 28px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--line);
 }
 .group-heading p {
@@ -1415,18 +1434,18 @@ main {
   margin: 6px 0 0;
 }
 .group-body {
-  padding: 28px;
+  padding: 24px;
 }
 .question {
   border: 0;
   padding: 0;
-  margin: 0 0 34px;
+  margin: 0 0 24px;
 }
 .question:last-child {
   margin-bottom: 0;
 }
 .question + .question {
-  padding-top: 30px;
+  padding-top: 24px;
   border-top: 1px solid var(--line);
 }
 .question legend {
@@ -1445,7 +1464,7 @@ main {
   color: var(--muted);
   font-size: var(--type-body);
   line-height: 1.75;
-  margin-bottom: 17px;
+  margin-bottom: 14px;
 }
 .choices {
   display: grid;
@@ -1465,12 +1484,16 @@ main {
   background: var(--soft);
   border-color: var(--blue);
 }
+.choice-row:hover,
+.choices > .choice:hover {
+  border-color: var(--blue);
+}
 .choice {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 13px 14px;
-  min-height: 50px;
+  padding: 11px 12px;
+  min-height: 46px;
   cursor: pointer;
   flex: 1;
   min-width: 0;
@@ -1560,7 +1583,6 @@ main {
 .screen-card-heading {
   padding: 18px 24px;
   margin: 0;
-  border-left: 4px solid var(--blue);
   border-radius: 10px 10px 0 0;
   background: var(--soft);
 }
@@ -2215,7 +2237,7 @@ body:has(.prompt-dialog[open]) {
   min-width: 0;
   height: clamp(14rem, 40dvh, 28rem);
   margin: 12px 0 0;
-  font-size: var(--type-body);
+  font-size: max(1rem, var(--type-body));
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -2239,7 +2261,7 @@ body:has(.prompt-dialog[open]) {
   }
 }
 .report-document {
-  padding: 32px;
+  padding: 32px 40px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -2264,6 +2286,7 @@ body:has(.prompt-dialog[open]) {
   font-size: var(--type-body);
   white-space: pre-wrap;
   margin: 5px 0;
+  line-height: 1.75;
 }
 .report-item {
   padding-left: 12px;
@@ -2313,7 +2336,7 @@ dialog {
   width: min(660px, calc(100% - 32px));
   max-height: calc(100dvh - 48px);
   padding: 28px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 14px;
   color: var(--ink);
   box-shadow: 0 20px 90px #0f172a38;
@@ -2377,9 +2400,8 @@ dialog p {
   font-size: var(--type-body);
 }
 .project-item {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 16px 0;
   margin: 14px 0;
 }
 .project-item p {
@@ -2423,7 +2445,7 @@ dialog p {
     padding: 30px 28px;
   }
   .sidebar {
-    padding: 24px 16px;
+    padding: 16px 14px;
   }
   .group-heading {
     padding: 22px;
@@ -2443,13 +2465,12 @@ dialog p {
 }
 @media (max-width: 1000px) {
   :root {
-    /* Reduce the previous mobile type scale by 150 / 200; keep rem-based user scaling. */
     --type-small: 0.75rem;
-    --type-control: 0.84375rem;
-    --type-body: 0.890625rem;
-    --type-question: 1.03125rem;
-    --type-section: 1.125rem;
-    --type-title: 1.3125rem;
+    --type-control: 0.875rem;
+    --type-body: 0.9375rem;
+    --type-question: 1.0625rem;
+    --type-section: 1.1875rem;
+    --type-title: 1.5rem;
   }
   input:not([type='checkbox']):not([type='radio']):not([type='file']),
   textarea,
@@ -2465,15 +2486,15 @@ dialog p {
   }
   .topbar {
     padding: 10px 16px;
-    min-height: 80px;
+    min-height: 56px;
     gap: 8px;
   }
   .brand {
-    font-size: 0.9375rem;
+    font-size: 1.0625rem;
     gap: 7px;
   }
   .brand-group {
-    gap: 2px;
+    gap: 4px 12px;
   }
   .brand-mark {
     width: 1.6875rem;
@@ -2519,10 +2540,10 @@ dialog p {
     gap: 8px 12px;
     position: sticky;
     top: var(--topbar-height);
-    min-height: 67px;
+    min-height: 61px;
     z-index: 19;
     background: #fff;
-    padding: 9px 16px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--line);
     font-size: var(--type-small);
     color: var(--muted);
@@ -2551,10 +2572,10 @@ dialog p {
     display: flex;
   }
   main {
-    padding: 26px 16px 36px;
+    padding: 24px 16px 32px;
   }
   .page-heading {
-    margin-bottom: 22px;
+    margin-bottom: 20px;
   }
   h1 {
     font-size: var(--type-title);
@@ -2783,10 +2804,11 @@ dialog p {
 }
 
 .report-question {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 20px;
+  padding: 16px 0;
   margin: 16px 0;
+}
+.report-question + .report-question {
+  border-top: 1px solid var(--line);
 }
 .report-question > h4 {
   font-size: var(--type-question);
@@ -2863,7 +2885,7 @@ dialog p {
 }
 @media (max-width: 1000px) {
   .report-question {
-    padding: 16px;
+    padding: 14px 0;
   }
   .report-document {
     padding: 18px;
@@ -2881,10 +2903,9 @@ dialog p {
   position: sticky;
   top: calc(var(--topbar-height) + 8px);
   z-index: 10;
-  padding: 12px;
+  padding: 10px 0;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border-bottom: 1px solid var(--line);
 }
 .report-actions #back-to-form {
   border-color: var(--blue);
@@ -2918,37 +2939,22 @@ main:has(#guide-view:not([hidden])) {
   padding-bottom: 64px;
 }
 .guide-hero {
-  padding-bottom: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 32px 48px;
+  padding-bottom: 36px;
 }
 .guide-copy {
   min-width: 0;
-  text-align: center;
-}
-.guide-copy .guide-eyebrow {
-  justify-content: center;
-}
-.guide-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--blue);
-  font-size: var(--type-small);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  margin: 0 0 22px;
-}
-.guide-eyebrow::before {
-  content: '';
-  width: 20px;
-  height: 2px;
-  background: currentColor;
 }
 #guide-title {
   font-size: 2.5rem;
   font-weight: 750;
   line-height: 1.3;
-  letter-spacing: -1.8px;
-  margin: 0 0 24px;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  margin: 0 0 20px;
 }
 #guide-title > span {
   color: var(--blue);
@@ -2963,21 +2969,20 @@ main:has(#guide-view:not([hidden])) {
   color: var(--body);
   font-size: var(--type-body);
   line-height: 1.75;
-  margin: 0 auto;
+  margin: 0;
 }
 .guide-actions {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px 20px;
-  margin: 30px 0 18px;
+  margin: 24px 0 0;
 }
 #guide-view .button.primary {
   min-height: 48px;
   padding: 8px 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 10px #1d4ed818;
   white-space: normal;
 }
 #guide-view .button.primary > span {
@@ -3000,27 +3005,24 @@ main:has(#guide-view:not([hidden])) {
 }
 .guide-benefits {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 22px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 20px;
   list-style: none;
-  padding: 24px 0 0;
-  margin: 24px 0 0;
-  border-top: 1px solid var(--line);
+  padding: 0;
+  margin: 0;
   text-align: left;
 }
 .guide-benefits li {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  min-width: 0;
 }
 .guide-benefits svg {
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  padding: 5px;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
   color: var(--blue);
-  background: var(--soft);
-  border-radius: 8px;
 }
 .guide-benefits strong {
   display: block;
@@ -3099,7 +3101,6 @@ main:has(#guide-view:not([hidden])) {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
-  box-shadow: 0 8px 20px #0f172a08;
 }
 .guide-example:not(.is-current) {
   opacity: 0.45;
@@ -3275,10 +3276,6 @@ main:has(#guide-view:not([hidden])) {
   border-top: 1px solid var(--line);
   padding: 48px 0 44px;
   scroll-margin-top: 16px;
-}
-.guide-how .guide-eyebrow,
-.guide-faq .guide-eyebrow {
-  margin-bottom: 12px;
 }
 .guide-how h2,
 .guide-faq h2 {
@@ -3738,8 +3735,12 @@ body:has(#guide-view:not([hidden])) .mobile-report {
   display: none;
 }
 @media (max-width: 1200px) {
+  .guide-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .guide-benefits {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
   }
 }
 @media (max-width: 1000px) {
@@ -3754,12 +3755,8 @@ body:has(#guide-view:not([hidden])) .mobile-report {
   .guide-hero {
     padding-bottom: 40px;
   }
-  .guide-eyebrow {
-    margin-bottom: 18px;
-  }
   #guide-title {
-    font-size: 1.5rem;
-    letter-spacing: -1.2px;
+    font-size: 1.75rem;
     margin-bottom: 20px;
   }
   .guide-lead {
@@ -3850,7 +3847,6 @@ body:has(#guide-view:not([hidden])) .mobile-report {
     gap: 18px 12px;
   }
   .guide-benefits li {
-    flex-direction: column;
     gap: 8px;
   }
   .brand-group {

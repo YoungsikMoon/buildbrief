@@ -54,11 +54,17 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','guides.js','idea-examples','index.html','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','fonts','guides.js','idea-examples','index.html','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
-    assert(['element-examples', 'idea-examples'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and the image directories may be published');
+    assert(['element-examples', 'idea-examples', 'fonts'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and asset directories may be published');
   }
+  assert.deepEqual(fs.readdirSync('dist/fonts').sort(), ['OFL.txt', 'pretendard-variable-1.3.9.woff2']);
+  for (const file of fs.readdirSync('dist/fonts')) assert(fs.lstatSync(`dist/fonts/${file}`).isFile());
+  const font = fs.readFileSync('dist/fonts/pretendard-variable-1.3.9.woff2');
+  assert.equal(font.toString('ascii', 0, 4), 'wOF2');
+  assert.equal(createHash('sha256').update(font).digest('hex'), '9599f12fd42fc0bce1cd50b47a0c022e108d7aa64dd0d1bb0ed44f3282d900b4', 'Use the reviewed, unmodified upstream font');
+  assert(fs.readFileSync('dist/fonts/OFL.txt', 'utf8').includes('SIL OPEN FONT LICENSE Version 1.1'));
   assert.deepEqual(fs.readdirSync('dist/element-examples').sort(), Q.uiElements.map(el => el.id + '.webp').sort());
   for (const el of Q.uiElements) {
     const file = `dist/element-examples/${el.id}.webp`;

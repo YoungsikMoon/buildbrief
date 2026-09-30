@@ -1063,8 +1063,7 @@ ${esc(text)}</textarea
           );
         })
         .join('') + closeQuestion();
-    return /* HTML */ `<div class="page-topline"><span>내 아이디어의 첫 문서</span></div
-      ><div class="page-heading"
+    return /* HTML */ `<div class="page-heading"
         ><h1 id="report-title" tabindex="-1">서비스 기획 초안</h1
         ><p>작성한 내용과 미정 사항을 모았어요. 빈칸은 확정된 요구사항으로 간주하지 않아요.</p></div
       ><div class="report-actions"

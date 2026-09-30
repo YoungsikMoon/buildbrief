@@ -4,7 +4,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const legacy=require('./check-planning.cjs');
 const root=path.resolve(__dirname,'../dist');
 const headers=Object.fromEntries(fs.readFileSync(path.join(root,'_headers'),'utf8').split(/\r?\n/).filter(line=>/^  [A-Z][^:]+:/.test(line)).map(line=>{const i=line.indexOf(':');return [line.slice(0,i).trim(),line.slice(i+1).trim()];}));
-const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp)$/.test(file)){res.writeHead(404);res.end();return;}try{res.writeHead(200,{...headers,'Content-Type':{'.js':'text/javascript','.css':'text/css','.webp':'image/webp'}[path.extname(file)]||'text/html'});res.end(fs.readFileSync(path.join(root,file)));}catch{res.end();}});
+const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp|fonts\/pretendard-variable-1\.3\.9\.woff2)$/.test(file)){res.writeHead(404);res.end();return;}try{res.writeHead(200,{...headers,'Content-Type':{'.js':'text/javascript','.css':'text/css','.webp':'image/webp','.woff2':'font/woff2'}[path.extname(file)]||'text/html'});res.end(fs.readFileSync(path.join(root,file)));}catch{res.end();}});
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=process.env.BUILDBRIEF_TEST_URL||`http://127.0.0.1:${server.address().port}`;
@@ -24,7 +24,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const validate=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Overflow ${width}`);assert.equal(await page.locator('[id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length-new Set(ids).size;}),0);};
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
-      await page.goto(base);await go(0);
+      await page.goto(base); await page.evaluate(() => document.fonts.ready);await go(0);
       assert.equal(await page.locator('.page-topline,#start-note').count(),0,'Redundant introductory rows are removed');
       const manage=page.locator('#manage-projects');
       if(!await manage.isVisible())await page.locator('#toggle-navigation').click();

@@ -10,12 +10,12 @@ const headers = Object.fromEntries(fs.readFileSync(path.join(root, '_headers'), 
   .map(line => { const at = line.indexOf(':'); return [line.slice(0, at).trim(), line.slice(at + 1).trim()]; }));
 const server = http.createServer((req, res) => {
   const file = new URL(req.url, 'http://localhost').pathname.slice(1) || 'index.html';
-  if (!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp)$/.test(file)) {
+  if (!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp|fonts\/pretendard-variable-1\.3\.9\.woff2)$/.test(file)) {
     res.writeHead(404); res.end(); return;
   }
   try {
     const bytes = fs.readFileSync(path.join(root, file));
-    const mime = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp' }[path.extname(file)] || 'text/html';
+    const mime = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.woff2': 'font/woff2' }[path.extname(file)] || 'text/html';
     res.writeHead(200, { ...headers, 'Content-Type': mime }); res.end(bytes);
   } catch { res.writeHead(404); res.end(); }
 });
@@ -29,7 +29,8 @@ const server = http.createServer((req, res) => {
       const errors = [], requests = [];
       page.on('pageerror', e => errors.push(e.message));
       page.on('request', r => { if (['fetch', 'xhr', 'websocket', 'eventsource', 'ping'].includes(r.resourceType())) requests.push(r.url()); });
-      await page.goto(base);
+      await page.goto(base); await page.evaluate(() => document.fonts.ready);
+      assert(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Pretendard' && font.status === 'loaded')), 'The local Korean font must load under CSP');
       assert(await page.locator('#guide-view').isVisible());
       const original = await page.evaluate(() => localStorage.getItem(BriefProjects.KEY));
       const track = page.locator('#guide-examples');
@@ -58,7 +59,7 @@ const server = http.createServer((req, res) => {
       await page.keyboard.press('Home'); await current(0); await centered();
       await page.waitForFunction(() => [...document.querySelectorAll('.guide-service-image')].every(img => img.complete && img.naturalWidth === 1200));
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Page overflow at ${width}`);
-      assert.equal(await page.locator('body').evaluate(el => getComputedStyle(el).fontSize), width <= 1000 ? '14.25px' : '16px');
+      assert.equal(await page.locator('body').evaluate(el => getComputedStyle(el).fontSize), width <= 1000 ? '15px' : '16px');
       if (width === 390) {
         const session = await page.context().newCDPSession(page);
         await page.locator('.guide-service-image').first().scrollIntoViewIfNeeded();
