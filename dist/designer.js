@@ -75,12 +75,12 @@
     }
   }
   function applyVisibility(state, screenId) {
-    const hidden = state.hiddenElements?.[screenId] || [];
+    const hidden = state.hiddenLevels?.[screenId] || [];
     const boxes = [...document.querySelectorAll('.canvas-block')];
     for (const block of boxes)
-      block.classList.toggle('level-hidden', hidden.includes(block.dataset.blockKey));
-    const checks = [...document.querySelectorAll('[data-level-key]')];
-    for (const check of checks) check.checked = !hidden.includes(check.dataset.levelKey);
+      block.classList.toggle('level-hidden', hidden.includes(Number(block.dataset.level)));
+    const checks = [...document.querySelectorAll('[data-view-level]')];
+    for (const check of checks) check.checked = !hidden.includes(Number(check.dataset.viewLevel));
     const visible = checks.filter((check) => check.checked).length;
     const all = document.querySelector('[data-all-levels]');
     if (all) {
@@ -90,6 +90,35 @@
     const count = document.querySelector('[data-visible-level-count]');
     if (count)
       count.textContent = visible === checks.length ? '전체' : `${visible}/${checks.length}`;
+  }
+  function levelOptions(items) {
+    const counts = new Map();
+    for (const level of A.elementLevels(items).values()) counts.set(level, (counts.get(level) || 0) + 1);
+    return `<legend class="visually-hidden">표시할 요소 레벨</legend><label class="level-all"><input type="checkbox" data-all-levels checked ${items.length ? '' : 'disabled'}>전체</label>` +
+      [...counts].sort(([a], [b]) => b - a).map(([level, count]) =>
+        `<label><input type="checkbox" data-view-level="${level}" checked><span><strong>${level}레벨</strong> · ${count}개 요소</span></label>`
+      ).join('') + (items.length ? '' : '<p class="field-help">추가한 요소가 없어요.</p>');
+  }
+  function updateLevels(answers, state) {
+    const { screen, element } = selection(answers, state);
+    const items = A.layoutItems(screen, answers.screens.find((row) => row.isCommon));
+    const levels = A.elementLevels(items);
+    for (const block of document.querySelectorAll('.canvas-block')) {
+      const level = levels.get(block.dataset.blockKey);
+      block.dataset.level = level;
+      block.style.zIndex = level;
+      block.querySelector(':scope > .canvas-level').textContent = `${level}레벨`;
+    }
+    document.querySelector('.level-menu').innerHTML = levelOptions(items);
+    const input = document.querySelector('[data-element-level]');
+    if (input) {
+      input.value = levels.get(element);
+      input.removeAttribute('aria-invalid');
+      document.querySelector('#element-level-error').hidden = true;
+      document.querySelector('[data-level-move="-1"]').disabled = input.valueAsNumber <= 1;
+      document.querySelector('[data-level-move="1"]').disabled = input.valueAsNumber >= A.MAX_ELEMENT_LEVEL;
+    }
+    applyVisibility(state, screen.id);
   }
   function render(answers, state, inspector, reason, recommendation = '') {
     const { screen, index, element, panel } = selection(answers, state);
@@ -138,17 +167,7 @@
         )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>${recommendation}<button type="button" class="button secondary small" data-expand-designer aria-pressed="${Boolean(state.expanded)}" aria-controls="screen-designer">${state.expanded ? '↙ 작게 보기' : '⛶ 크게 보기'}</button></div>
       <div class="designer-workspace${state.panelCollapsed ? ' inspector-collapsed' : ''}"><section class="designer-stage" aria-label="화면 배치">
         <div class="designer-stage-heading"><div class="designer-stage-title"><h3 data-screen-title="${index}">${esc(label(screen))}</h3><p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p></div></div>
-        <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome"><span aria-hidden="true">● ● ●</span><details class="level-filter"><summary aria-label="요소 보기"><span>요소 보기</span><small data-visible-level-count>전체</small></summary><fieldset class="level-menu"><legend class="visually-hidden">표시할 요소 레벨</legend><label class="level-all"><input type="checkbox" data-all-levels checked ${blocks.length ? '' : 'disabled'}>전체</label>${
-          blocks.length
-            ? [...blocks]
-                .sort((a, b) => levels.get(b.key) - levels.get(a.key))
-                .map(
-                  (item) =>
-                    `<label><input type="checkbox" data-level-key="${esc(item.key)}" checked><span><strong>${levels.get(item.key)}레벨</strong> <span data-level-name="${esc(item.key)}">${esc(elementName(item.owner, item.key))}</span>${item.inherited ? ' · 공통' : ''}</span></label>`
-                )
-                .join('')
-            : '<p class="field-help">추가한 요소가 없어요.</p>'
-        }</fieldset></details></div><div class="canvas-layout">
+        <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome"><span aria-hidden="true">● ● ●</span><details class="level-filter"><summary aria-label="요소 보기"><span>요소 보기</span><small data-visible-level-count>전체</small></summary><fieldset class="level-menu">${levelOptions(blocks)}</fieldset></details></div><div class="canvas-layout">
         ${Q.layoutRegions
           .map(
             (region) =>
@@ -164,7 +183,7 @@
         <div class="inspector-body" id="designer-inspector-body">${tabs.map(([id, text]) => `<section role="tabpanel" id="inspector-panel-${id}" aria-labelledby="inspector-tab-${id}" ${panel === id ? '' : 'hidden'}>${panel === id ? `<h4 class="visually-hidden" tabindex="-1" id="inspector-title">${text}</h4>${content}` : ''}</section>`).join('')}</div>
       </aside></div></div></div>`;
   }
-  const api = { selection, elementName, references, applySizes, applyVisibility, render };
+  const api = { selection, elementName, references, applySizes, applyVisibility, updateLevels, render };
   root.BriefDesigner = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

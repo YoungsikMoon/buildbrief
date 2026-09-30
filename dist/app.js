@@ -181,6 +181,7 @@
     screen.placements[key] = {
       region,
       width: current.width,
+      level: current.level ?? 1,
       position: { x: 0, y: Math.min(A.MAX_CANVAS_Y, bottom) },
       ...(current.height !== undefined ? { height: current.height } : {}),
       ...(parent ? { parent } : {})
@@ -402,6 +403,25 @@
     if (rerender) renderStep(currentStep);
     else updateProgress();
   }
+  function setElementLevel(level) {
+    if (!Number.isInteger(level) || level < 1 || level > A.MAX_ELEMENT_LEVEL) return false;
+    const { screen, element } = D.selection(answers, designerState);
+    if (!A.elementKeys(screen).includes(element)) return false;
+    screen.placements ||= {};
+    screen.placements[element] = { ...A.elementPlacement(screen, element), level };
+    if (designerState.hiddenLevels?.[screen.id])
+      designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(value => value !== level);
+    changed();
+    D.updateLevels(answers, designerState);
+    return true;
+  }
+  function commitElementLevel(input) {
+    if (setElementLevel(input.valueAsNumber)) return;
+    input.setAttribute('aria-invalid', 'true');
+    const error = $('#element-level-error');
+    error.textContent = `1~${A.MAX_ELEMENT_LEVEL} 사이의 정수를 입력해 주세요.`;
+    error.hidden = false;
+  }
   function showHelp(title, guide, elementId = '') {
     $('#help-title').textContent = title;
     $('#help-content').innerHTML =
@@ -601,6 +621,7 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-element-level]')) return commitElementLevel(el);
     if (el.id === 'planning-template-enabled') {
       planningTemplate = {
         ...(planningTemplate || { version: T.version, text: T.text }),
@@ -609,14 +630,14 @@
       updatePrompt();
       return;
     }
-    if (el.matches('[data-all-levels],[data-level-key]')) {
+    if (el.matches('[data-all-levels],[data-view-level]')) {
       const { screen } = D.selection(answers, designerState);
-      const checks = [...document.querySelectorAll('[data-level-key]')];
+      const checks = [...document.querySelectorAll('[data-view-level]')];
       if (el.matches('[data-all-levels]')) for (const check of checks) check.checked = el.checked;
-      designerState.hiddenElements ||= {};
-      designerState.hiddenElements[screen.id] = checks
+      designerState.hiddenLevels ||= {};
+      designerState.hiddenLevels[screen.id] = checks
         .filter((check) => !check.checked)
-        .map((check) => check.dataset.levelKey);
+        .map((check) => Number(check.dataset.viewLevel));
       D.applyVisibility(designerState, screen.id);
       return;
     }
@@ -779,10 +800,6 @@
         if (!block.closest('.canvas-block').classList.contains('inherited')) {
           const name = D.elementName(object, scope);
           block.querySelector('.canvas-block-title').textContent = name;
-          const menuName = [...document.querySelectorAll('[data-level-name]')].find(
-            (node) => node.dataset.levelName === scope
-          );
-          if (menuName) menuName.textContent = name;
           block.setAttribute('aria-label', name + ' 선택');
           block
             .closest('.canvas-block')
@@ -961,6 +978,12 @@
     if (resizing?.pointer === event.pointerId) finishResize(false);
   });
   document.addEventListener('keydown', (event) => {
+    if (event.target.matches('[data-element-level]') && ['Enter', 'Escape'].includes(event.key)) {
+      event.preventDefault();
+      if (event.key === 'Enter') commitElementLevel(event.target);
+      else D.updateLevels(answers, designerState);
+      return;
+    }
     if (event.key === 'Escape' && resizing) {
       event.preventDefault();
       finishResize(false);
@@ -1235,40 +1258,14 @@
     if (d.levelHelp !== undefined)
       return showHelp('요소 레벨', {
         meaning:
-          '레벨 숫자가 높을수록 앞에 표시돼요. 요소를 선택하거나 같은 구역 안에서 위치를 옮겨도 겹침 순서는 바뀌지 않아요.',
-        fit: '↑로 레벨을 높이고 ↓로 낮춰요. 요소 보기에서 전체를 끄고 필요한 레벨만 켜면 가려진 요소를 편집하기 쉬워요. 보기 선택은 화면마다 따로 유지되고 초안·백업에는 영향을 주지 않아요.',
+          '같은 부모 안에서는 레벨 숫자가 높을수록 앞에 표시돼요. 같은 레벨은 기존 배치 순서를 유지하며, 나중에 추가한 요소가 앞에 놓여요. 선택만으로 순서가 바뀌지는 않아요.',
+        fit: `숫자를 직접 입력하거나 ↑·↓로 1씩 바꿀 수 있어요. 범위는 1~${A.MAX_ELEMENT_LEVEL}이고 Enter 또는 입력칸 밖을 누르면 적용해요. 요소 보기에서는 같은 레벨을 함께 켜고 끄며, 변경한 레벨은 자동으로 보여요.`,
         avoid:
-          '같은 구역·같은 부모 안에서 순서를 바꿔요. 안에 넣은 요소는 부모 묶음 안에서 겹쳐져요. 공통 요소는 기본 공통 화면에서 조절하세요.'
+          '구역에 추가하면 1레벨, 요소 안에 추가하면 부모의 현재 레벨로 시작해요. 이후 레벨 변경은 선택한 요소에만 적용돼요. 자식은 부모 묶음 안에서 겹치며, 공통 요소는 기본 공통 화면에서 조절하세요.'
       });
     if (d.levelMove) {
-      const { screen, element } = D.selection(answers, designerState),
-        order = A.elementKeys(screen);
-      const items = A.layoutItems(
-        screen,
-        rowsOf('screens').find((s) => s.isCommon)
-      );
-      const current = items.find((item) => item.key === element);
-      if (!current) return;
-      const siblings = items
-        .filter(
-          (item) =>
-            !item.inherited &&
-            item.parent === current.parent &&
-            (current.parent || item.region === current.region)
-        )
-        .map((item) => item.key);
-      const neighbor = siblings[siblings.indexOf(element) + Number(d.levelMove)];
-      const from = order.indexOf(element),
-        to = order.indexOf(neighbor);
-      if (from < 0 || to < 0) return;
-      [order[from], order[to]] = [order[to], order[from]];
-      keepCanvasPositions(screen, canvasPositions(screen));
-      screen.layoutOrder = order;
-      if (designerState.hiddenElements?.[screen.id])
-        designerState.hiddenElements[screen.id] = designerState.hiddenElements[screen.id].filter(
-          (key) => key !== element
-        );
-      changed(true);
+      const { screen, element } = D.selection(answers, designerState);
+      setElementLevel((A.elementPlacement(screen, element).level ?? 1) + Number(d.levelMove));
       (
         document.querySelector(`[data-level-move="${d.levelMove}"]:not(:disabled)`) ||
         document.querySelector('[data-level-move]:not(:disabled)')
@@ -1435,6 +1432,10 @@
       }
       keepCanvasPositions(screen, positions);
       const created = screen.placements['custom:' + item.id];
+      const items = A.layoutItems(screen, rowsOf('screens').find(row => row.isCommon));
+      created.level = A.elementLevels(items).get(created.parent) ?? 1;
+      if (designerState.hiddenLevels?.[screen.id])
+        designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(level => level !== created.level);
       const canvas = [...document.querySelectorAll('.canvas-grid')].find((grid) =>
         created.parent
           ? grid.dataset.dropParent === created.parent

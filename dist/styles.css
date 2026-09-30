@@ -745,6 +745,21 @@ a.app-version:focus-visible {
   min-width: 44px;
   padding: 10px;
 }
+.level-controls {
+  gap: 6px;
+  font-size: var(--type-control);
+}
+#element-level {
+  width: 4.5rem;
+  padding-inline: 8px;
+}
+#element-level[aria-invalid='true'] {
+  border-color: #b91c1c;
+}
+.level-controls + .field-error {
+  font-size: var(--type-control);
+  margin-bottom: 0;
+}
 .element-delete svg,
 .canvas-resize svg {
   width: 20px;

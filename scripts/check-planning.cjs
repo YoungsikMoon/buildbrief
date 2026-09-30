@@ -409,12 +409,23 @@ assert.equal(A.nextName([{name:'요소2'}],'요소'),'요소3','Deletion cannot 
 assert.equal(A.nextName([{name:'요소9'}],'요소'),'요소10');
 assert.deepEqual(unnamedElements,unnamedBefore);
 }
-// Levels follow saved order, grouping children without changing the source.
+// Levels are explicit values; legacy order remains a tie-breaker, never a level counter.
 {
   const rows=A.normalizeAnswers({screens:[{id:'levels',customElements:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'}],placements:{'custom:c':{region:'main',parent:'custom:a',width:50}}}]}).screens;
   const before=clone(rows),items=A.layoutItems(rows[0]);
-  assert.deepEqual([...A.elementLevels(items)], [['custom:a',1],['custom:c',2],['custom:b',3]]);
+  assert.deepEqual([...A.elementLevels(items)], [['custom:a',1],['custom:b',1],['custom:c',1]]);
   assert.deepEqual(rows,before);
+  rows[0].placements['custom:a']={region:'main',width:100,level:7};
+  rows[0].placements['custom:c'].level=7;
+  const normalized=A.normalizeAnswers({screens:rows});
+  assert.deepEqual([...A.elementLevels(A.layoutItems(normalized.screens[0]))], [['custom:a',7],['custom:b',1],['custom:c',7]]);
+  for(const level of [0,-1,1.5,1000,Infinity,NaN,'2',null,true,{}]) {
+    const invalid=clone(rows);invalid[0].placements['custom:a'].level=level;
+    assert.throws(()=>A.normalizeAnswers({screens:invalid}));
+  }
+  rows[0].placements['custom:a'].level=A.MAX_ELEMENT_LEVEL;
+  assert.equal(A.normalizeAnswers({screens:rows}).screens[0].placements['custom:a'].level,999);
+  assert.deepEqual(items.map(item=>item.key),['custom:a','custom:b','custom:c']);
   assert(R.report({screens:rows}).includes('겹침 레벨'));
 }
 // Grid positions share normalization, preview, export and backup paths.

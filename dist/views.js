@@ -532,13 +532,7 @@ ${esc(value)}</textarea
         row,
         rowsOf(answers, 'screens').find((s) => s.isCommon)
       );
-      const current = items.find((item) => item.key === element);
-      const siblings = items.filter(
-        (item) =>
-          !item.inherited &&
-          item.parent === current.parent &&
-          (current.parent || item.region === current.region)
-      );
+      const level = A.elementLevels(items).get(element);
       const customIndex = (row.customElements || []).findIndex(
         (el) => 'custom:' + el.id === element
       );
@@ -573,13 +567,11 @@ ${esc(value)}</textarea
           descriptionAttrs,
           { type: 'textarea', help: '보여 줄 정보, 사용할 기능과 동작을 자유롭게 적어 주세요.' }
         ) +
-        '<div class="placement-controls"><div class="grid-controls" role="group" aria-label="자유 배치"><span>위치</span><button type="button" class="button secondary small" data-grid-move="left" aria-label="왼쪽으로 이동">←</button><button type="button" class="button secondary small" data-grid-move="up" aria-label="위로 이동">↑</button><button type="button" class="button secondary small" data-grid-move="down" aria-label="아래로 이동">↓</button><button type="button" class="button secondary small" data-grid-move="right" aria-label="오른쪽으로 이동">→</button></div><div class="grid-controls" role="group" aria-label="요소 너비"><span>너비</span><button type="button" class="button secondary small" data-grid-width="50">절반</button><button type="button" class="button secondary small" data-grid-width="100">전체</button></div><div class="inline-actions level-controls" role="group" aria-label="요소 레벨"><span>' +
-        A.elementLevels(items).get(element) +
-        '레벨</span><button type="button" class="button secondary small" data-level-move="1" aria-label="레벨 높이기" ' +
-        (siblings.at(-1)?.key === element ? 'disabled' : '') +
+        '<div class="placement-controls"><div class="grid-controls" role="group" aria-label="자유 배치"><span>위치</span><button type="button" class="button secondary small" data-grid-move="left" aria-label="왼쪽으로 이동">←</button><button type="button" class="button secondary small" data-grid-move="up" aria-label="위로 이동">↑</button><button type="button" class="button secondary small" data-grid-move="down" aria-label="아래로 이동">↓</button><button type="button" class="button secondary small" data-grid-move="right" aria-label="오른쪽으로 이동">→</button></div><div class="grid-controls" role="group" aria-label="요소 너비"><span>너비</span><button type="button" class="button secondary small" data-grid-width="50">절반</button><button type="button" class="button secondary small" data-grid-width="100">전체</button></div><div class="inline-actions level-controls" role="group" aria-label="요소 레벨"><label for="element-level">레벨</label><input id="element-level" data-element-level type="number" min="1" max="' + A.MAX_ELEMENT_LEVEL + '" step="1" inputmode="numeric" value="' + level + '" aria-describedby="element-level-error"><button type="button" class="button secondary small" data-level-move="1" aria-label="레벨 높이기" ' +
+        (level >= A.MAX_ELEMENT_LEVEL ? 'disabled' : '') +
         '>↑</button><button type="button" class="button secondary small" data-level-move="-1" aria-label="레벨 낮추기" ' +
-        (siblings[0]?.key === element ? 'disabled' : '') +
-        '>↓</button><button type="button" class="option-help" data-level-help aria-label="요소 레벨 안내">?</button><button type="button" class="button secondary element-delete" data-designer-remove-element aria-label="요소 삭제" title="요소 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div></div></div>';
+        (level <= 1 ? 'disabled' : '') +
+        '>↓</button><button type="button" class="option-help" data-level-help aria-label="요소 레벨 안내">?</button><button type="button" class="button secondary element-delete" data-designer-remove-element aria-label="요소 삭제" title="요소 삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div><p id="element-level-error" class="field-error" role="status" hidden></p></div></div>';
     } else if (panel === 'screen') {
       inspector =
         (row.isCommon

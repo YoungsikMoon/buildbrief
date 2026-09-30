@@ -95,7 +95,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('[data-add-element][data-target="region:top"]').click();
       let state=await stored();const common=state.answers.screens[0].id,top='custom:'+state.answers.screens[0].customElements[0].id;
       await name().fill('상단 메뉴');await describe().fill('왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.');
-      assert.equal(await page.locator('.natural-element-settings input,.natural-element-settings textarea').count(),2);
+      assert.equal(await page.locator('.natural-element-settings input:not([data-element-level]),.natural-element-settings textarea').count(),2);
       assert(!(await page.locator('.canvas-paper').innerText()).includes(await describe().inputValue()),'Descriptions stay in the settings panel after editing');
       await choose(common,top);
       assert.equal(await describe().inputValue(),'왼쪽에는 서비스 이름, 오른쪽에는 검색과 로그인 버튼을 보여 줘요.','Selecting an element restores its description in the panel');
@@ -175,8 +175,9 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.locator('.inspector-add').click();state=await stored();const second='custom:'+state.answers.screens[0].customElements[2].id;
       await name().fill('회원 메뉴');await describe().fill('로그인한 사람에게 내 신청과 로그아웃 버튼을 보여 줘요.');
       assert.equal((await stored()).answers.screens[0].placements[second].parent,top);
-      await page.locator('[data-level-move="-1"]').click();assert.equal((await stored()).answers.screens[0].layoutOrder.indexOf(second)<(await stored()).answers.screens[0].layoutOrder.indexOf(first),true);
-      await page.locator('[data-level-move="1"]').click();
+      assert.equal((await stored()).answers.screens[0].placements[second].level,1);
+      await page.locator('[data-level-move="1"]').click();assert.equal((await stored()).answers.screens[0].placements[second].level,2);
+      await page.locator('[data-level-move="-1"]').click();
       const beforeResize=(await stored()).answers.screens[0].placements[second];const resize=page.locator(`[data-resize-element="${second}"]`);await resize.focus();await resize.press('ArrowLeft');await resize.press('ArrowDown');
       const keyboardWidth=(await stored()).answers.screens[0].placements[second].width;assert(keyboardWidth<beforeResize.width);
       assert.equal((await stored()).answers.screens[0].placements[second].height,128);

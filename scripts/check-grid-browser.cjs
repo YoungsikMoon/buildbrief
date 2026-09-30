@@ -16,7 +16,7 @@ module.exports = async ({ page, go, width, shot }) => {
           placements: {
             'custom:container': { region: 'top', width: 100, height: 96 },
             'custom:a': { region: 'main', width: 50, height: 96, grid: { row: 1, column: 1 } },
-            'custom:b': { region: 'main', width: 50, height: 96, grid: { row: 1, column: 11 } }
+            'custom:b': { level: 2, region: 'main', width: 50, height: 96, grid: { row: 1, column: 11 } }
           }
         },
         {
@@ -117,7 +117,7 @@ module.exports = async ({ page, go, width, shot }) => {
   if (width > 800) {
     await select('a');
     await page.locator('.level-filter summary').click();
-    await page.locator('[data-level-key="custom:b"]').uncheck();
+    await page.locator('[data-view-level="2"]').uncheck();
     await page.keyboard.press('Escape');
     const grid = page.locator('.region-main > .canvas-grid');
     const rect = await grid.boundingBox();
@@ -141,7 +141,7 @@ module.exports = async ({ page, go, width, shot }) => {
     assert.deepEqual((await stored()).screens[0].placements['custom:b'], beforeB);
     assert.equal(await page.locator('.canvas-drop-preview,.drop-active').count(), 0);
     await page.locator('.level-filter summary').click();
-    await page.locator('[data-level-key="custom:b"]').check();
+    await page.locator('[data-view-level="2"]').check();
     await page.keyboard.press('Escape');
     const beforeSizeB = await block('b').boundingBox();
     await page.locator('[data-resize-element="custom:a"]').press('ArrowDown');

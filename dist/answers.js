@@ -7,6 +7,7 @@
   const MAX_ROWS = 80,
     MAX_GRID_ROWS = MAX_ROWS * 4,
     MAX_CANVAS_Y = 100000,
+    MAX_ELEMENT_LEVEL = 999,
     MAX_TEXT = 6000,
     MIN_ELEMENT_HEIGHT = 64;
   const EXCLUSIVE = [UNKNOWN, '특별한 방법 없음', '추가 정보 없음', '기기 기능이 필요하지 않음'];
@@ -333,15 +334,7 @@
     return true;
   }
   function elementLevels(items) {
-    const levels = new Map();
-    const visit = (parent) => {
-      for (const item of items.filter((item) => item.parent === parent)) {
-        levels.set(item.key, levels.size + 1);
-        visit(item.key);
-      }
-    };
-    visit('');
-    return levels;
+    return new Map(items.map((item) => [item.key, elementPlacement(item.owner, item.key).level ?? 1]));
   }
   function gridLayout(items, preferred = '') {
     const positions = new Map(),
@@ -590,7 +583,9 @@
               (Number.isFinite(placement.width) && placement.width >= 1 && placement.width <= 100)
             ) ||
             (placement.height !== undefined &&
-              (!Number.isSafeInteger(placement.height) || placement.height < MIN_ELEMENT_HEIGHT))
+              (!Number.isSafeInteger(placement.height) || placement.height < MIN_ELEMENT_HEIGHT)) ||
+            (placement.level !== undefined &&
+              (!Number.isInteger(placement.level) || placement.level < 1 || placement.level > MAX_ELEMENT_LEVEL))
           )
             fail(label + ' 배치');
           if (placement.parent !== undefined && typeof placement.parent !== 'string')
@@ -620,6 +615,7 @@
           placements[key] = {
             region: placement.region,
             width: placement.width,
+            ...(placement.level !== undefined ? { level: placement.level } : {}),
             ...(placement.height !== undefined ? { height: placement.height } : {}),
             ...(placement.position
               ? { position: { x: placement.position.x, y: placement.position.y } }
@@ -790,6 +786,7 @@
     gridLayout,
     canvasLayout,
     MIN_ELEMENT_HEIGHT,
+    MAX_ELEMENT_LEVEL,
     elementLabel,
     screenLabel,
     numberedName,
