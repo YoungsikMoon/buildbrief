@@ -114,5 +114,141 @@ module.exports = async ({ page, go, width, shot }) => {
     if (JSON.stringify(restored.answers) !== JSON.stringify(p.answers)) throw Error('Parent/name backup mismatch');
     if (!BriefReport.report(p.answers).includes('공통 탐색')) throw Error('Renamed parent missing from report');
   });
-  console.log(`Parent editing, unique names and collision checks passed: ${width}px`);
+  await page.evaluate(() => {
+    const w = JSON.parse(localStorage.getItem(BriefProjects.KEY));
+    w.projects.find(p => p.id === w.activeId).answers = BriefAnswers.normalizeAnswers({ screens: [{
+      id: 'explicit-parent', isCommon: true, canvas: { width: 1280, height: 720 },
+      customElements: ['a','b','c','d'].map(id => ({ id, name: {a:'부모 요소',b:'떠 있는 요소',c:'중첩 컨테이너',d:'자식 요소'}[id] })),
+      placements: {
+        'custom:a': { region: 'main', width: 40, height: 300, level: 2, position: { x: 0, y: 0 } },
+        'custom:b': { region: 'main', width: 15, height: 80, level: 7, position: { x: 60, y: 0 } },
+        'custom:c': { region: 'main', parent: 'custom:a', width: 50, height: 120, level: 3, position: { x: 0, y: 0 } },
+        'custom:d': { region: 'main', parent: 'custom:c', width: 50, height: 64, level: 4, position: { x: 0, y: 0 } }
+      }
+    }] });
+    localStorage.setItem(BriefProjects.KEY, JSON.stringify(w));
+  });
+  await page.reload(); await go(4);
+  await page.locator('[data-canvas-zoom]').selectOption('0.5');
+  const choices = page.locator('[data-parent-choice]');
+  const openParents = async () => { if (!await choices.isVisible()) await page.locator('#parent-change > summary').click(); };
+  const placement = async key => (await stored()).screens[0].placements['custom:' + key];
+  const size = key => page.locator(`[data-block-key="custom:${key}"]`).evaluate(block => {
+    const scale = Number(document.querySelector('.canvas-world').dataset.scale);
+    const rect = block.getBoundingClientRect();
+    return { width: rect.width / scale, height: rect.height / scale };
+  });
+  const sameSize = (actual, expected) => {
+    for (const dimension of ['width','height']) assert(Math.abs(actual[dimension] - expected[dimension]) < .08,
+      `${dimension}: expected ${expected[dimension]}, got ${actual[dimension]}`);
+  };
+  if (width > 800) {
+    await page.locator('[data-canvas-element="custom:b"]').dragTo(page.locator('[data-drop-parent="custom:a"]'),
+      { sourcePosition: { x: 8, y: 8 }, targetPosition: { x: 150, y: 35 } });
+    assert(!(await placement('b')).parent, 'Overlapping another container does not adopt it');
+    assert.equal((await placement('b')).level,7);
+    assert((await placement('b')).position.x < 40, 'The overlap move actually happened');
+    await page.locator('[data-canvas-element="custom:c"]').dragTo(page.locator('.canvas-world'),
+      { sourcePosition: { x: 8, y: 8 }, targetPosition: { x: 400, y: 250 } });
+    assert.equal((await placement('c')).parent,'custom:a','Dragging out keeps the existing parent');
+    assert.equal((await placement('c')).level,3);
+  }
+  await select('a'); await openParents();
+  assert.deepEqual(await choices.locator('option').evaluateAll(options => options.map(o => o.value)),['','custom:b'],
+    'The current element and all its descendants are excluded');
+  await select('b'); await openParents();
+  const originalSize = await size('b');
+  const beforeChoice = await stored();
+  await choices.selectOption('custom:a');
+  assert.deepEqual(await stored(),beforeChoice,'Choosing a parent is not enough to apply it');
+  await page.locator('[data-cancel-parent-change]').click();
+  assert.deepEqual(await stored(),beforeChoice,'Cancel preserves placement and level');
+  await page.locator('.level-filter summary').click(); await page.locator('[data-view-level="3"]').uncheck();
+  await page.locator('.level-filter summary').click();
+  await openParents(); await choices.selectOption('custom:a');
+  assert((await choices.locator('option:checked').innerText()).includes('3레벨'));
+  await page.locator('[data-apply-parent]').focus(); await page.keyboard.press('Enter');
+  assert.equal((await placement('b')).parent,'custom:a'); assert.equal((await placement('b')).level,3);
+  sameSize(await size('b'),originalSize);
+  assert(await page.locator('[data-view-level="3"]').isChecked(),'Reparenting reveals a hidden destination level');
+  assert(await page.locator('#parent-change > summary').evaluate(n => n === document.activeElement));
+  await openParents(); await choices.selectOption('');
+  await page.locator('[data-apply-parent]').click();
+  assert(!(await placement('b')).parent); assert.equal((await placement('b')).level,1);
+  sameSize(await size('b'),originalSize);
+  await select('c'); await openParents(); await choices.selectOption('custom:b');
+  const tooSmall = await stored(); await page.locator('[data-apply-parent]').click();
+  assert.deepEqual(await stored(),tooSmall,'A smaller target cannot silently shrink the element');
+  assert((await page.locator('#toast').innerText()).includes('너비'));
+  const containerSize = await size('c'), descendantSize = await size('d');
+  for (const zoom of ['2','0.5']) {
+    await page.locator('[data-canvas-zoom]').selectOption(zoom);
+    for (const parent of ['', 'custom:a']) {
+      await select('c'); await openParents(); await choices.selectOption(parent);
+      await page.locator('[data-apply-parent]').click();
+      assert.equal((await placement('c')).parent || '',parent);
+      sameSize(await size('c'),containerSize); sameSize(await size('d'),descendantSize);
+    }
+  }
+  await select('a'); await setLevel(999);
+  await select('b'); await openParents();
+  assert(await choices.locator('option[value="custom:a"]').isDisabled());
+  // DOM tampering still goes through the relationship validator before saving.
+  await choices.evaluate(select => { const option = new Option('self','custom:b'); select.add(option); });
+  await choices.selectOption('custom:b'); const invalidBefore = await stored();
+  await page.locator('[data-apply-parent]').click();
+  assert.deepEqual(await stored(),invalidBefore,'Self-parenting cannot be saved');
+  await page.locator('[data-cancel-parent-change]').click();
+  await openParents(); await choices.selectOption('custom:c');
+  await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.evaluate(() => document.documentElement.style.fontSize = '');
+  await shot('parent-change');
+  await page.locator('[data-apply-parent]').click();
+  assert.equal((await placement('b')).parent,'custom:c'); assert.equal((await placement('b')).level,4);
+  const final = await stored(); await page.reload(); await go(4); assert.deepEqual(await stored(),final);
+  await page.evaluate(() => {
+    const w = JSON.parse(localStorage.getItem(BriefProjects.KEY)), p = w.projects.find(p => p.id === w.activeId);
+    if (JSON.stringify(BriefProjects.importBackup({format:'buildbrief-idea',version:1,...p}).projects[0].answers) !== JSON.stringify(p.answers))
+      throw Error('Reparented backup mismatch');
+  });
+  // Parent deletion also detaches children on screens that are not currently mounted.
+  await page.evaluate(() => {
+    const w = JSON.parse(localStorage.getItem(BriefProjects.KEY));
+    w.projects.find(p => p.id === w.activeId).answers = BriefAnswers.normalizeAnswers({screens:[
+      {id:'size-common',isCommon:true,canvas:{width:1920,height:1080},
+        customElements:[{id:'parent',name:'크기 부모'},{id:'shared-child',name:'공통 자식'}],placements:{
+          'custom:parent':{region:'main',width:40,height:200,level:2,position:{x:0,y:0}},
+          'custom:shared-child':{region:'main',parent:'custom:parent',width:20,height:80,level:3,position:{x:0,y:0}},
+          button:{region:'main',parent:'custom:parent',width:20,height:80,level:3,position:{x:0,y:100}}
+        }},
+      {id:'size-own',name:'넓은 화면',canvas:{width:8192,height:1080},
+        customElements:[{id:'local-child',name:'작은 자식'}],placements:{
+          'custom:local-child':{region:'main',parent:'custom:parent',width:1,height:64,level:4,position:{x:30,y:0}}
+        }}
+    ]});
+    localStorage.setItem(BriefProjects.KEY,JSON.stringify(w));
+  });
+  await page.reload(); await go(4);
+  await page.locator('[data-designer-screen="size-own"]').click();
+  const ownSize = await size('local-child');
+  await page.locator('[data-designer-screen="size-common"]').click();
+  const sharedSize = await size('shared-child');
+  await select('parent'); await page.locator('[data-designer-remove-element]').click();
+  sameSize(await size('shared-child'),sharedSize);
+  const hidden = (await stored()).screens[0].placements.button;
+  assert(!hidden.parent); assert(Math.abs(hidden.width * 1920 / 100 - sharedSize.width) < .08);
+  await page.locator('[data-designer-screen="size-own"]').click();
+  sameSize(await size('local-child'),ownSize);
+  const small = (await stored()).screens[1].placements['custom:local-child'];
+  assert(!small.parent); assert(small.width > 0 && small.width < 1);
+  const afterDelete = await stored(); await page.reload(); await go(4);
+  await page.locator('[data-designer-screen="size-own"]').click();
+  sameSize(await size('local-child'),ownSize); assert.deepEqual(await stored(),afterDelete);
+  await page.evaluate(() => {
+    const w=JSON.parse(localStorage.getItem(BriefProjects.KEY)),p=w.projects.find(p=>p.id===w.activeId);
+    if(JSON.stringify(BriefProjects.importBackup({format:'buildbrief-idea',version:1,...p}).projects[0].answers)!==JSON.stringify(p.answers))
+      throw Error('Small detached element backup mismatch');
+  });
+  console.log(`Explicit parent changes, unique names and collision checks passed: ${width}px`);
 };

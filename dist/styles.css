@@ -770,18 +770,24 @@ a.app-version:focus-visible {
 }
 .parent-name-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 .parent-name-row strong {
+  flex: 1 1 120px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .parent-edit {
-  flex: 0 0 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
   padding: 10px;
 }
 .parent-edit svg {
+  flex-shrink: 0;
   display: block;
   width: 20px;
   height: 20px;
@@ -791,6 +797,17 @@ a.app-version:focus-visible {
 }
 [data-parent-editor] .field-help {
   margin-block: 8px;
+}
+.parent-change {
+  margin-top: 8px;
+}
+.parent-change > summary {
+  padding-block: 12px;
+  color: var(--blue);
+}
+.parent-change > select {
+  width: 100%;
+  min-width: 0;
 }
 [data-designer-name][aria-invalid='true'],
 [data-parent-name][aria-invalid='true'] {
@@ -1186,8 +1203,7 @@ a.app-version:focus-visible {
   line-height: 1;
 }
 .canvas-add:hover,
-.canvas-add-child:hover,
-.canvas-add-child.drop-active {
+.canvas-add-child:hover {
   background: #eef4ff;
   border-color: #b6c5d8;
   color: var(--blue);

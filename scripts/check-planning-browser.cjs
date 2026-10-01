@@ -26,8 +26,8 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
       await page.goto(base); await page.evaluate(() => document.fonts.ready);await go(0);
-      if (process.argv.includes('--geometry-only')) {
-        await require('./check-geometry-browser.cjs')({page,go,width,shot});
+      if (process.argv.includes('--geometry-only') || process.argv.includes('--hierarchy-only')) {
+        await require(process.argv.includes('--hierarchy-only') ? './check-hierarchy-browser.cjs' : './check-geometry-browser.cjs')({page,go,width,shot});
         await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
         continue;
       }
@@ -190,11 +190,17 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       assert.equal(await block(second).evaluate(n=>parseInt(n.style.getPropertyValue('--block-height'))),resized.height);
       if(width>800){
         const beforeCancel=(await stored()).answers;await resize.scrollIntoViewIfNeeded();const b=await resize.boundingBox();await page.mouse.move(b.x+10,b.y+10);await page.mouse.down();await page.mouse.move(b.x-25,b.y+30);await page.keyboard.press('Escape');await page.mouse.up();assert.deepEqual((await stored()).answers,beforeCancel);
-        const source=page.locator('[data-canvas-element="'+second+'"]'), destination=page.locator('.canvas-world');
+        const source=page.locator('[data-canvas-element="'+second+'"]');
         await source.dragTo(page.locator(`[data-add-element][data-target="parent:${first}"]`));
-        assert.equal((await stored()).answers.screens[0].placements[second].parent,first,'The compact + accepts drops into empty elements');
-        await source.dragTo(destination, {sourcePosition:{x:8,y:8},targetPosition:{x:400,y:80}});
+        assert.equal((await stored()).answers.screens[0].placements[second].parent,top,'Dragging over + never changes the parent');
+        await choose(common,second);
+        await page.locator('#parent-change > summary').click();
+        await page.locator('[data-parent-choice]').selectOption(first);await page.locator('[data-apply-parent]').click();
+        assert.equal((await stored()).answers.screens[0].placements[second].parent,first);
+        await page.locator('#parent-change > summary').click();
+        await page.locator('[data-parent-choice]').selectOption('');await page.locator('[data-apply-parent]').click();
         const moved=(await stored()).answers.screens[0].placements[second];assert.equal(moved.region,'main');assert(!moved.parent);assert.equal(moved.height,resized.height);
+        assert.equal(moved.level,1,'Explicit detachment starts at level one');
       }
       await choose(common,top);acceptDialog=false;await page.locator('[data-designer-remove-element]').click();assert.equal((await stored()).answers.screens[0].customElements.length,3);acceptDialog=true;
       await page.locator('[data-designer-remove-element]').click();state=await stored();assert.equal(state.answers.screens[0].customElements.length,2);assert(!state.answers.screens[0].placements[first].parent);assert.equal(state.answers.screens[0].placements[first].region,'main');

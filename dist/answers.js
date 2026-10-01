@@ -677,7 +677,7 @@
             !Q.layoutRegions.some((region) => region.id === placement.region) ||
             !(
               ['full', 'half'].includes(placement.width) ||
-              (Number.isFinite(placement.width) && placement.width >= 1 && placement.width <= 100)
+              (Number.isFinite(placement.width) && placement.width > 0 && placement.width <= 100)
             ) ||
             (placement.height !== undefined &&
               (!Number.isSafeInteger(placement.height) || placement.height < MIN_ELEMENT_HEIGHT)) ||

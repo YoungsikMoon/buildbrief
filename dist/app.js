@@ -147,7 +147,7 @@
         : $('#designer-inspector-body')
       )?.scrollIntoView({ block: 'start' });
   }
-  function placeElement(screen, key, target) {
+  function placeElement(screen, key, target, preserveSize = true) {
     const common = rowsOf('screens').find((s) => s.isCommon);
     const items = A.layoutItems(screen, common);
     const current = A.elementPlacement(screen, key);
@@ -160,28 +160,36 @@
       region = ancestor?.region || region;
     }
     if (!Q.layoutRegions.some((r) => r.id === region)) return false;
+    // Deselected legacy elements still have saved placements to preserve on parent deletion.
+    if (!items.some(item => item.key === key)) items.push({
+      key, owner: screen, region: current.region,
+      parent: items.some(item => item.key === current.parent) ? current.parent : ''
+    });
     const positions = A.canvasLayout(items);
+    const geometry = A.canvasGeometry(items.map(item => ({
+      key: item.key, parent: item.parent, ...A.elementSize(item.owner, item.key),
+      ...positions.get(item.key)
+    })), A.canvasSize(screen));
+    let width = current.width;
+    if (preserveSize && parent !== (current.parent || '')) {
+      const pixels = geometry.boxes.get(key).width;
+      const available = parent ? geometry.boxes.get(parent).width - 10 : geometry.width;
+      // Percentages change reference frames; retain the box's unzoomed pixel width.
+      if (available <= 0 || pixels > available + 0.01) return false;
+      width = Math.min(100, pixels / available * 100);
+    }
     const siblings = items.filter(
       (item) => item.key !== key && item.parent === parent && (parent || item.region === region)
     );
     const bottom = Math.max(
       0,
-      ...siblings.map((item) => {
-        const block = [...document.querySelectorAll('.canvas-block')].find(
-          (block) => block.dataset.blockKey === item.key
-        );
-        return (
-          positions.get(item.key).y +
-          (block?.offsetHeight || A.elementSize(item.owner, item.key).height) +
-          16
-        );
-      })
+      ...siblings.map(item => positions.get(item.key).y + geometry.boxes.get(item.key).height + 16)
     );
     screen.placements ||= {};
     const previous = screen.placements[key];
     screen.placements[key] = {
       region,
-      width: current.width,
+      width,
       level: current.level ?? 1,
       position: { x: 0, y: Math.min(A.MAX_CANVAS_Y, bottom) },
       ...(current.height !== undefined ? { height: current.height } : {}),
@@ -243,16 +251,37 @@
   function moveCanvasElement(key, target, position = null) {
     const { screen } = D.selection(answers, designerState);
     const order = A.elementKeys(screen);
+    const current = A.elementPlacement(screen, key);
+    const parent = target.startsWith('parent:') ? target.slice(7) : '';
+    const parentChanged = parent !== (current.parent || '');
+    const items = A.layoutItems(screen, rowsOf('screens').find(row => row.isCommon));
+    const level = parentChanged ? (parent ? (A.elementLevels(items).get(parent) ?? 1) + 1 : 1) : (current.level ?? 1);
+    if (level > A.MAX_ELEMENT_LEVEL) {
+      toast('부모가 최대 레벨이에요. 부모 레벨을 낮춘 뒤 포함해 주세요.');
+      return false;
+    }
     const positions = canvasPositions(screen);
     const before = D.collisions(), previous = structuredClone(screen.placements || {});
-    if (!order.includes(key) || !placeElement(screen, key, target)) return;
+    if (!order.includes(key) || !placeElement(screen, key, target)) {
+      toast('이 부모에는 포함할 수 없어요. 부모 너비를 늘리거나 다른 부모를 선택해 주세요.');
+      return false;
+    }
     positions.delete(key);
     keepCanvasPositions(screen, positions);
     if (position) screen.placements[key].position = position;
+    screen.placements[key].level = level;
     designerState.element = key;
     designerState.panel = 'element';
     renderStep(currentStep);
-    finishPlacement(screen, previous, before);
+    if (!finishPlacement(screen, previous, before)) return false;
+    if (parentChanged) {
+      if (designerState.hiddenLevels?.[screen.id])
+        designerState.hiddenLevels[screen.id] = designerState.hiddenLevels[screen.id].filter(value => value !== level);
+      D.applyVisibility(designerState, screen.id);
+      D.focusBlock(key);
+      toast(`${parent ? '선택한 부모 안으로 옮겼어요' : '부모에서 분리했어요'} · ${level}레벨`);
+    }
+    return true;
   }
   function toggleExpandedDesigner() {
     designerState.expanded = !designerState.expanded;
@@ -682,6 +711,10 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-parent-choice]')) {
+      $('[data-apply-parent]').disabled = el.value === el.dataset.currentParent;
+      return;
+    }
     if (el.matches('[data-canvas-zoom]')) return D.zoomTo(designerState, el.value === 'fit' ? 'fit' : Number(el.value));
     if (el.matches('[data-canvas-preset],[data-canvas-dimension]')) {
       const { screen } = D.selection(answers, designerState);
@@ -1237,6 +1270,12 @@
     document.querySelectorAll('.drop-active').forEach((el) => el.classList.remove('drop-active'));
     document.querySelectorAll('.canvas-drop-preview').forEach((el) => el.remove());
   }
+  function dragZone(event) {
+    if (!draggedElement || !event.target.closest('.canvas-viewport')) return null;
+    // Moving a box never changes its parent, even over another box or its + button.
+    return [...document.querySelectorAll('.canvas-block')]
+      .find(block => block.dataset.blockKey === draggedElement.key)?.parentElement;
+  }
   function gridDrop(event, zone) {
     const grid = zone.matches('.canvas-grid') ? zone : null;
     if (!grid || !draggedElement) return null;
@@ -1272,7 +1311,7 @@
     };
   }
   document.addEventListener('dragover', (event) => {
-    const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
+    const zone = dragZone(event);
     if (
       !zone ||
       !draggedElement ||
@@ -1298,7 +1337,7 @@
     }
   });
   document.addEventListener('drop', (event) => {
-    const zone = event.target.closest('[data-drop-parent], [data-drop-region]');
+    const zone = dragZone(event);
     if (
       !zone ||
       !draggedElement ||
@@ -1333,6 +1372,20 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.applyParent !== undefined || d.cancelParentChange !== undefined) {
+      const choice = $('[data-parent-choice]');
+      if (d.applyParent !== undefined && choice.value !== choice.dataset.currentParent) {
+        const { element } = D.selection(answers, designerState);
+        if (!moveCanvasElement(element, choice.value ? 'parent:' + choice.value : 'region:main')) return;
+      }
+      const details = $('#parent-change');
+      details.open = false;
+      const select = details.querySelector('select');
+      select.value = select.dataset.currentParent;
+      details.querySelector('[data-apply-parent]').disabled = true;
+      details.querySelector('summary').focus({ preventScroll: true });
+      return;
+    }
     if (d.toggleMinimap !== undefined) {
       designerState.minimap = designerState.minimap === false;
       $('#canvas-minimap-panel').hidden = !designerState.minimap;
@@ -1630,7 +1683,8 @@
         !placeElement(
           screen,
           'custom:' + item.id,
-          target
+          target,
+          false
         )
       ) {
         screen.customElements.pop();

@@ -532,7 +532,8 @@ ${esc(value)}</textarea
         row,
         rowsOf(answers, 'screens').find((s) => s.isCommon)
       );
-      const level = A.elementLevels(items).get(element);
+      const levels = A.elementLevels(items);
+      const level = levels.get(element);
       const current = items.find(item => item.key === element);
       const parent = items.find(item => item.key === current.parent);
       const customIndex = (row.customElements || []).findIndex(
@@ -557,10 +558,11 @@ ${esc(value)}</textarea
         : attrs('screens', i, 'elementNotes') + ' data-element="' + element + '"';
       inspector =
         '<div class="natural-element-settings">' +
-        '<div class="parent-setting"><span class="parent-label">부모 요소</span>' +
+        '<div class="parent-setting"><span class="parent-label">현재 소속 · 부모 요소</span>' +
         (parent
-          ? `<div class="parent-name-row"><strong data-parent-label>${esc(A.elementLabel(parent.owner, parent.key))}</strong>${parent.inherited ? '<small>공통</small>' : ''}<button type="button" class="button secondary parent-edit" data-edit-parent aria-label="부모 요소 이름 수정" title="부모 요소 이름 수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg></button></div><div data-parent-editor hidden><label class="visually-hidden" for="parent-element-name">부모 요소 이름</label><input id="parent-element-name" data-parent-name maxlength="${A.MAX_TEXT}" value="${esc(A.elementLabel(parent.owner, parent.key))}" autocomplete="off"><p class="field-help">${parent.inherited ? '공통 요소의 이름이 사용하는 모든 화면에 반영돼요.' : '부모 이름을 바꿔도 포함관계는 유지돼요.'}</p><div class="inline-actions"><button type="button" class="button primary small" data-save-parent>저장</button><button type="button" class="button secondary small" data-cancel-parent>취소</button></div></div>`
-          : '<p class="field-help">없음 · 캔버스에 직접 배치</p>') + '</div>' +
+          ? `<div class="parent-name-row"><strong data-parent-label>${esc(A.elementLabel(parent.owner, parent.key))}</strong>${parent.inherited ? '<small>공통</small>' : ''}<button type="button" class="button secondary parent-edit" data-edit-parent aria-label="부모 이름 수정" title="부모 이름 수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg><span>부모 이름 수정</span></button></div><div data-parent-editor hidden><label for="parent-element-name">부모 요소의 이름</label><input id="parent-element-name" data-parent-name maxlength="${A.MAX_TEXT}" value="${esc(A.elementLabel(parent.owner, parent.key))}" autocomplete="off"><p class="field-help">${parent.inherited ? '공통 부모의 이름이 모든 사용 화면에 반영돼요. 이 요소의 소속은 그대로예요.' : '부모의 표시 이름을 바꿔요. 이 요소의 소속은 그대로예요.'}</p><div class="inline-actions"><button type="button" class="button primary small" data-save-parent>이름 저장</button><button type="button" class="button secondary small" data-cancel-parent>취소</button></div></div>`
+          : '<p class="field-help">없음 · 캔버스에 직접 배치</p>') +
+        `<details id="parent-change" class="parent-change"><summary>소속 변경</summary><label for="parent-choice">이 요소를 넣을 곳 · 부모 요소</label><select id="parent-choice" data-parent-choice data-current-parent="${esc(current.parent || '')}" aria-describedby="parent-change-help"><option value="" ${parent ? '' : 'selected'}>없음 · ${parent ? '분리하면 1레벨' : '캔버스에 직접 배치 (현재)'}</option>${items.filter(item => A.canNest(items, element, item.key)).map(item => `<option value="${esc(item.key)}" ${item.key === current.parent ? 'selected' : ''} ${levels.get(item.key) >= A.MAX_ELEMENT_LEVEL && item.key !== current.parent ? 'disabled' : ''}>${esc(A.elementLabel(item.owner, item.key))}${item.inherited ? ' (공통)' : ''} · ${item.key === current.parent ? '현재 부모' : levels.get(item.key) >= A.MAX_ELEMENT_LEVEL ? '최대 레벨' : `옮기면 ${levels.get(item.key) + 1}레벨`}</option>`).join('')}</select><p class="field-help" id="parent-change-help">이 요소가 들어갈 부모를 바꿔요. 포함하면 부모 레벨 +1, 분리하면 1레벨이 돼요.</p><div class="inline-actions"><button type="button" class="button primary small" data-apply-parent disabled>소속 변경 적용</button><button type="button" class="button secondary small" data-cancel-parent-change>취소</button></div></details></div>` +
         input(
           '요소 이름',
           custom ? custom.name : plan.name === undefined ? A.elementLabel(row, element) : plan.name,
