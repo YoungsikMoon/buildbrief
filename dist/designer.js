@@ -61,19 +61,25 @@
   function applySizes(container = document) {
     const scope = container.ownerDocument || container;
     const world = scope.querySelector('.canvas-world');
-    if (world) world.style.width = world.dataset.canvasWidth + 'px';
-    for (const block of scope.querySelectorAll('.canvas-block[data-width]')) {
-      block.style.width = block.dataset.width + '%';
-      block.style.left = block.dataset.x + '%';
+    if (!world) return;
+    const blocks = [...world.querySelectorAll('.canvas-block[data-width]')];
+    const geometry = A.canvasGeometry(blocks.map(block => ({
+      key: block.dataset.blockKey, parent: block.parentElement.dataset.dropParent || '',
+      x: Number(block.dataset.x), y: Number(block.dataset.y),
+      width: Number(block.dataset.width), height: Number(block.dataset.height)
+    })), { width: Number(world.dataset.canvasWidth), height: Number(world.dataset.canvasHeight) });
+    world.style.width = geometry.width + 'px';
+    world.style.minHeight = geometry.height + 'px';
+    for (const block of blocks) {
+      const box = geometry.boxes.get(block.dataset.blockKey);
+      const parent = geometry.boxes.get(block.parentElement.dataset.dropParent);
+      block.style.width = box.width + 'px';
+      block.style.left = (box.x - (parent ? parent.x + 5 : 0)) + 'px';
       block.style.top = block.dataset.y + 'px';
       block.style.zIndex = block.dataset.level;
-      block.style.setProperty('--block-height', block.dataset.height + 'px');
-    }
-    for (const grid of [...scope.querySelectorAll('.canvas-grid')].reverse()) {
-      const blocks = [...grid.querySelectorAll(':scope > .canvas-block')];
-      grid.style.minHeight =
-        Math.max(Number(grid.dataset.canvasHeight) || 32, ...blocks.map((block) => Number(block.dataset.y) + block.offsetHeight + 16)) +
-        'px';
+      block.style.setProperty('--block-height', box.height + 'px');
+      const children = block.querySelector(':scope > .canvas-children');
+      if (children) children.style.minHeight = box.childrenHeight + 'px';
     }
     applyCamera();
     drawMinimap();

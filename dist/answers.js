@@ -452,6 +452,27 @@
     return positions;
   }
   const canvasSize = screen => screen.canvas || { width: 1920, height: 1080 };
+  // Shared with the editor and exports. Coordinates include the editor box border.
+  // Keep the 32px heading and 5/45px child origin in sync with canvas-block CSS.
+  function canvasGeometry(blocks, size) {
+    const boxes = new Map();
+    const visit = (parent, width, x = 0, y = 0) => {
+      let bottom = 0;
+      for (const block of blocks.filter(item => item.parent === parent)) {
+        const localX = width * block.x / 100;
+        const box = { x: x + localX, y: y + block.y,
+          width: Math.max(10, width * block.width / 100), height: block.height };
+        const childrenHeight = visit(block.key, box.width - 10, box.x + 5, box.y + 45);
+        box.childrenHeight = childrenHeight ? Math.max(32, childrenHeight + 16) : 0;
+        box.height = Math.max(box.height, box.childrenHeight ? box.childrenHeight + 70 : 64);
+        boxes.set(block.key, box);
+        bottom = Math.max(bottom, block.y + box.height);
+      }
+      return bottom;
+    };
+    const bottom = visit('', size.width);
+    return { width: size.width, height: Math.max(size.height, bottom + 16), boxes };
+  }
   function prepareCanvases(screens) {
     const common = screens.find(row => row.isCommon);
     const originals = screens.map(row => ({ ...row, placements: { ...row.placements } }));
@@ -863,6 +884,7 @@
     gridLayout,
     canvasLayout,
     canvasSize,
+    canvasGeometry,
     prepareCanvases,
     MIN_ELEMENT_HEIGHT,
     MAX_ELEMENT_LEVEL,

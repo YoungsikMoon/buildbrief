@@ -6,6 +6,7 @@ const P = require('../dist/projects.js');
 const R = require('../dist/report.js');
 const V = require('../dist/views.js');
 const clone = value => JSON.parse(JSON.stringify(value));
+const { parse, verify } = require('./check-planning-json.cjs');
 const answers = A.normalizeAnswers({
   features: [{id:'book', category:'booking', name:'예약 신청', actor:'회원', outcome:'신청 결과 보기', permission:'자신의 예약만 변경', recommendPermission:true, reason:'본인 기록 보호'}],
   screens: [{id:'apply',name:'신청 화면',purpose:'예약하기',featureIds:['book'],elements:['form','table','button'], reason:'짧게 신청',
@@ -39,6 +40,13 @@ assert.deepEqual(old.screens[0].elementContents,{});
 assert.equal(old.main_flow[0].screenId,'');
 assert.equal(old.features[0].recommendPermission,false);
 for (const prompt of [false,true]) {
+  if (prompt) {
+    const data = verify(answers), form = data.screens[0].elements.find(el => el.id === 'form');
+    assert.equal(form.items[1].options, '기초\n심화');
+    assert(data.recommendationRequests.some(r => r.target === 'feature' && r.featureId === 'book'));
+    assert.deepEqual(data.recommendationRequests.filter(r => r.target === 'element').map(r => r.screenId), ['apply', 'apply', 'apply']);
+    continue;
+  }
   const text = R.report(answers,prompt);
   assert(text.includes('**입력 항목 1**\n> 날짜'));
   assert(text.includes('**필수 여부**\n> 필수'));
@@ -117,6 +125,12 @@ const local = A.normalizeAnswers({
     {id:'done',name:'예약 완료'}]
 });
 for (const prompt of [false,true]) {
+  if (prompt) {
+    const data = verify(local);
+    assert.equal(data.screens[0].elements.find(el => el.id === 'button').flow[0].nextScreenId, 'done');
+    assert.deepEqual(data.recommendationRequests.filter(r => r.target === 'flow').map(r => r.elementId), ['button', 'custom:seat']);
+    continue;
+  }
   const output = R.report(local,prompt);
   assert(output.includes('**사용할 역할**\n> 로그인 사용자'));
   assert(output.includes('**다음 화면**\n> 예약 완료 \\[S02\\]'));
@@ -160,6 +174,12 @@ for (const screen of [{id:'s',recommendFlow:'yes'},{id:'s',roleIds:['bad id']},{
 // Omitted details must not turn into repetitive placeholder answers or lose their parent record.
 const partial=A.normalizeAnswers({screens:[{id:'s',name:'내 기록',purpose:'기록 확인',elements:['form','table'],flow:[{id:'a',result:'안내 표시'}],elementContents:{form:{items:[{id:'field',type:'짧은 글'},{id:'empty'}]},table:{}}}]});
 for(const prompt of [false,true]) {
+  if (prompt) {
+    const data = verify(partial);
+    assert.equal(data.screens[0].flow[0].result, '안내 표시');
+    assert(data.openQuestions.some(q => q.question.includes('다음 화면 또는 현재 화면 유지')));
+    continue;
+  }
   const text=R.report(partial,prompt),body=text.split('## 확인해 볼 질문')[0];
   assert(!body.includes('> 아직 미정'));
   assert(!body.includes('역할 미정') && !body.includes('용도 미정'));
@@ -190,6 +210,12 @@ assert.deepEqual(A.linkedFeatureIds(elementFirst.screens[0].elementContents.form
 const elementProject=P.createProject({answers:elementFirst,drafts:elementFirst});
 for(const backup of [{format:'buildbrief-idea',version:1,...elementProject},{format:'buildbrief-ideas',version:1,activeId:elementProject.id,projects:[elementProject]}]) assert.deepEqual(P.importBackup(backup).projects[0].answers,elementFirst);
 for(const prompt of [true,false]) {
+  if (prompt) {
+    const data = verify(elementFirst);
+    assert.deepEqual(data.recommendationRequests.filter(r => r.target === 'exceptions').map(r => [r.screenId, r.elementId, r.actionId]), [['s', 'form', 'a']]);
+    assert(!data.openQuestions.some(q => q.question.includes('이름·결과 중 미정')));
+    continue;
+  }
   const text=R.report(elementFirst,prompt);
   assert(text.includes('오류·예외 추천 — 입력 화면 \\[S01\\] / 입력 양식 / 저장 \\[F01\\] / 동작 1'));
   assert(!text.includes('오류·예외 추천 — 입력 화면 \\[S01\\] / 좌석 지도'));
@@ -223,6 +249,12 @@ const recommendation=A.normalizeAnswers({screens:[{id:'c',isCommon:true,recommen
 assert(R.report(recommendation).includes('화면 구성 추천 — 기본 공통 화면'));
 assert(R.report(recommendation).includes('**이 화면의 구성 추천 요청 · 미확정**'));
 for(const prompt of [false,true]) {
+  if (prompt) {
+    const data = verify(design, { screens: '예전 전체 메모' });
+    assert.equal(data.screens[1].commonScreenId, 'common');
+    assert.equal(data.screens[2].commonScreenId, null);
+    continue;
+  }
   const text=R.report(design,prompt,{screens:'예전 전체 메모'});
   assert(text.includes('기본 공통 화면 [공통]') && text.includes('첫 화면 [S01]') && text.includes('독립 화면 [S02]'));
   assert(text.includes('공통 레이아웃 적용') && text.includes('사용하지 않음'));
@@ -260,7 +292,8 @@ assert(!A.canNest(tree,'appbar','custom:wrap'));
 assert(!A.canNest(tree,'form','form'));
 assert(!A.canNest(tree,'form','button'));
 assert(A.canNest(tree,'form','custom:wrap'));
-for(const prompt of [false,true])assert(R.report(nestedDesign,prompt).includes('상단 &gt; 상단 바 &gt; 도구 모음 &gt; 일반 버튼'));
+assert(R.report(nestedDesign).includes('상단 &gt; 상단 바 &gt; 도구 모음 &gt; 일반 버튼'));
+assert.equal(verify(nestedDesign).screens[1].elements.find(el => el.id === 'button').parentId, 'custom:wrap');
 const nestedProject=P.createProject({answers:nestedDesign,drafts:nestedDesign});
 assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...clone(nestedProject)}).projects[0].answers,nestedDesign);
 for(const parent of ['button','unknown','custom:missing','__proto__',unsafe,123]) {
@@ -349,6 +382,16 @@ const handoffBefore=clone(handoff);
 const screenBlock=(text,name)=>text.split('##### '+name+' [')[1].split(/^##### |^## /m)[0];
 const elementBlock=(text,ref)=>text.split(/^###### /m).find(part=>part.split('\n')[0].includes(ref));
 for(const prompt of [false,true]) {
+  if (prompt) {
+    const data = verify(handoff), home = data.screens[1];
+    assert.equal(home.elements.find(el => el.id === 'button').parentId, 'custom:a');
+    assert(home.elements.find(el => el.id === 'appbar').inherited);
+    assert.equal(home.elements.find(el => el.id === 'appbar').flow[0].event, '종료 누르기');
+    assert(!home.elements.find(el => el.id === 'form').inherited);
+    assert(!home.elements.some(el => el.id === 'search'));
+    assert.deepEqual(data.recommendationRequests.filter(r => r.target === 'exceptions').map(r => r.actionId), ['shared-action', 'first', 'third']);
+    continue;
+  }
   const text=R.report(handoff,prompt);
   const home=screenBlock(text,'신청 화면'),history=screenBlock(text,'신청 기록'),common=screenBlock(text,'기본 공통 화면');
   assert(home.includes('상단 &gt; 상단 바 &gt; 사용자 메뉴 &gt; 추가 메뉴 &gt; 일반 버튼'));
@@ -381,14 +424,15 @@ for(const prompt of [false,true]) {
   assert(!text.includes('숨겨진 검색') && !text.includes('<img src=x'));
   assert(text.includes('&lt;img src=x onerror=alert(1)&gt;\n> \\#\\#\\# 다른 질문'));
 }
-assert(R.report(handoff,true).endsWith(R.report(handoff)));
+assert.equal(parse(R.report(handoff,true)).screens.length, handoff.screens.length);
 assert.deepEqual(handoff,handoffBefore,'Exports do not rewrite saved screen definitions');
 // Natural-language blocks keep their own names, descriptions and bounded planning sizes.
 const natural=A.normalizeAnswers({screens:[{id:'natural',name:'자유 구성',elements:['button'],elementContents:{button:{name:'문의하기'}},elementNotes:{button:unsafe},customElements:[{id:'search',name:'찾기',purpose:'검색어를 쓰고 찾기를 누르면 결과 목록을 보여 줘요.\n실패하면 입력한 검색어를 유지해요.'}],placements:{'custom:search':{region:'main',width:65,height:240},button:{region:'overlay',width:'half'}}}]});
 assert.equal(A.elementLabel(natural.screens[0],'button'),'문의하기');
 assert.deepEqual(A.elementSize(natural.screens[0],'button'),{width:50,height:120});
 assert.deepEqual(A.elementSize(natural.screens[0],'custom:search'),{width:65,height:240});
-const naturalReport=R.report(natural,true);
+verify(natural);
+const naturalReport=R.report(natural);
 for(const value of ['문의하기','실패하면 입력한 검색어를 유지해요.','65%','240px','용도·기능·동작','기존에 선택한 요소 유형'])assert(naturalReport.includes(value),value);
 assert(!naturalReport.includes('<img src=x'));
 const naturalHtml=V.question(screenQ,natural,{},[],{screenId:'natural',element:'custom:search'});
@@ -520,7 +564,8 @@ assert.deepEqual(P.importBackup({format:'buildbrief-idea',version:1,...staleProj
 const onlyStale=A.normalizeAnswers({features:[emptyFeature],screens:[{id:'only',name:'화면',featureIds:[...missingIds,emptyFeature.id],flow:[{id:'unused',featureId:missingIds[0]}]}],main_flow:[{id:'unused-flow',featureId:missingIds[1]}]});
 for(const output of [R.report(onlyStale),R.report(onlyStale,true),V.report(onlyStale)])for(const text of ['연결한 기능','실행할 기능','이름 미정','F01','서비스에 필요한 기능은 무엇인가요?','사용자는 어떤 순서로 목적을 달성하나요?','동작 번호'])assert(!output.includes(text),text);
 const unnamed=A.normalizeAnswers({features:[{id:'note',category:'custom',notes:'이름 없이 적은 설명은 보존'},{id:'request',category:'custom',recommendPermission:true}]});
-for(const output of [R.report(unnamed),R.report(unnamed,true),V.report(unnamed)])for(const text of ['이름 없이 적은 설명은 보존','이전에 작성한 기능','기능별 권한 추천'])assert(output.includes(text),text);
+for(const output of [R.report(unnamed),V.report(unnamed)])for(const text of ['이름 없이 적은 설명은 보존','이전에 작성한 기능','기능별 권한 추천'])assert(output.includes(text),text);
+assert(verify(unnamed).recommendationRequests.some(r => r.target === 'feature' && r.featureId === 'request'));
 // Virtual canvas migration is deterministic and keeps owned/inherited relationships intact.
 const canvasLegacy = clone(handoff), canvasBefore = clone(canvasLegacy);
 assert.equal(A.prepareCanvases(canvasLegacy.screens), true);

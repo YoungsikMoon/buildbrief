@@ -34,7 +34,7 @@ module.exports = async function ({ page, context, go, validate, width }) {
   await page.locator('#prompt-mode-help').click();
   assert(await page.locator('#prompt-mode-comparison').isHidden());
   await shot('prompt-basic');
-  const defaults = await page.evaluate(() => ({ ...BriefPlanningTemplate }));
+  const defaults = await page.evaluate(() => ({ version: BriefPlanningTemplate.version, text: BriefPlanningTemplate.text }));
   await context.grantPermissions(['clipboard-read','clipboard-write'], {origin:new URL(page.url()).origin});
   let basic;
   for (const advanced of [false,true,false]) {
@@ -42,7 +42,7 @@ module.exports = async function ({ page, context, go, validate, width }) {
     const text = await expected();
     assert.equal(await page.locator('#prompt-preview-text').inputValue(), text);
     assert.equal(text.includes(defaults.text), advanced);
-    assert.equal(text.includes('AGENTS.md'), advanced);
+    assert(text.includes('AGENTS.md') && text.includes('docs/tasks/<작업-id>.md'));
     await page.locator('#copy-prompt').click();
     assert.equal((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n?/g,'\n'), text);
     assert((await page.locator('#prompt-copy-status').innerText()).includes('복사했어요'));
@@ -50,7 +50,8 @@ module.exports = async function ({ page, context, go, validate, width }) {
     else { assert.notEqual(text,basic); await shot('prompt-advanced'); }
   }
   const basicCustom = '나만의 기본 프롬프트\n' + basic;
-  await editor.fill(basicCustom);
+  // Replacing the full JSON prompt also lays out thousands of textarea lines in Chrome.
+  await editor.fill(basicCustom, { timeout: 30000 });
   assert.equal((await stored()).promptDrafts.basic,basicCustom);
   assert(await page.locator('#reset-prompt').isVisible());
   await enabled.focus(); await page.keyboard.press('Space'); assert(await enabled.isChecked());

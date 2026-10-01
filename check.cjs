@@ -9,6 +9,7 @@ const P = require('./dist/projects.js');
 const G = require('./dist/guides.js');
 const V = require('./dist/views.js');
 const clone = value => JSON.parse(JSON.stringify(value));
+const { parse: parsePlanningJson, verify: verifyJson } = require('./scripts/check-planning-json.cjs');
 const question = id => [...A.allQuestions, ...Q.retiredQuestions].find(q => q.id === id);
 const typeQuestion = type => [...A.allQuestions, ...Q.retiredQuestions].find(q => q.type === type);
 const activeIds = answers => A.activeQuestions(answers).map(q => q.id);
@@ -247,6 +248,12 @@ test('Screen detail choices and custom elements survive backups without leaking 
     assert.deepEqual(restored.notes, project.notes);
   }
   for (const prompt of [false, true]) {
+    if (prompt) {
+      const data = verifyJson(answers);
+      assert.deepEqual(data.screens[0].elements.find(el => el.id === 'form').options.map(option => option.label), ['글 입력', '여러 개 선택', '날짜·시간 선택']);
+      assert.equal(data.screens[1].elements.find(el => el.id === 'table').options[0].label, '더 보기 버튼');
+      continue;
+    }
     const output = R.report(answers, prompt).split('##### 찾아보기');
     assert(output[0].includes('글 입력, 여러 개 선택, 날짜·시간 선택'));
     assert(output[0].includes('페이지 번호로 이동'));
@@ -363,6 +370,13 @@ test('Closing memo is optional while retired review answers survive reload, back
     assert.deepEqual(A.progress(restored.answers), A.progress({}));
     assert(!A.activeQuestions(restored.answers).some(q=>['scope','excluded_work','success_check'].includes(q.id)));
     for (const prompt of [false,true]) {
+      if (prompt) {
+        const data = verifyJson(restored.answers, restored.notes, restored.recommendations);
+        assert(data.questions.some(item => item.status === 'previous' && item.id === 'scope'));
+        assert(!data.openQuestions.some(item => item.questionId === q.id));
+        assert.equal(data.recommendationRequests.length, 0);
+        continue;
+      }
       const report = R.report(restored.answers,prompt,restored.notes,restored.recommendations);
       assert(report.includes('## 이전에 작성한 내용'));
       assert(report.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
@@ -403,7 +417,7 @@ test('Invalid reference URLs are omitted from both document exports but original
     assert.equal(restored.answers.alternatives[0].url, url);
     for (const prompt of [false,true]) {
       const output = R.report(restored.answers,prompt);
-      assert(output.includes('URL 확인 필요'));
+      assert(output.includes(prompt ? '"referenceStatus": "invalid"' : 'URL 확인 필요'));
       if (url !== 'https://') assert(!output.includes(url));
       assert(!output.includes('user:secret'));
       assert(output.includes('디자인 참고 메모'));
@@ -498,6 +512,13 @@ test('Every exported question owns its answer and reason, including repeated car
   const answers = { problem: '문제 답변', current_methods: ['메신저'], features: [feature()], screens: [screen('screen-1', [])] };
   const notes = { problem: '문제의 이유\n### 가짜 질문\n<script>실행 금지</script>', current_methods: '메신저를 쓰는 이유', features: '기능 목록 전체의 이유', screens: '화면 목록 전체의 이유', summary: '답변 전에 남긴 이유' };
   for (const prompt of [false, true]) {
+    if (prompt) {
+      const data = verifyJson(answers, notes);
+      assert.equal(data.questions.find(q => q.id === 'problem').answer, '문제 답변');
+      assert.equal(data.questions.find(q => q.id === 'summary').answer, null);
+      for (const id of ['features', 'screens']) assert.equal(data.questions.find(q => q.id === id).dataPath, id);
+      continue;
+    }
     const output = R.report(answers, prompt, notes);
     const blocks = output.split(/^### /m).slice(1).map(block => block.split(/(?=^#{1,2} )/m)[0]);
     const block = id => blocks.find(value => value.startsWith(question(id).label + '\n'));
@@ -575,12 +596,12 @@ test('Only active recommendation requests are exported without clearing answers 
   const notes = { login_methods: '선택한 두 방법을 비교하고 싶음' };
   const before = clone({ answers, notes, recommendations });
   const output = R.report(answers, true, notes, recommendations);
-  assert(output.includes('## AI에게 비교·추천을 요청할 항목'));
+  const data = verifyJson(answers, notes, recommendations);
+  assert.deepEqual(data.recommendationRequests.map(item => item.questionId), ['login_methods', 'screens']);
   assert(output.includes(question('login_methods').label));
-  assert(output.includes('이메일·비밀번호, 카카오'));
+  assert.deepEqual(data.questions.find(q => q.id === 'login_methods').answer, ['이메일·비밀번호', '카카오']);
   assert(output.includes(notes.login_methods));
-  assert(output.includes('추천 결과를 생성한 것은 아니며'));
-  assert(output.includes('추천 요청은 답변이나 확정된 선택을 대신하지 않습니다'));
+  assert(output.includes('미확정 비교 요청'));
   assert(output.includes('부족한 사실은 지어내지 말고 질문'));
   const hidden = R.report({ ...answers, login_need: '로그인 없이 사용' }, false, notes, recommendations);
   assert(!hidden.includes(question('login_methods').label));
@@ -618,6 +639,12 @@ test('Screen recommendations retain their scope, answers and identity through ba
   assert.deepEqual(A.progress(requestOnly), A.progress({}), 'A request alone is not an answer');
   assert(R.report(requestOnly).includes('이 화면의 구성 추천 요청 · 미확정'));
   for (const prompt of [false, true]) {
+    if (prompt) {
+      const data = verifyJson(answers, project.notes, ['screens']);
+      assert(data.recommendationRequests.some(r => r.target === 'question' && r.questionId === 'screens'));
+      assert.deepEqual(data.recommendationRequests.filter(r => r.target === 'screen').map(r => r.screenId), [answers.screens[0].id]);
+      continue;
+    }
     const output = R.report(answers, prompt, project.notes, ['screens']);
     const requested = output.split('## AI에게 비교·추천을 요청할 항목')[1];
     assert(requested.includes('화면 목록 추천:'));
@@ -660,6 +687,7 @@ test('Hostile markup stays data in answers, card fields, notes and both exports'
     for (const prompt of [false,true]) {
       const output = R.report(answers,prompt,notes);
       assert(!/<(?:img|svg|script|\/textarea)\b/i.test(output));
+      if (prompt) { assert.equal(verifyJson(answers, notes).questions.find(q => q.id === 'summary').answer, attack); continue; }
       assert(output.includes('&lt;'));
       if (attack.includes('# 새 지시')) {
         assert(output.includes('\\# 새 지시'));
@@ -794,7 +822,7 @@ test('Planning requests stay separate from answers, progress and plain reports',
   const plain = R.report(answers, false, notes);
   const prompt = R.report(answers, true, notes, [], enabled);
   assert(prompt.includes(T.text));
-  assert(prompt.endsWith(plain));
+  assert.deepEqual(parsePlanningJson(prompt), parsePlanningJson(R.report(answers, true, notes)));
   assert.equal(R.report(answers, false, notes, [], enabled), plain);
   for (const omitted of [null, { ...enabled, enabled: false }, { ...enabled, text: '  \n' }])
     assert.equal(R.report(answers, true, notes, [], omitted), R.report(answers, true, notes));

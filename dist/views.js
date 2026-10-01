@@ -890,7 +890,7 @@ ${esc(value)}</textarea
                 <th scope="row">장점</th>
                 <td
                   ><span class="prompt-comparison-mode" aria-hidden="true">기본</span
-                  ><span>짧은 요청으로 기획의 핵심에 집중할 수 있어요.</span></td
+                  ><span>기획의 핵심과 남은 질문에 집중할 수 있어요.</span></td
                 >
                 <td
                   ><span class="prompt-comparison-mode" aria-hidden="true">고급</span
@@ -913,7 +913,7 @@ ${esc(value)}</textarea
           <p class="prompt-comparison-note"
             ><strong>공통</strong
             ><span
-              >두 방식 모두 기획·설계를 위한 요청이에요. 코딩·배포는 별도로 요청하세요.</span
+              >두 방식 모두 기획 전체와 화면 구조를 JSON으로 전달하고, 프로젝트 문서를 나눠 저장하도록 요청해요. 연결된 프로젝트에 쓸 수 있는 AI는 문서를 만들고, 일반 채팅에서는 파일 내용을 안내해요. 코딩·배포는 별도로 요청하세요.</span
             ></p
           >
         </section>

@@ -1098,6 +1098,8 @@ a.app-version:focus-visible {
 }
 .canvas-block-heading {
   display: flex;
+  height: 32px;
+  flex: 0 0 32px;
   align-items: center;
   gap: 4px;
   min-width: 0;
@@ -1202,13 +1204,15 @@ a.app-version:focus-visible {
   box-shadow: 0 0 0 3px #1d4ed814;
 }
 .canvas-block-title {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
 }
 .canvas-block-title small {
+  margin-left: 4px;
   color: #64748b;
   font-size: 10px;
   font-weight: 400;

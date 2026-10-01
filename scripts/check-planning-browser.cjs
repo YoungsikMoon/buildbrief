@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path'), http=require('node:http');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const legacy=require('./check-planning.cjs');
+const {parse: parsePlanningJson}=require('./check-planning-json.cjs');
 const root=path.resolve(__dirname,'../dist');
 const headers=Object.fromEntries(fs.readFileSync(path.join(root,'_headers'),'utf8').split(/\r?\n/).filter(line=>/^  [A-Z][^:]+:/.test(line)).map(line=>{const i=line.indexOf(':');return [line.slice(0,i).trim(),line.slice(i+1).trim()];}));
 const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp|fonts\/pretendard-variable-1\.3\.9\.woff2)$/.test(file)){res.writeHead(404);res.end();return;}try{res.writeHead(200,{...headers,'Content-Type':{'.js':'text/javascript','.css':'text/css','.webp':'image/webp','.woff2':'font/woff2'}[path.extname(file)]||'text/html'});res.end(fs.readFileSync(path.join(root,file)));}catch{res.end();}});
@@ -25,6 +26,11 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
       await page.goto(base); await page.evaluate(() => document.fonts.ready);await go(0);
+      if (process.argv.includes('--geometry-only')) {
+        await require('./check-geometry-browser.cjs')({page,go,width,shot});
+        await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
+        continue;
+      }
       assert.equal(await page.locator('.page-topline,#start-note').count(),0,'Redundant introductory rows are removed');
       const manage=page.locator('#manage-projects');
       if(!await manage.isVisible())await page.locator('#toggle-navigation').click();
@@ -211,7 +217,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await go(5);await page.locator('#next-button').click();
       await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
       await page.locator('#show-prompt').click();await page.locator('#copy-prompt').click();const copied=await page.evaluate(()=>window.testCopiedPrompt);await page.locator('#close-prompt').click();
-      const download=page.waitForEvent('download');await page.locator('#download-report').click();const markdown=fs.readFileSync(await (await download).path(),'utf8');assert(copied.endsWith(markdown));assert(copied.includes('별도 기능 번호나 필드 목록이 없다는 이유로 누락하지 마세요'));
+      const download=page.waitForEvent('download');await page.locator('#download-report').click();const markdown=fs.readFileSync(await (await download).path(),'utf8');assert(markdown.includes('화면 기준 바운딩박스'));assert.equal(parsePlanningJson(copied).screens.length,before.answers.screens.length);assert(copied.includes('별도 기능 번호나 필드 목록이 없다는 이유로 누락하지 마세요'));
       const nav=page.locator('#export-answers');if(!await nav.isVisible())await page.locator('#toggle-navigation').click();
       const backupDownload=page.waitForEvent('download');await nav.click();const backup=JSON.parse(fs.readFileSync(await (await backupDownload).path(),'utf8'));assert.deepEqual(backup.answers,before.answers);
       await page.locator('#import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});assert.deepEqual((await stored()).answers,before.answers);
@@ -233,7 +239,8 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.testCopiedPrompt=text;}}}));
       await page.locator('#show-prompt').click();await page.locator('#copy-prompt').click();const legacyPrompt=await page.evaluate(()=>window.testCopiedPrompt);await page.locator('#close-prompt').click();
       const legacyDownload=page.waitForEvent('download');await page.locator('#download-report').click();const legacyMarkdown=fs.readFileSync(await (await legacyDownload).path(),'utf8');
-      assert(legacyPrompt.endsWith(legacyMarkdown));
+      assert(legacyMarkdown.includes('화면 기준 바운딩박스'));
+      assert.equal(parsePlanningJson(legacyPrompt).screens.find(s=>s.id==='home').elements.find(el=>el.id==='form').flow.length,3);
       for(const output of [legacyReport,legacyPrompt,legacyMarkdown]){
         for(const text of ['연결할 기능 확인 필요','이름 미정','deadbeef-','empty-feature-card'])assert(!output.includes(text),text);
         for(const text of ['작성한 기록을 그대로 보여 줘요.','원본을 유지해요.','신청 결과를 확인하고 돌아와요.'])assert(output.includes(text),text);
@@ -243,6 +250,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await require('./check-grid-browser.cjs')({page,go,width,shot});
       await require('./check-layers-browser.cjs')({page,go,width,shot});
       await require('./check-hierarchy-browser.cjs')({page,go,width,shot});
+      await require('./check-geometry-browser.cjs')({page,go,width,shot});
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
       console.log(`Natural-language designer browser checks passed: ${width}px`);
