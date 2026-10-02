@@ -1497,6 +1497,13 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.designerHelp !== undefined) {
+      $('#help-title').textContent = '화면 편집 사용법';
+      $('#help-content').innerHTML = D.manual();
+      $('#option-help-dialog').showModal();
+      $('#option-help-dialog').scrollTop = 0;
+      return;
+    }
     if (d.clearSelection !== undefined) return selectCanvasElements([]);
     if (d.applyParent !== undefined || d.cancelParentChange !== undefined) {
       const choice = $('[data-parent-choice]');

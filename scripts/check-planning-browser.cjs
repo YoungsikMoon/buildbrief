@@ -26,6 +26,11 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
       await page.goto(base); await page.evaluate(() => document.fonts.ready);await go(0);
+      if (process.argv.includes('--manual-only')) {
+        await require('./check-manual-browser.cjs')({page,go,width,shot});
+        await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
+        continue;
+      }
       if (process.argv.includes('--geometry-only') || process.argv.includes('--hierarchy-only') || process.argv.includes('--selection-only')) {
         await require(process.argv.includes('--selection-only') ? './check-selection-browser.cjs' : process.argv.includes('--hierarchy-only') ? './check-hierarchy-browser.cjs' : './check-geometry-browser.cjs')({page,go,width,shot});
         await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
@@ -258,6 +263,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
       await require('./check-hierarchy-browser.cjs')({page,go,width,shot});
       await require('./check-geometry-browser.cjs')({page,go,width,shot});
       await require('./check-selection-browser.cjs')({page,go,width,shot});
+      await require('./check-manual-browser.cjs')({page,go,width,shot});
       await page.evaluate(()=>document.documentElement.style.fontSize='200%');await validate();
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
       console.log(`Natural-language designer browser checks passed: ${width}px`);

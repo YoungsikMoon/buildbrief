@@ -2123,6 +2123,27 @@ main {
 .option-help-dialog:has(.element-example) {
   width: min(1100px, calc(100% - 32px));
 }
+.option-help-dialog:has(.designer-manual) {
+  width: min(720px, calc(100% - 32px));
+}
+.option-help-dialog:has(.designer-manual) .help-top {
+  position: sticky;
+  top: -1px;
+  z-index: 1;
+  padding: 8px 0;
+  background: #fff;
+}
+.designer-manual details {
+  border-top: 1px solid var(--line);
+}
+.designer-manual summary {
+  padding: 14px 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.designer-manual dl {
+  margin: 0 0 20px;
+}
 .option-help-dialog:has(.element-example) .help-top {
   position: sticky;
   top: 0;

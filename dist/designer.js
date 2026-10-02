@@ -25,6 +25,47 @@
     };
   }
   const elementName = (screen, key) => A.elementLabel(screen, key);
+  function manual() {
+    const sections = [
+      ['처음 시작하기', [
+        ['작업 순서', '화면을 선택한 뒤 오른쪽 ‘화면’ 탭에서 작업면 크기를 정하세요. 캔버스의 ‘+ 요소 추가’로 박스를 만들고, 이름·용도를 적은 다음 위치와 크기를 조절하세요.'],
+        ['새 화면과 기본 공통 화면', '‘+ 새 화면’은 별도 화면을 만듭니다. 기본 공통 화면은 여러 화면이 함께 쓰는 틀이에요. 개별 화면의 ‘기본 공통 화면 사용’ 체크로 적용 여부를 정해요. 옅게 표시된 공통 요소를 선택하면 공통 화면으로 이동해 수정해요.'],
+        ['작업면 크기', '‘화면’ 탭에서 너비·기준 높이를 입력하거나 모니터 크기·해상도를 선택해요. 너비를 바꾸면 요소의 가로 위치와 너비도 비례해 바뀌고, 아래 공간은 요소에 맞춰 늘어나요. 화면을 크게 보고 싶을 때는 작업면 크기 대신 확대 비율을 바꾸세요.']
+      ]],
+      ['요소 추가와 오른쪽 설정 패널', [
+        ['두 가지 + 버튼', '캔버스 위 ‘+ 요소 추가’는 작업면에 요소를 만들어요. 요소 이름 옆 +는 그 요소 안에 자식을 만들어요. 패널의 ‘+ 요소 추가’는 선택한 요소와 같은 소속에 추가해요.'],
+        ['화면 · 요소 · 참고', '‘화면’은 화면 이름·용도·작업면 크기, ‘요소’는 선택한 요소의 이름·용도·배치를 설정해요. ‘참고’에서는 요소와 기능의 예시를 살펴볼 수 있어요. 패널 가장자리 화살표로 접고 펼칠 수 있어요.'],
+        ['이름과 삭제', '새 이름은 번호가 자동으로 붙어요. 화면 이름은 프로젝트 안에서, 요소 이름은 같은 화면에서 공통 요소를 포함해 중복할 수 없어요. 휴지통은 선택한 요소를 삭제하고 자식은 밖으로 옮겨 보존해요. 화면 탭의 ×는 해당 화면을 삭제해요.']
+      ]],
+      ['여러 요소 선택과 이동', [
+        ['영역으로 선택', '빈 곳에서 드래그해 요소를 완전히 둘러싸세요. Shift·Ctrl·Command를 누르고 이름을 클릭하면 선택에 더하거나 빼요. 수정 키를 누른 채 영역을 드래그하면 기존 선택에 더해요. 숨긴 요소와 상속된 공통 요소는 영역 선택에서 제외돼요.'],
+        ['함께 이동', '선택한 요소의 이름을 끌면 묶음이 같은 거리만큼 이동해요. 작업면에 초점이 있을 때 방향키, 또는 패널의 방향 버튼으로도 옮길 수 있어요. 크기·간격·소속·레벨은 유지되고, 부모와 자식을 함께 선택해도 자식이 두 번 이동하지 않아요.'],
+        ['선택 해제와 터치', '이름만 클릭하면 개별 설정으로 돌아가요. 빈 곳 클릭이나 ‘선택 해제’로 선택을 비울 수 있어요. 터치에서는 빈 곳을 끌어 선택한 뒤 패널 방향 버튼으로 함께 이동하세요.']
+      ]],
+      ['크기 조절과 부모 요소', [
+        ['크기 손잡이', '박스 오른쪽 아래 손잡이를 끌어 크기를 바꿔요. 손잡이에 초점을 두고 방향키로도 조절할 수 있어요. ‘절반’·‘전체’는 현재 소속 공간을 기준으로 너비를 정해요. 자식이 차지하는 공간보다 작게는 줄어들지 않을 수 있어요.'],
+        ['소속 변경', '요소를 다른 박스 위로 끌어도 자동으로 포함되지 않아요. ‘요소’ 탭의 ‘소속 변경’에서 부모를 고른 뒤 적용하세요. ‘없음’을 선택하면 캔버스로 분리해요. 픽셀 크기를 유지하며, 새 부모가 너무 좁으면 먼저 부모를 넓혀야 해요.'],
+        ['부모 이름 수정', '‘현재 소속 · 부모 요소’에 부모 이름이 표시돼요. 연필 모양의 ‘부모 이름 수정’은 그 부모의 이름만 바꾸며 소속은 바뀌지 않아요. 공통 부모의 이름을 바꾸면 사용하는 화면에도 반영돼요.']
+      ]],
+      ['레벨과 가려진 요소 보기', [
+        ['앞뒤 순서', '같은 부모 안에서는 레벨 숫자가 높을수록 앞에 보여요. 숫자를 직접 입력하거나 ↑·↓로 바꾸세요. 같은 부모의 같은 레벨끼리는 겹칠 수 없고, 이동으로 새 충돌이 생기면 원래 위치로 돌아가요. 묶음 이동도 전체가 복원돼요.'],
+        ['레벨과 포함 관계는 달라요', '캔버스에 새로 추가하거나 분리하면 1레벨, 부모 안에 새로 추가하거나 소속을 바꾸면 부모 레벨 +1로 시작해요. 자식은 부모 묶음 안에서 겹쳐요. 예를 들어 부모 안의 3레벨과 캔버스의 3레벨은 같은 소속이 아니며, 숫자만으로 포함 관계를 판단하지 않아요.'],
+        ['요소 보기', '오른쪽 위 ‘요소 보기’에서 체크한 레벨만 표시해요. ‘전체’를 해제하면 모두 숨겨지고, 필요한 레벨만 켜서 뒤에 가려진 요소를 편집할 수 있어요. 레벨을 변경하면 새 레벨이 자동으로 표시돼요. 숨김은 편집용이며 초안에서 요소를 제외하지 않아요.']
+      ]],
+      ['확대 · 화면 이동 · 미니맵', [
+        ['확대 비율과 크게 보기', '−·+와 비율 선택은 보이는 배율만 바꿔요. ‘화면 맞춤’은 작업면 전체를 보여줘요. ‘크게 보기’는 편집 공간을 넓히고 ‘작게 보기’로 돌아와요. 배율과 크게 보기는 기획 좌표·크기를 바꾸지 않아요.'],
+        ['화면 이동', '‘화면 이동’을 켜고 작업면을 끌면 보고 있는 위치가 바뀌어요. 이 모드에서는 요소를 선택·이동하지 않으니 편집할 때 다시 끄세요. 마우스 가운데 버튼이나 스크롤바로도 작업면을 이동할 수 있어요.'],
+        ['미니맵', '미니맵 테두리는 현재 보고 있는 범위예요. 누르거나 끌어 원하는 위치로 이동하고, 미니맵에 초점을 둔 뒤 방향키로도 이동할 수 있어요. ‘미니맵’ 버튼으로 켜고 끌 수 있어요.']
+      ]],
+      ['취소 · 저장 · 기획 초안', [
+        ['Escape로 취소', '영역 선택이나 크기 조절 중 Escape를 누르면 진행 중인 조작을 취소해요. 작업면에 초점이 있으면 선택을 해제해요. 도움말·요소 보기에서는 열린 창을 닫아요. 이미 저장한 모든 변경을 되돌리는 실행 취소 기능은 아니에요.'],
+        ['자동 저장과 백업', '기획은 현재 브라우저에 자동 저장돼요. 다른 기기나 브라우저로 옮기거나 자료를 보관하려면 왼쪽 프로젝트 메뉴에서 백업을 내려받으세요. 모바일에서는 ‘프로젝트·목차’를 열면 찾을 수 있어요.'],
+        ['AI에 전달되는 화면 정보', '‘기획 초안 보기’에서 화면별 크기, 요소의 좌표·크기·레벨·포함 관계를 확인해요. AI 전달문에는 화면 구조가 JSON으로 포함돼요. 선택·확대·미니맵·편집용 숨김 상태는 기획 구조를 바꾸지 않아요.']
+      ]]
+    ];
+    return '<div class="designer-manual"><p class="field-help">화면 크기를 정하고 요소를 추가한 뒤, 위치와 크기를 조절하세요. 자세한 조작법은 아래 항목을 펼쳐 확인하세요.</p>' +
+      sections.map(([title, rows]) => `<details><summary>${esc(title)}</summary><dl>${rows.map(([label, text]) => `<div class="help-fact"><dt>${esc(label)}</dt><dd>${esc(text)}</dd></div>`).join('')}</dl></details>`).join('') + '</div>';
+  }
   function references(category = Q.uiElementGroups[0].id) {
     const V = root.BriefViews || require('./views.js');
     if (!Q.uiElementGroups.some((group) => group.id === category) && category !== 'features')
@@ -288,7 +329,7 @@
         )
         .join(
           ''
-        )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>${recommendation}<button type="button" class="button secondary small" data-expand-designer aria-pressed="${Boolean(state.expanded)}" aria-controls="screen-designer">${state.expanded ? '↙ 작게 보기' : '⛶ 크게 보기'}</button></div>
+        )}<button type="button" class="screen-tab add-screen" data-add="screens">+ 새 화면</button></nav>${recommendation}<button type="button" class="button secondary small" data-designer-help aria-haspopup="dialog" aria-controls="option-help-dialog">사용법</button><button type="button" class="button secondary small" data-expand-designer aria-pressed="${Boolean(state.expanded)}" aria-controls="screen-designer">${state.expanded ? '↙ 작게 보기' : '⛶ 크게 보기'}</button></div>
       <div class="designer-workspace${state.panelCollapsed ? ' inspector-collapsed' : ''}"><section class="designer-stage" aria-label="화면 배치">
         <div class="designer-stage-heading"><div class="designer-stage-title"><h3 data-screen-title="${index}">${esc(label(screen))}</h3><p class="designer-hint">${screen.isCommon ? '여기서 만든 틀을 새 화면에 함께 사용해요.' : common && screen.useCommonLayout !== false ? '공통 요소는 옅게 표시돼요. 선택하면 공통 화면에서 수정해요.' : '이 화면만의 요소를 배치해요.'}</p></div></div>
         <div class="canvas-paper" aria-label="${esc(label(screen))} 구성 미리보기"><div class="canvas-chrome">
@@ -304,7 +345,7 @@
         <div class="inspector-body" id="designer-inspector-body">${tabs.map(([id, text]) => `<section role="tabpanel" id="inspector-panel-${id}" aria-labelledby="inspector-tab-${id}" ${panel === id ? '' : 'hidden'}>${panel === id ? `<h4 class="visually-hidden" tabindex="-1" id="inspector-title">${text}</h4>${content}` : ''}</section>`).join('')}</div>
       </aside></div></div></div>`;
   }
-  const api = { selection, elementName, references, applySizes, applyVisibility, collisions, updateLevels, captureView, mountViewport, zoomTo, drawMinimap, navigateMap, focusBlock, render };
+  const api = { selection, elementName, manual, references, applySizes, applyVisibility, collisions, updateLevels, captureView, mountViewport, zoomTo, drawMinimap, navigateMap, focusBlock, render };
   root.BriefDesigner = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
