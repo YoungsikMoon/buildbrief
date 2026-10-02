@@ -1,7 +1,7 @@
 BuildBrief 비상업적 소스 공개 라이선스 1.0
 BuildBrief Noncommercial Source-Available License 1.0
 
-Copyright (c) 2026 YoungsikMoon 및 각 기여의 권리자
+Copyright (c) 2026 YoungsikMoon
 원본 프로젝트: https://github.com/YoungsikMoon/buildbrief
 이 라이선스의 한국어 본문이 적용됩니다.
 
@@ -39,13 +39,12 @@ Copyright (c) 2026 YoungsikMoon 및 각 기여의 권리자
 상업적 이용 문의: https://github.com/YoungsikMoon/buildbrief/issues
 문의에는 사용 목적, 제공 방식, 수익 구조 및 사용하려는 버전을 적어주세요.
 비밀정보나 개인정보를 공개 이슈에 올리지 마세요.
-기여자가 권리를 보유한 부분은 그 권리자의 허락 또는 적법한 재허락 권한도
-필요합니다. 저장소 관리자가 모든 기여자의 권리를 자동으로 취득하지 않습니다.
+별도 저작권 고지가 붙은 제3자 자료는 해당 고지와 라이선스를 함께 따릅니다.
 
 4. 출처 표시
 
 모든 복제본과 배포본에 이 라이선스, 기존 저작권 고지 및 다음 출처를 보존하세요.
-“BuildBrief — YoungsikMoon 및 기여자 / https://github.com/YoungsikMoon/buildbrief”
+“BuildBrief — Created by Moon Youngsik / https://github.com/YoungsikMoon/buildbrief”
 화면이 있는 프로그램이나 서비스는 정보·도움말·푸터 등 쉽게 찾을 수 있는
 곳에 원본 출처와 실제 사용 버전의 대응 소스 링크를 표시하세요.
 화면이 없으면 README 또는 이용 문서에 표시하세요. 원저자의 보증이나

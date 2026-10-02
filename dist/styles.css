@@ -2514,6 +2514,44 @@ body:has(.prompt-dialog[open]) {
 .footer-links a:hover {
   text-decoration: underline;
 }
+.footer-socials {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.footer-socials a {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  background: #fff;
+  text-decoration: none;
+  transition: border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.footer-socials a:hover,
+.footer-socials a:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+.footer-socials svg {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
+}
+.footer-socials span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .site-footer-credit {
   flex-basis: 100%;
   font-size: var(--type-small);
@@ -3480,7 +3518,7 @@ body:has(#guide-view:not([hidden])) .mobile-report {
 }
 
 /* Four static stages: a shallow fan, with readable pairs on narrow screens. */
-.guide-process { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); gap: 10px; list-style: none; margin: 0; padding: 52px 28px; min-width: 0; }
+.guide-process { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; list-style: none; margin: 0; padding: 52px 28px; min-width: 0; }
 .guide-process li { min-width: 0; padding: 14px 10px; background: #fff; border-radius: 12px; box-shadow: 0 10px 28px #0f172a18; transform: rotate(-12deg) translateY(18px); }
 .guide-process li:nth-child(2) { transform: rotate(-4deg); }
 .guide-process li:nth-child(3) { transform: rotate(4deg); }
@@ -3488,7 +3526,7 @@ body:has(#guide-view:not([hidden])) .mobile-report {
 .guide-process-number { display: block; color: var(--blue); font-size: var(--type-small); font-variant-numeric: tabular-nums; margin-bottom: 12px; }
 .guide-process strong { display: block; font-size: var(--type-control); margin-bottom: 16px; }
 .guide-process img { display: block; width: 100%; height: auto; aspect-ratio: 1.4; max-height: 90px; object-fit: cover; object-position: left top; border: 1px solid var(--line); border-radius: 4px; }
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .guide-process { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 16px 20px; }
   .guide-process li:nth-child(n) { transform: rotate(-4deg); }
   .guide-process li:nth-child(even) { transform: rotate(4deg); }
