@@ -25,6 +25,36 @@
     };
   }
   const elementName = (screen, key) => A.elementLabel(screen, key);
+  function manualDemo(index) {
+    const box = (x, y, w, h, text, selected = false) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${selected ? '#edf2ff' : '#fff'}" stroke="${selected ? '#1d4ed8' : '#94a3b8'}" stroke-width="2"/><text x="${x + 10}" y="${y + 25}">${text}</text>`;
+    const pointer = (x, y) => `<path d="M${x} ${y}v26l7-7 8 12 6-4-8-12 11-2z" fill="#1d4ed8" stroke="#fff" stroke-width="2"/>`;
+    const arrow = '<path d="M120 100h74m-10-9 10 9-10 9" stroke="#1d4ed8" stroke-width="3" fill="none"/>';
+    const demos = [
+      ['‘화면’ 탭에서 작업면 크기를 정하세요.', '작업면을 정했어요. 이제 + 요소 추가를 눌러보세요.',
+        box(10, 15, 175, 150, '작업면') + box(200, 15, 110, 150, '화면', true) + '<text x="210" y="82">1920</text><text x="210" y="112">× 1080</text>' + pointer(280, 124),
+        box(10, 15, 300, 150, '1920 × 1080') + box(28, 60, 165, 45, '+ 요소 추가', true) + pointer(163, 89)],
+      ['요소 이름 옆 +는 그 요소 안에 추가해요.', '새 요소가 부모 안에 들어갔어요.',
+        box(35, 15, 250, 150, '메뉴') + '<text x="110" y="42" fill="#1d4ed8">+</text>' + pointer(117, 41),
+        box(35, 15, 250, 150, '메뉴') + box(55, 70, 175, 70, '검색창', true)],
+      ['빈 곳에서 끌어 두 요소를 둘러싸세요.', '선택한 이름을 끌면 간격을 유지하며 함께 이동해요.',
+        box(25, 45, 100, 75, '메뉴') + box(145, 45, 100, 75, '목록') + '<rect x="12" y="25" width="248" height="110" fill="#1d4ed81a" stroke="#1d4ed8" stroke-dasharray="5 4"/>' + pointer(257, 133),
+        '<path d="M25 65h32m-8-7 8 7-8 7" stroke="#1d4ed8" stroke-width="2" fill="none"/>' + box(75, 75, 100, 75, '메뉴', true) + box(195, 75, 100, 75, '목록', true) + pointer(96, 94)],
+      ['오른쪽 아래 손잡이를 끌어 크기를 바꾸세요.', '이름과 소속은 그대로, 박스 크기만 바뀌어요.',
+        box(30, 25, 145, 85, '검색창') + '<path d="m153 102 14-14m-6 15 7-7" stroke="#1d4ed8" stroke-width="3"/>' + pointer(165, 103),
+        box(30, 25, 260, 140, '검색창', true) + '<path d="m266 156 15-15m-7 16 8-8" stroke="#1d4ed8" stroke-width="3"/>' + pointer(279, 155)],
+      ['앞의 2레벨이 뒤의 1레벨을 가리고 있어요.', '‘요소 보기’에서 2레벨을 끄면 뒤의 요소가 보여요.',
+        box(25, 20, 190, 105, '1레벨') + box(100, 70, 195, 100, '2레벨', true),
+        box(25, 20, 190, 105, '1레벨', true) + '<rect x="100" y="70" width="195" height="100" fill="none" stroke="#94a3b8" stroke-dasharray="5 5"/><text x="144" y="157">2레벨 숨김</text>'],
+      ['미니맵의 파란 테두리가 지금 보는 범위예요.', '미니맵 오른쪽을 누르면 그쪽으로 화면이 이동해요.',
+        box(10, 15, 300, 155, '현재 화면') + box(30, 60, 120, 75, '메뉴') + box(194, 100, 103, 58, '') + '<rect x="201" y="108" width="36" height="35" fill="#edf2ff" stroke="#1d4ed8" stroke-width="2"/>' + pointer(268, 118),
+        box(10, 15, 300, 155, '현재 화면') + box(65, 60, 120, 75, '목록') + box(194, 100, 103, 58, '') + '<rect x="251" y="108" width="36" height="35" fill="#edf2ff" stroke="#1d4ed8" stroke-width="2"/>'],
+      ['왼쪽 프로젝트 메뉴에서 백업을 내려받으세요.', 'JSON 파일로 보관하고 ‘백업 불러오기’로 이어서 작업해요.',
+        box(20, 30, 280, 120, '이 브라우저에 저장됨') + box(40, 80, 180, 45, '백업 내려받기', true) + pointer(196, 106),
+        box(12, 35, 100, 115, '기획') + arrow + box(205, 35, 103, 115, 'JSON')]
+    ];
+    const [before, after, first, last] = demos[index];
+    return `<figure class="manual-demo" data-after="false"><svg viewBox="0 0 320 190" aria-hidden="true" focusable="false"><g class="manual-before">${first}</g><g class="manual-after">${last}</g></svg><figcaption aria-live="polite"><span class="manual-before">${esc(before)}</span><span class="manual-after">${esc(after)}</span></figcaption><button type="button" class="button secondary small" data-manual-demo aria-pressed="false">결과 보기</button></figure>`;
+  }
   function manual() {
     const sections = [
       ['처음 시작하기', [
@@ -63,8 +93,8 @@
         ['AI에 전달되는 화면 정보', '‘기획 초안 보기’에서 화면별 크기, 요소의 좌표·크기·레벨·포함 관계를 확인해요. AI 전달문에는 화면 구조가 JSON으로 포함돼요. 선택·확대·미니맵·편집용 숨김 상태는 기획 구조를 바꾸지 않아요.']
       ]]
     ];
-    return '<div class="designer-manual"><p class="field-help">화면 크기를 정하고 요소를 추가한 뒤, 위치와 크기를 조절하세요. 자세한 조작법은 아래 항목을 펼쳐 확인하세요.</p>' +
-      sections.map(([title, rows]) => `<details><summary>${esc(title)}</summary><dl>${rows.map(([label, text]) => `<div class="help-fact"><dt>${esc(label)}</dt><dd>${esc(text)}</dd></div>`).join('')}</dl></details>`).join('') + '</div>';
+    return '<div class="designer-manual"><p class="field-help">그림으로 조작 전·후를 확인하세요. 예시는 실제 기획을 바꾸지 않아요.</p>' +
+      sections.map(([title, rows], index) => `<details class="manual-topic" ${index === 0 ? 'open' : ''}><summary>${esc(title)}</summary>${manualDemo(index)}<details class="manual-rules"><summary>자세한 규칙</summary><dl>${rows.map(([label, text]) => `<div class="help-fact"><dt>${esc(label)}</dt><dd>${esc(text)}</dd></div>`).join('')}</dl></details></details>`).join('') + '</div>';
   }
   function references(category = Q.uiElementGroups[0].id) {
     const V = root.BriefViews || require('./views.js');

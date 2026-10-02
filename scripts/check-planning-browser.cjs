@@ -5,7 +5,7 @@ const legacy=require('./check-planning.cjs');
 const {parse: parsePlanningJson}=require('./check-planning-json.cjs');
 const root=path.resolve(__dirname,'../dist');
 const headers=Object.fromEntries(fs.readFileSync(path.join(root,'_headers'),'utf8').split(/\r?\n/).filter(line=>/^  [A-Z][^:]+:/.test(line)).map(line=>{const i=line.indexOf(':');return [line.slice(0,i).trim(),line.slice(i+1).trim()];}));
-const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp|fonts\/pretendard-variable-1\.3\.9\.woff2)$/.test(file)){res.writeHead(404);res.end();return;}try{res.writeHead(200,{...headers,'Content-Type':{'.js':'text/javascript','.css':'text/css','.webp':'image/webp','.woff2':'font/woff2'}[path.extname(file)]||'text/html'});res.end(fs.readFileSync(path.join(root,file)));}catch{res.end();}});
+const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(!/^(?:[a-z.-]+|(?:element|idea)-examples\/[a-z-]+\.webp|guide-previews\/[a-z-]+\.jpg|fonts\/pretendard-variable-1\.3\.9\.woff2)$/.test(file)){res.writeHead(404);res.end();return;}try{res.writeHead(200,{...headers,'Content-Type':{'.js':'text/javascript','.css':'text/css','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'}[path.extname(file)]||'text/html'});res.end(fs.readFileSync(path.join(root,file)));}catch{res.end();}});
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=process.env.BUILDBRIEF_TEST_URL||`http://127.0.0.1:${server.address().port}`;
@@ -16,7 +16,7 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     await page.addInitScript(()=>{window.cspErrors=[];document.addEventListener('securitypolicyviolation',e=>window.cspErrors.push(e.violatedDirective));});
     let acceptDialog=true;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>acceptDialog?d.accept():d.dismiss());
     const stored=()=>page.evaluate(()=>{const w=JSON.parse(localStorage.getItem(BriefProjects.KEY));return BriefAnswers.normalizeProject(w.projects.find(p=>p.id===w.activeId));});
-    const go=async step=>{const b=page.locator(`#step-nav [data-step="${step}"]`);if(!await b.isVisible())await page.locator('#toggle-navigation').click();await b.click();};
+    const go=async step=>{if(await page.locator('#guide-view').isVisible())await page.locator('#start-planning').click();const b=page.locator(`#step-nav [data-step="${step}"]`);if(!await b.isVisible())await page.locator('#toggle-navigation').click();await b.click();};
     const edit=(row,field)=>page.locator(`[data-q="screens"][data-row="${row}"][data-field="${field}"]`);
     const block=key=>page.locator(`[data-block-key="${key}"]`);
     const choose=async(owner,key)=>{await page.locator(`[data-designer-screen="${owner}"]`).click();await page.locator(`[data-canvas-owner="${owner}"][data-canvas-element="${key}"]`).click();};

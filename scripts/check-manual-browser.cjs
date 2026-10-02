@@ -9,12 +9,24 @@ module.exports = async ({ page, go, width, shot }) => {
   await help.focus(); await help.press('Enter');
   assert(await dialog.isVisible());
   assert.equal(await page.locator('#help-title').innerText(), '화면 편집 사용법');
-  assert.equal(await dialog.locator('details').count(), 7);
-  assert.equal(await dialog.locator('details[open]').count(), 0);
+  assert.equal(await dialog.locator('.manual-topic').count(), 7);
+  assert.equal(await dialog.locator('.manual-topic[open]').count(), 1);
+  assert.equal(await dialog.locator('.manual-rules[open]').count(), 0);
   await shot('editor-manual');
-  const summaries = dialog.locator('.designer-manual summary');
+  const summaries = dialog.locator('.manual-topic > summary');
   for (let i = 0; i < await summaries.count(); i++) {
-    await summaries.nth(i).focus(); await summaries.nth(i).press('Enter');
+    if (i > 0) { await summaries.nth(i).focus(); await summaries.nth(i).press('Enter'); }
+    const demo = dialog.locator('.manual-demo').nth(i), action = demo.locator('button');
+    const original = await demo.locator('figcaption').innerText();
+    assert(!await demo.locator('.manual-after').first().isVisible());
+    await action.focus(); await action.press('Enter');
+    assert(await demo.locator('.manual-after').first().isVisible());
+    assert.notEqual(await demo.locator('figcaption').innerText(), original);
+    assert.equal(await action.getAttribute('aria-pressed'), 'true');
+    if (i === 2) await shot('manual-selection-result');
+    await action.press('Enter');
+    assert.equal(await demo.locator('figcaption').innerText(), original);
+    await dialog.locator('.manual-rules > summary').nth(i).click();
   }
   const text = await dialog.innerText();
   for (const phrase of ['소속 변경', '부모 이름 수정', '같은 부모', '미니맵', 'Shift', '터치', '자동 저장', 'JSON']) assert(text.includes(phrase));

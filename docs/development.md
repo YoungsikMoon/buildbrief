@@ -23,7 +23,7 @@ node scripts/build.cjs --test
 
 질문 표시 조건, 진행률, 기능·화면 연결, 로그인 조합, 보고서 출력, 입력 검증, 프로젝트 분리, 백업 호환성, 버전 발급과 배포 버전 표시를 검사합니다. 브라우저에서는 수정한 입력 흐름과 PC·모바일 화면도 확인하세요.
 
-시작 안내의 예시 넘기기는 `node scripts/check-guide-browser.cjs`로 확인할 수 있습니다. 이 선택 검사는 개발 환경의 Playwright와 Chrome을 사용합니다. Playwright가 모듈 검색 경로에 없다면 `PLAYWRIGHT_MODULE`에 설치된 모듈의 절대 경로를 지정하세요. 별도 브라우저에서 로컬 서버와 CSP를 적용해 320·390·1001·1440px, 키보드·버튼·터치 이동, 이미지 로딩, 글자 확대와 기존 답변 보존을 검사합니다. `BUILDBRIEF_TEST_URL`로 검증할 배포 주소, `GUIDE_SCREENSHOTS`로 화면 저장 디렉터리를 지정할 수 있습니다. 앱 실행이나 배포 빌드에는 Playwright가 필요하지 않습니다.
+시작 안내의 미리보기와 예시 갤러리는 `node scripts/check-guide-browser.cjs`로 확인할 수 있습니다. 이 선택 검사는 개발 환경의 Playwright와 Chrome을 사용합니다. Playwright가 모듈 검색 경로에 없다면 `PLAYWRIGHT_MODULE`에 설치된 모듈의 절대 경로를 지정하세요. 별도 브라우저에서 로컬 서버와 CSP를 적용해 320·390·1001·1440px의 첫 화면 목적·시작 버튼·결과 예시 노출, 과정별 미리보기·원본 링크, 네 단계 사용법의 이전·다음·직접 이동과 작성 시작, 안내 중 답변 보존, 시작과 작성 화면의 메뉴 전환·프로젝트 관리 열기, 키보드·버튼 조작과 기획 내용 펼치기, 이미지 로딩, 글자 확대와 기존 답변 보존을 검사합니다. `BUILDBRIEF_TEST_URL`로 검증할 배포 주소, `GUIDE_SCREENSHOTS`로 화면 저장 디렉터리를 지정할 수 있습니다. 앱 실행이나 배포 빌드에는 Playwright가 필요하지 않습니다.
 
 JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 합니다. 값은 파일의 줄바꿈을 LF로 맞춘 내용의 **SHA-256 앞 12자리**이며 `check.cjs`가 일치 여부를 검사합니다. 전체 로컬 빌드 검증은 `node scripts/build.cjs`로 실행할 수 있습니다. 이 명령은 위 검사를 실행하고 HTML의 앱 버전 표시를 `개발 버전`으로 설정합니다.
 
@@ -33,7 +33,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 
 `scripts/check-hierarchy-browser.cjs`는 부모 이름 표시·연필 편집·취소·공통 이름 반영, 같은 화면의 중복 이름 거부와 화면 간 허용, 입력 인코딩·기존 이름 보존, 이동·드롭·포인터/키보드 크기·너비·레벨 충돌 거부와 복원, 부모 +1·최대 레벨, 200% 확대·새로고침·백업을 검사합니다. 이름은 Enter 또는 입력칸을 벗어날 때 저장되므로 검사에서도 실제 완료 동작을 수행합니다. `node scripts/check-planning-browser.cjs --hierarchy-only`로 이 흐름만 확인할 수 있습니다. 겹치는 드롭과 부모 밖 드롭이 기존 소속을 유지하는지, 부모 선택·취소는 저장하지 않는지, 명시적 적용만 부모와 레벨을 바꾸는지, 순환·최대 레벨 제한과 변경한 레벨의 숨김 해제를 함께 검사합니다. 소속 변경·분리에서 실제 픽셀 너비/높이와 중첩 자식 크기가 50%·200% 배율에서도 유지되는지, 작은 대상 거부와 부모 삭제 시 보이지 않는 8192px 화면의 1% 미만 너비·새로고침·백업 보존을 검사합니다.
 
-편집 사용법은 `node scripts/check-planning-browser.cjs --manual-only`로 집중 검증합니다. 320·390·1440px에서 키보드 열기·항목 펼치기·스크롤 중 닫기·200% 글자 확대·Escape와 초점 복귀·크게 보기 안에서 열람·선택과 저장 자료 보존을 확인하며, 전체 편집기 검사에도 포함됩니다.
+편집 사용법은 `node scripts/check-planning-browser.cjs --manual-only`로 집중 검증합니다. 320·390·1440px에서 키보드 열기·항목 펼치기·7개 그림 예시의 결과/처음 전환·상세 규칙 펼치기·스크롤 중 닫기·200% 글자 확대·Escape와 초점 복귀·크게 보기 안에서 열람·선택과 저장 자료 보존을 확인하며, 전체 편집기 검사에도 포함됩니다.
 
 ## 파일 구성
 
@@ -63,7 +63,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [scripts/planning-template.cjs](../scripts/planning-template.cjs) | 개발 준비 요청문 정적 생성과 `--check` 최신 여부 검사 |
 | [scripts/check-planning-browser.cjs](../scripts/check-planning-browser.cjs) | PC·모바일의 로그인·역할→화면·기능·동작→초안·백업 흐름 검사 (선택 실행) |
 | [scripts/check-runtime.cjs](../scripts/check-runtime.cjs) | 저장 실패·충돌·복구와 화면 출력 검사 (`check.cjs`에서 함께 실행) |
-| [scripts/check-guide-browser.cjs](../scripts/check-guide-browser.cjs) | 시작 안내 예시의 반응형·키보드·터치·저장 분리 검사 (선택 실행) |
+| [scripts/check-guide-browser.cjs](../scripts/check-guide-browser.cjs) | 시작 안내 예시의 반응형·키보드·내용 펼치기·저장 분리 검사 (선택 실행) |
 | [scripts/release.cjs](../scripts/release.cjs) | 날짜별 Git 태그와 GitHub Release 발급 |
 | [scripts/build.cjs](../scripts/build.cjs) | 빌드 검증과 배포 커밋의 앱 버전 표시 |
 | [.github/workflows/release.yml](../.github/workflows/release.yml) | Pull Request·main 검증과 자동 릴리스 |

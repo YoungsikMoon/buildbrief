@@ -414,6 +414,22 @@
       .join('');
     updateProgress();
   }
+  function showWalkthrough(index, focus = false) {
+    const panels = [...document.querySelectorAll('.walkthrough-panel')];
+    index = Math.max(0, Math.min(panels.length - 1, index));
+    $('#guide-storyboard').dataset.stage = String(index);
+    panels.forEach((panel, i) => panel.hidden = i !== index);
+    const buttons = [...document.querySelectorAll('[data-walkthrough-step]')];
+    buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
+    $('[data-walkthrough-move="-1"]').disabled = index === 0;
+    const next = $('[data-walkthrough-move="1"]');
+    next.hidden = index === panels.length - 1;
+    $('#walkthrough-start').hidden = !next.hidden;
+    if (!next.hidden) next.textContent = '다음: ' + buttons[index + 1].lastChild.textContent + ' →';
+    $('#walkthrough-position').textContent = (index + 1) + ' / ' + panels.length;
+    if (focus) panels[index].querySelector('h3').focus({ preventScroll: true });
+    $('#guide-storyboard').scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
   function showGuide(focus = true) {
     designerState.expanded = false;
     document.body.classList.remove('designing', 'designer-expanded');
@@ -682,18 +698,18 @@
           /* HTML */ `<section class="project-item"
             ><div
               ><strong>${esc(P.projectTitle(p))}</strong
-              ><p
-                >${p.id === storage.workspace.activeId ? '현재 작성 중 · ' : ''}${esc(
-                  new Date(p.updatedAt).toLocaleString('ko-KR')
-                )}</p
+              ><p class="project-meta"
+                >${p.id === storage.workspace.activeId ? '<span class="project-current">현재 작성 중</span>' : ''}<span>최근 수정 ${esc(
+                  new Date(p.updatedAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })
+                )}</span></p
               ></div
-            ><div class="inline-actions"
+            ><div class="project-actions"
               ><button type="button" class="button secondary small" data-project-open="${p.id}"
                 >열기</button
-              ><button type="button" class="text-button" data-project-rename="${p.id}"
+              ><button type="button" class="button secondary small" data-project-rename="${p.id}"
                 >이름 변경</button
-              ><button type="button" class="text-button" data-project-backup="${p.id}">백업</button
-              ><button type="button" class="text-button danger-text" data-project-delete="${p.id}"
+              ><button type="button" class="button secondary small" data-project-backup="${p.id}">백업</button
+              ><button type="button" class="button secondary small danger-text" data-project-delete="${p.id}"
                 >삭제</button
               ></div
             ></section
@@ -1497,6 +1513,15 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.walkthroughStep !== undefined) return showWalkthrough(Number(d.walkthroughStep));
+    if (d.walkthroughMove !== undefined) return showWalkthrough(Number($('#guide-storyboard').dataset.stage) + Number(d.walkthroughMove), true);
+    if (d.manualDemo !== undefined) {
+      const demo = b.closest('.manual-demo'), after = demo.dataset.after !== 'true';
+      demo.dataset.after = String(after);
+      b.setAttribute('aria-pressed', String(after));
+      b.textContent = after ? '처음으로' : '결과 보기';
+      return;
+    }
     if (d.designerHelp !== undefined) {
       $('#help-title').textContent = '화면 편집 사용법';
       $('#help-content').innerHTML = D.manual();
@@ -2182,53 +2207,6 @@
   });
   $('#guide-details-link').addEventListener('click', () => {
     $('#guide-walkthrough').open = true;
-  });
-  const exampleTrack = $('#guide-examples');
-  const examples = [...exampleTrack.children];
-  let exampleIndex = 0;
-  function showExample(index) {
-    const target = examples[Math.max(0, Math.min(examples.length - 1, index))];
-    const track = exampleTrack.getBoundingClientRect();
-    const card = target.getBoundingClientRect();
-    exampleTrack.scrollTo({
-      left: exampleTrack.scrollLeft + card.left + card.width / 2 - track.left - track.width / 2,
-      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
-    });
-  }
-  exampleTrack.addEventListener(
-    'scroll',
-    () => {
-      const track = exampleTrack.getBoundingClientRect();
-      const distances = examples.map((example) => {
-        const card = example.getBoundingClientRect();
-        return Math.abs(card.left + card.width / 2 - track.left - track.width / 2);
-      });
-      const index = distances.indexOf(Math.min(...distances));
-      if (index === exampleIndex) return;
-      exampleIndex = index;
-      examples.forEach((example, i) => example.classList.toggle('is-current', i === index));
-      $('#guide-example-previous').disabled = index === 0;
-      $('#guide-example-next').disabled = index === examples.length - 1;
-      $('#guide-example-status').textContent = `${index + 1} / ${examples.length}`;
-    },
-    { passive: true }
-  );
-  $('#guide-example-previous').addEventListener('click', () => showExample(exampleIndex - 1));
-  $('#guide-example-next').addEventListener('click', () => showExample(exampleIndex + 1));
-  exampleTrack.addEventListener('keydown', (event) => {
-    const index = {
-      ArrowLeft: exampleIndex - 1,
-      ArrowRight: exampleIndex + 1,
-      Home: 0,
-      End: examples.length - 1
-    }[event.key];
-    if (index === undefined) return;
-    event.preventDefault();
-    showExample(index);
-  });
-  exampleTrack.addEventListener('click', (event) => {
-    const index = examples.indexOf(event.target.closest('.guide-example'));
-    if (index !== -1 && index !== exampleIndex) showExample(index);
   });
   document.addEventListener('keydown', (event) => {
     const picker = event.target.closest('.role-picker[open]');

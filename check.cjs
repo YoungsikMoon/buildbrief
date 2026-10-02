@@ -55,10 +55,10 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','fonts','guides.js','idea-examples','index.html','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','fonts','guide-previews','guides.js','idea-examples','index.html','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
-    assert(['element-examples', 'idea-examples', 'fonts'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and asset directories may be published');
+    assert(['element-examples', 'idea-examples', 'fonts', 'guide-previews'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and asset directories may be published');
   }
   assert.deepEqual(fs.readdirSync('dist/fonts').sort(), ['OFL.txt', 'pretendard-variable-1.3.9.woff2']);
   for (const file of fs.readdirSync('dist/fonts')) assert(fs.lstatSync(`dist/fonts/${file}`).isFile());
@@ -87,6 +87,16 @@ test('The public bundle contains only reviewed static files and local scripts', 
     assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
     assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');
     assert(html.includes(`src="idea-examples/${file}"`));
+  }
+  const guideImages = ['brief.jpg', 'canvas.jpg', 'idea.jpg', 'prompt.jpg'];
+  assert.deepEqual(fs.readdirSync('dist/guide-previews').sort(), guideImages);
+  for (const file of guideImages) {
+    const name = 'dist/guide-previews/' + file;
+    assert(fs.lstatSync(name).isFile());
+    const bytes = fs.readFileSync(name);
+    assert(bytes.length > 0 && bytes.length < 150000);
+    assert.equal(bytes.readUInt16BE(0), 0xffd8);
+    assert(html.includes('src="guide-previews/' + file + '"'));
   }
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
   assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','planning-template.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
