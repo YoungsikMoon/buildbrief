@@ -1000,6 +1000,20 @@ a.app-version:focus-visible {
   inset: 0 auto auto 0;
   transform-origin: 0 0;
   background-color: #fff;
+  touch-action: none;
+}
+.canvas-marquee {
+  position: absolute;
+  z-index: 2147483646;
+  pointer-events: none;
+  border: 1px solid var(--blue);
+  background: rgb(37 99 235 / 12%);
+}
+.selection-names {
+  max-height: 160px;
+  overflow: auto;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
 }
 .canvas-viewport.is-panning,
 .canvas-viewport.is-panning * {

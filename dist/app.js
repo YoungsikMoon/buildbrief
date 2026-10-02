@@ -131,6 +131,7 @@
       ...designerState,
       screenId: screenId || selected.screen.id,
       element: element === undefined ? selected.element : element,
+      elements: element === undefined ? selected.elements : element ? [element] : [],
       panel,
       panelCollapsed: screenId && element === '' ? designerState.panelCollapsed : false
     };
@@ -233,6 +234,49 @@
       screen.placements[key] = { ...A.elementPlacement(screen, key), position };
       delete screen.placements[key].grid;
     }
+  }
+  function selectCanvasElements(keys) {
+    designerState.elements = keys;
+    designerState.element = keys.at(-1) || '';
+    designerState.panel = 'element';
+    renderStep(currentStep);
+    $('.canvas-viewport')?.focus({ preventScroll: true });
+  }
+  function paintSelection(keys) {
+    document.querySelectorAll('.canvas-block').forEach(block => {
+      const selected = keys.includes(block.dataset.blockKey) && !block.classList.contains('inherited');
+      block.classList.toggle('selected', selected);
+      block.querySelector(':scope > .canvas-block-heading > [data-canvas-element]').setAttribute('aria-pressed', selected);
+    });
+  }
+  function selectionMoves(dx, dy) {
+    const { elements } = D.selection(answers, designerState);
+    const scale = Number($('.canvas-world').dataset.scale);
+    // A selected ancestor already carries its descendants.
+    const selected = [...document.querySelectorAll('.canvas-block')].filter(block => elements.includes(block.dataset.blockKey));
+    const blocks = selected.filter(block => !selected.some(parent => parent !== block && parent.contains(block)));
+    const boxes = blocks.map(block => {
+      const width = block.parentElement.getBoundingClientRect().width / scale;
+      return { block, width, x: Number(block.dataset.x) * width / 100, y: Number(block.dataset.y) };
+    });
+    dx = Math.round(dx / 8) * 8; dy = Math.round(dy / 8) * 8;
+    for (const box of boxes) {
+      dx = Math.max(-box.x, Math.min(box.width - box.block.getBoundingClientRect().width / scale - box.x, dx));
+      dy = Math.max(-box.y, Math.min(A.MAX_CANVAS_Y - box.y, dy));
+    }
+    return boxes.map(({ block, width, x, y }) => ({ block, key: block.dataset.blockKey,
+      position: { x: width ? Number(((x + dx) / width * 100).toFixed(4)) : Number(block.dataset.x), y: Math.round(y + dy) } }));
+  }
+  function moveSelection(moves) {
+    if (!moves.length) return;
+    const { screen } = D.selection(answers, designerState);
+    const before = D.collisions(), previous = structuredClone(screen.placements || {});
+    const positions = canvasPositions(screen);
+    for (const { key, position } of moves) positions.set(key, position);
+    keepCanvasPositions(screen, positions);
+    renderStep(currentStep);
+    finishPlacement(screen, previous, before);
+    $('.canvas-viewport')?.focus({ preventScroll: true });
   }
   const overlapMessage = '같은 부모 안의 같은 레벨 요소는 겹칠 수 없어요. 위치를 바꾸거나 레벨을 변경해 주세요.';
   function hasNewCollision(before) {
@@ -705,10 +749,6 @@
     if (el.dataset.q && el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea'))
       edit(el);
   });
-  document.addEventListener('focusout', (event) => {
-    const picker = event.target.closest('.role-picker[open]');
-    if (picker && event.relatedTarget && !picker.contains(event.relatedTarget)) picker.open = false;
-  });
   document.addEventListener('change', (event) => {
     const el = event.target;
     if (el.matches('[data-parent-choice]')) {
@@ -753,7 +793,7 @@
       return;
     }
     if (el.matches('[data-all-levels],[data-view-level]')) {
-      const { screen } = D.selection(answers, designerState);
+      const { screen, elements } = D.selection(answers, designerState);
       const checks = [...document.querySelectorAll('[data-view-level]')];
       if (el.matches('[data-all-levels]')) for (const check of checks) check.checked = el.checked;
       designerState.hiddenLevels ||= {};
@@ -761,6 +801,11 @@
         .filter((check) => !check.checked)
         .map((check) => Number(check.dataset.viewLevel));
       D.applyVisibility(designerState, screen.id);
+      if (elements.length > 1) {
+        selectCanvasElements(D.selection(answers, designerState).elements);
+        $('.level-filter').open = true;
+        document.querySelector(el.matches('[data-all-levels]') ? '[data-all-levels]' : `[data-view-level="${el.dataset.viewLevel}"]`)?.focus({ preventScroll: true });
+      }
       return;
     }
     if (el.matches('[data-reference-category]')) {
@@ -1001,6 +1046,53 @@
     toast(id ? '이름을 변경했어요.' : '새 프로젝트를 만들었어요.');
   });
   let cameraDrag = null;
+  let marquee = null;
+  function canvasPoint(event) {
+    const world = $('.canvas-world'), rect = world.getBoundingClientRect(), scale = Number(world.dataset.scale);
+    return { x: (event.clientX - rect.left) / scale, y: (event.clientY - rect.top) / scale };
+  }
+  function finishMarquee(commit) {
+    if (!marquee) return;
+    const { target, pointer, overlay, keys } = marquee;
+    marquee = null;
+    overlay.remove();
+    if (target.hasPointerCapture(pointer)) target.releasePointerCapture(pointer);
+    if (commit) selectCanvasElements(keys);
+    else paintSelection(D.selection(answers, designerState).elements);
+  }
+  document.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || !event.isPrimary || marquee || cameraDrag || designerState.panMode ||
+      !event.target.matches('.canvas-grid, .canvas-space, .canvas-viewport')) return;
+    const target = event.target.closest('.canvas-viewport');
+    if (!target) return;
+    const bounds = target.getBoundingClientRect();
+    if (event.clientX >= bounds.left + target.clientWidth || event.clientY >= bounds.top + target.clientHeight) return;
+    event.preventDefault();
+    target.focus({ preventScroll: true });
+    const overlay = document.createElement('div');
+    overlay.className = 'canvas-marquee'; overlay.setAttribute('aria-hidden', 'true');
+    $('.canvas-world').append(overlay);
+    const base = event.shiftKey || event.ctrlKey || event.metaKey ? D.selection(answers, designerState).elements : [];
+    marquee = { target, pointer: event.pointerId, start: canvasPoint(event), overlay, base, keys: base };
+    target.setPointerCapture(event.pointerId);
+  });
+  document.addEventListener('pointermove', event => {
+    if (marquee?.pointer !== event.pointerId) return;
+    const end = canvasPoint(event), { start, overlay, base } = marquee;
+    const left = Math.min(start.x, end.x), top = Math.min(start.y, end.y), right = Math.max(start.x, end.x), bottom = Math.max(start.y, end.y);
+    Object.assign(overlay.style, { left: left + 'px', top: top + 'px', width: right - left + 'px', height: bottom - top + 'px' });
+    const rect = overlay.getBoundingClientRect();
+    const keys = [...document.querySelectorAll('.canvas-block:not(.inherited):not(.level-hidden)')].filter(block => {
+      const box = block.getBoundingClientRect();
+      return box.left >= rect.left && box.right <= rect.right && box.top >= rect.top && box.bottom <= rect.bottom;
+    }).map(block => block.dataset.blockKey);
+    marquee.keys = [...new Set([...base, ...keys])];
+    paintSelection(marquee.keys);
+  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) document.addEventListener(type, event => {
+    if (marquee?.pointer === event.pointerId) finishMarquee(type === 'pointerup');
+  });
+  window.addEventListener('blur', () => finishMarquee(false));
   document.addEventListener('scroll', event => {
     if (event.target.matches?.('.canvas-viewport')) D.captureView(designerState);
   }, true);
@@ -1151,6 +1243,20 @@
   });
   document.addEventListener('keydown', (event) => {
     if (event.isComposing) return;
+    if (event.key === 'Escape' && marquee) {
+      event.preventDefault(); finishMarquee(false); return;
+    }
+    if (event.target.matches('.canvas-viewport, [data-canvas-element]') && D.selection(answers, designerState).elements.length) {
+      if (event.key === 'Escape') {
+        event.preventDefault(); selectCanvasElements([]); return;
+      }
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        event.preventDefault();
+        moveSelection(selectionMoves(event.key === 'ArrowLeft' ? -8 : event.key === 'ArrowRight' ? 8 : 0,
+          event.key === 'ArrowUp' ? -8 : event.key === 'ArrowDown' ? 8 : 0));
+        return;
+      }
+    }
     if (event.target.id === 'canvas-minimap' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
       event.preventDefault();
       const viewport = $('.canvas-viewport');
@@ -1257,12 +1363,18 @@
     const block = event.target.closest('[data-canvas-element][draggable="true"]');
     if (!block) return;
     const rect = block.closest('.canvas-block').getBoundingClientRect();
+    const key = block.dataset.canvasElement;
+    if (!D.selection(answers, designerState).elements.includes(key)) {
+      designerState.elements = [key]; designerState.element = key;
+      paintSelection([key]);
+    }
     draggedElement = {
       screenId: block.dataset.canvasOwner,
       key: block.dataset.canvasElement,
       offsetX: event.clientX - rect.left,
       offsetY: event.clientY - rect.top
     };
+    if (D.selection(answers, designerState).elements.length > 1) draggedElement.start = canvasPoint(event);
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', draggedElement.key);
   });
@@ -1321,6 +1433,16 @@
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     clearDropPreview();
+    if (draggedElement.start) {
+      const point = canvasPoint(event);
+      for (const { block, position } of selectionMoves(point.x - draggedElement.start.x, point.y - draggedElement.start.y)) {
+        const preview = document.createElement('div');
+        preview.className = 'canvas-drop-preview'; preview.setAttribute('aria-hidden', 'true');
+        Object.assign(preview.style, { left: position.x + '%', top: position.y + 'px', width: block.style.width, height: block.offsetHeight + 'px' });
+        block.parentElement.append(preview);
+      }
+      return;
+    }
     zone.classList.add('drop-active');
     const position = gridDrop(event, zone);
     if (position) {
@@ -1345,7 +1467,10 @@
     )
       return;
     event.preventDefault();
-    moveCanvasElement(
+    if (draggedElement.start) {
+      const point = canvasPoint(event);
+      moveSelection(selectionMoves(point.x - draggedElement.start.x, point.y - draggedElement.start.y));
+    } else moveCanvasElement(
       draggedElement.key,
       zone.dataset.dropParent
         ? 'parent:' + zone.dataset.dropParent
@@ -1372,6 +1497,7 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.clearSelection !== undefined) return selectCanvasElements([]);
     if (d.applyParent !== undefined || d.cancelParentChange !== undefined) {
       const choice = $('[data-parent-choice]');
       if (d.applyParent !== undefined && choice.value !== choice.dataset.currentParent) {
@@ -1417,9 +1543,12 @@
     if (d.saveParent !== undefined) return saveParentName();
     if (d.expandDesigner !== undefined) return toggleExpandedDesigner();
     if (d.gridMove || d.gridWidth) {
-      const { screen, element } = D.selection(answers, designerState);
+      const { screen, element, elements } = D.selection(answers, designerState);
       if (!element) return;
-      if (d.gridWidth) {
+      if (d.gridMove && elements.length > 1) {
+        moveSelection(selectionMoves(d.gridMove === 'left' ? -8 : d.gridMove === 'right' ? 8 : 0,
+          d.gridMove === 'up' ? -8 : d.gridMove === 'down' ? 8 : 0));
+      } else if (d.gridWidth) {
         saveElementSize(screen, element, {
           ...A.elementSize(screen, element),
           width: Number(d.gridWidth)
@@ -1507,7 +1636,13 @@
       return;
     }
 
-    if (d.canvasElement) return showDesigner('element', d.canvasElement, d.canvasOwner);
+    if (d.canvasElement) {
+      const { screen, elements } = D.selection(answers, designerState);
+      if (d.canvasOwner === screen.id && (event.shiftKey || event.ctrlKey || event.metaKey))
+        return selectCanvasElements(elements.includes(d.canvasElement)
+          ? elements.filter(key => key !== d.canvasElement) : [...elements, d.canvasElement]);
+      return showDesigner('element', d.canvasElement, d.canvasOwner);
+    }
     if (d.levelHelp !== undefined)
       return showHelp('요소 레벨', {
         meaning:

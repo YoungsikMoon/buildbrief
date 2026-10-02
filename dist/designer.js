@@ -10,10 +10,13 @@
     if (index < 0 && screens.length) index = 0;
     const screen = screens[index] || { id: '', isCommon: true, elements: [] };
     const element = A.elementKeys(screen).includes(state.element) ? state.element : '';
+    const elements = (state.elements?.includes(element) ? state.elements : element ? [element] : [])
+      .filter(key => A.elementKeys(screen).includes(key) && !state.hiddenLevels?.[screen.id]?.includes(A.elementPlacement(screen, key).level ?? 1));
     return {
       screen,
       index,
       element,
+      elements,
       panel: ['screen', 'element', 'reference'].includes(state.panel)
         ? state.panel
         : element
@@ -241,7 +244,7 @@
     applyVisibility(state, screen.id);
   }
   function render(answers, state, inspector, reason, recommendation = '') {
-    const { screen, index, element, panel } = selection(answers, state);
+    const { screen, index, elements, panel } = selection(answers, state);
     const screens = Array.isArray(answers.screens) ? answers.screens : [];
     const label = (row) => A.screenLabel(screens, row);
     const tabs = [
@@ -269,8 +272,8 @@
       const size = A.elementSize(owner, key);
       const position = positions.get(key);
       const children = blocks.filter((child) => child.parent === key);
-      return `<div class="canvas-block${inherited ? ' inherited' : ''}${!inherited && key === element ? ' selected' : ''}" data-block-key="${esc(key)}" data-level="${levels.get(key)}" data-width="${size.width}" data-height="${size.height}" data-x="${position.x}" data-y="${position.y}">
-        <div class="canvas-block-heading"><button type="button" class="canvas-block-select" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && key === element}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span></button>${A.canContain(key) ? `<button type="button" class="canvas-add-child" data-add-element data-screen="${index}" data-target="parent:${esc(key)}" aria-label="${esc(elementName(owner, key))} 안에 요소 추가" title="이 요소 안에 추가">+</button>` : ''}</div>
+      return `<div class="canvas-block${inherited ? ' inherited' : ''}${!inherited && elements.includes(key) ? ' selected' : ''}" data-block-key="${esc(key)}" data-level="${levels.get(key)}" data-width="${size.width}" data-height="${size.height}" data-x="${position.x}" data-y="${position.y}">
+        <div class="canvas-block-heading"><button type="button" class="canvas-block-select" data-canvas-element="${esc(key)}" data-canvas-owner="${owner.id}" ${inherited ? '' : 'draggable="true"'} aria-pressed="${!inherited && elements.includes(key)}" aria-label="${esc(elementName(owner, key))}${inherited ? ' · 공통 화면에서 수정' : ' 선택'}"><span class="canvas-block-title">${esc(elementName(owner, key))}${inherited ? '<small>공통</small>' : ''}</span></button>${A.canContain(key) ? `<button type="button" class="canvas-add-child" data-add-element data-screen="${index}" data-target="parent:${esc(key)}" aria-label="${esc(elementName(owner, key))} 안에 요소 추가" title="이 요소 안에 추가">+</button>` : ''}</div>
         ${A.canContain(key) ? gridHtml(children, 'parent:' + key, [...path, key]) : ''}
         <span class="canvas-level">${levels.get(key)}레벨</span>
         ${inherited ? '' : `<button type="button" class="canvas-resize" data-resize-element="${esc(key)}" data-resize-owner="${owner.id}" aria-label="${esc(elementName(owner, key))} 크기 조절" title="끌어서 크기 조절 · 방향키로도 조절할 수 있어요"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20 20 8M14 20l6-6"/></svg></button>`}
@@ -295,7 +298,7 @@
           <span class="canvas-size-label" data-canvas-size-label>${size.width} × ${size.height}</span>
           <div class="canvas-view-controls"><button type="button" class="button secondary small" data-toggle-minimap aria-pressed="${state.minimap !== false}" aria-controls="canvas-minimap-panel">미니맵</button><details class="level-filter"><summary aria-label="요소 보기"><span>요소 보기</span><small data-visible-level-count>전체</small></summary><fieldset class="level-menu">${levelOptions(blocks)}</fieldset></details></div>
         </div><div class="canvas-frame"><div class="canvas-viewport${state.panMode ? ' is-panning' : ''}" tabindex="0" aria-label="화면 설계 작업면" aria-describedby="canvas-navigation-help"><div class="canvas-space">${gridHtml(blocks.filter(item=>!item.parent), 'region:main')}</div></div>
-        <div class="canvas-minimap" id="canvas-minimap-panel" ${state.minimap === false ? 'hidden' : ''}><svg id="canvas-minimap" tabindex="0" role="group" aria-label="미니맵 위치 이동. 누르거나 끌기, 방향키로 이동" preserveAspectRatio="xMidYMid meet"><g class="minimap-elements"></g><rect class="minimap-view"/></svg></div></div></div><p class="designer-hint" id="canvas-navigation-help">드래그는 위치만 바꿔요. 포함·분리는 요소 설정의 ‘소속 변경’을 이용하세요. 화면 이동 또는 가운데 버튼으로 작업면을 끌 수 있어요.</p>${reason}
+        <div class="canvas-minimap" id="canvas-minimap-panel" ${state.minimap === false ? 'hidden' : ''}><svg id="canvas-minimap" tabindex="0" role="group" aria-label="미니맵 위치 이동. 누르거나 끌기, 방향키로 이동" preserveAspectRatio="xMidYMid meet"><g class="minimap-elements"></g><rect class="minimap-view"/></svg></div></div></div><p class="designer-hint" id="canvas-navigation-help">빈 곳을 드래그해 요소를 둘러싸면 함께 선택돼요. Shift+클릭으로 선택을 더하거나 빼고, 선택한 이름을 끌거나 방향키로 함께 옮겨요. 포함·분리는 ‘소속 변경’, 작업면 이동은 ‘화면 이동’ 또는 가운데 버튼을 이용하세요.</p>${reason}
       </section><div class="designer-panel${state.panelCollapsed ? ' panel-collapsed' : ''}">${state.panelCollapsed ? '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="false" aria-label="설정 패널 펼치기" title="설정 패널 펼치기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>' : ''}<aside class="designer-inspector" id="designer-inspector" ${state.panelCollapsed ? 'hidden' : ''} aria-label="요소 설정과 참고 자료">
         <div class="inspector-heading">${state.panelCollapsed ? '' : '<button type="button" class="inspector-toggle" data-toggle-inspector aria-controls="designer-inspector" aria-expanded="true" aria-label="설정 패널 접기" title="설정 패널 접기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>'}<div class="inspector-tabs" role="tablist" aria-label="화면 편집 설정">${tabs.map(([id, text]) => `<button type="button" role="tab" id="inspector-tab-${id}" data-designer-panel="${id}" aria-selected="${panel === id}" aria-controls="inspector-panel-${id}" tabindex="${panel === id ? 0 : -1}">${text}</button>`).join('')}</div></div>
         <div class="inspector-body" id="designer-inspector-body">${tabs.map(([id, text]) => `<section role="tabpanel" id="inspector-panel-${id}" aria-labelledby="inspector-tab-${id}" ${panel === id ? '' : 'hidden'}>${panel === id ? `<h4 class="visually-hidden" tabindex="-1" id="inspector-title">${text}</h4>${content}` : ''}</section>`).join('')}</div>

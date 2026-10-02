@@ -522,11 +522,13 @@ ${esc(value)}</textarea
   }
 
   function screenEditor(q, answers, state = {}, recommendations = []) {
-    const { screen: row, index: i, element, panel } = D.selection(answers, state);
+    const { screen: row, index: i, element, elements, panel } = D.selection(answers, state);
     let inspector = '';
     if (i < 0) inspector = '<p class="field-help">기본 공통 화면부터 구성하세요.</p>';
     else if (panel === 'element' && !element)
       inspector = '<p class="field-help">배치한 요소를 선택하거나 새 요소를 추가하세요.</p>';
+    else if (panel === 'element' && elements.length > 1)
+      inspector = `<div class="natural-element-settings"><p role="status"><strong>${elements.length}개 요소 선택</strong></p><p class="field-help">이름을 끌거나 아래 방향 버튼으로 함께 이동하세요. 크기·간격·소속·레벨은 유지돼요. 이름만 클릭하면 개별 설정으로 돌아가요.</p><ul class="selection-names">${elements.map(key => `<li>${esc(A.elementLabel(row, key))}</li>`).join('')}</ul><div class="grid-controls" role="group" aria-label="선택한 요소 함께 이동">${[['left','←','왼쪽'],['up','↑','위'],['down','↓','아래'],['right','→','오른쪽']].map(([direction,icon,label]) => `<button type="button" class="button secondary small" data-grid-move="${direction}" aria-label="${label}으로 함께 이동">${icon}</button>`).join('')}</div><button type="button" class="button secondary small" data-clear-selection>선택 해제</button></div>`;
     else if (panel === 'element') {
       const items = A.layoutItems(
         row,
