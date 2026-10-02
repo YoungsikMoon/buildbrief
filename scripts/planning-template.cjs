@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const VERSION = '2026-10-01.1';
+const VERSION = '2026-10-02.1';
 const root = path.join(__dirname, '..');
 const destination = path.join(root, 'dist/planning-template.js');
 const text = fs.readFileSync(path.join(root, 'docs/planning-template/request-template.md'), 'utf8')
