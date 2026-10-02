@@ -3559,16 +3559,17 @@ body:has(#guide-view:not([hidden])) .mobile-report {
 }
 
 /* Four static stages: a shallow fan, with readable pairs on narrow screens. */
-.guide-process { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; list-style: none; margin: 0; padding: 52px 28px; min-width: 0; }
-.guide-process li { min-width: 0; padding: 14px 10px; background: #fff; border-radius: 12px; box-shadow: 0 10px 28px #0f172a18; transform: rotate(-12deg) translateY(18px); }
+.guide-process { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; list-style: none; margin: 0; padding: 68px 24px; min-width: 0; }
+.guide-process li { min-width: 0; padding: 18px 14px; background: #fff; border-radius: 12px; box-shadow: 0 12px 32px #0f172a1c; transform: rotate(-12deg) translateY(18px); }
 .guide-process li:nth-child(2) { transform: rotate(-4deg); }
 .guide-process li:nth-child(3) { transform: rotate(4deg); }
 .guide-process li:nth-child(4) { transform: rotate(12deg) translateY(18px); background: var(--soft); }
-.guide-process-number { display: block; color: var(--blue); font-size: var(--type-small); font-variant-numeric: tabular-nums; margin-bottom: 12px; }
-.guide-process strong { display: block; font-size: var(--type-control); margin-bottom: 16px; }
-.guide-process img { display: block; width: 100%; height: auto; aspect-ratio: 1.4; max-height: 90px; object-fit: cover; object-position: left top; border: 1px solid var(--line); border-radius: 4px; }
+.guide-process-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; white-space: nowrap; }
+.guide-process-number { flex: 0 0 auto; color: var(--blue); font-size: var(--type-small); font-variant-numeric: tabular-nums; }
+.guide-process strong { min-width: 0; font-size: var(--type-control); overflow: hidden; text-overflow: ellipsis; }
+.guide-process img { display: block; width: 100%; height: auto; aspect-ratio: 1.4; max-height: 117px; object-fit: cover; object-position: left top; border: 1px solid var(--line); border-radius: 4px; }
 @media (max-width: 900px) {
-  .guide-process { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 16px 20px; }
+  .guide-process { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 20px; }
   .guide-process li:nth-child(n) { transform: rotate(-4deg); }
   .guide-process li:nth-child(even) { transform: rotate(4deg); }
 }
