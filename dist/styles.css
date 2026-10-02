@@ -3279,12 +3279,53 @@ main:has(#guide-view:not([hidden])) { max-width: none; background: #fff; padding
 .guide-example blockquote { margin: 8px 0 12px; font-size: var(--type-control); line-height: 1.7; color: var(--muted); }
 .guide-example-details > summary { width: fit-content; padding: 10px 0; min-height: 44px; color: var(--blue); font-size: var(--type-control); }
 .guide-paper { padding: 8px 0 0; }
-.guide-paper dl { display: grid; gap: 16px; }
-.guide-paper dt { font-size: var(--type-control); color: var(--muted); }
-.guide-paper dd { margin: 4px 0 0; }
-.guide-paper-note { padding-top: 16px; }
-.guide-paper-note strong { font-size: var(--type-control); }
-.guide-paper-note p { margin: 4px 0 0; }
+.guide-paper dl { display: grid; gap: 10px; }
+.guide-paper dl > div,
+.guide-paper-note {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.guide-paper dt,
+.guide-paper-note strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: var(--type-control);
+  font-weight: 650;
+}
+.guide-paper dt::before,
+.guide-paper-note strong::before {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--blue);
+  font-size: var(--type-small);
+  line-height: 1.45;
+  font-weight: 650;
+}
+.guide-paper dt::before { content: '질문'; }
+.guide-paper-note strong::before { content: '이유'; }
+.guide-paper dd,
+.guide-paper-note p {
+  margin: 8px 0 0;
+  padding-left: 42px;
+  color: var(--body);
+  line-height: 1.65;
+}
+.guide-paper dd::before {
+  content: '답변';
+  display: inline-block;
+  margin-left: -42px;
+  width: 34px;
+  color: var(--muted);
+  font-size: var(--type-small);
+  font-weight: 650;
+}
+.guide-paper-note { margin-top: 10px; }
 .guide-feature-tag:not(:last-child)::after { content: ' · '; white-space: pre; }
 #guide-example-caption { margin: 28px 0 0; font-size: var(--type-small); color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) {
