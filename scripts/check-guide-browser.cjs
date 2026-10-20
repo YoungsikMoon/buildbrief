@@ -28,7 +28,7 @@ const server = http.createServer((req, res) => {
       const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 500, reducedMotion: width === 1440 ? 'no-preference' : 'reduce' });
       const errors = [], requests = [];
       page.on('pageerror', e => errors.push(e.message));
-      page.on('request', r => { if (['fetch', 'xhr', 'websocket', 'eventsource', 'ping'].includes(r.resourceType())) requests.push(r.url()); });
+      page.on('request', r => { if (['fetch', 'xhr', 'websocket', 'eventsource', 'ping'].includes(r.resourceType())) requests.push({ url: r.url(), method: r.method() }); });
       await page.goto(base); await page.evaluate(() => document.fonts.ready);
       assert(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Pretendard' && font.status === 'loaded')), 'The local Korean font must load under CSP');
       assert(await page.locator('#guide-view').isVisible());
@@ -160,7 +160,11 @@ const server = http.createServer((req, res) => {
       assert(await page.locator('.guide-topnav').isHidden());
       const stored = await page.evaluate(() => JSON.parse(localStorage.getItem(BriefProjects.KEY)));
       assert.equal(stored.projects[0].answers.project_name, '예시와 분리된 내 아이디어');
-      assert.deepEqual(errors, []); assert.deepEqual(requests, []);
+      assert.deepEqual(errors, []);
+      for (const request of requests) {
+        const url = new URL(request.url);
+        assert(new URL(base).origin === 'https://buildbrief.moon0sik.cloud' && url.origin === new URL(base).origin && url.pathname === '/cdn-cgi/rum' && request.method === 'POST', 'Only the reviewed production analytics collector may receive data');
+      }
       await page.close();
     }
     console.log('Guide browser check passed: four widths, four static stages, three visible examples, four-step walkthrough, keyboard/touch navigation, native details, local images, 200% text, CSP, and saved answers.');

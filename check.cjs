@@ -46,9 +46,9 @@ test('Static deployment protections remain intact', () => {
   const directives = policyLines[0].split(':').slice(1).join(':').trim().split(/;\s*/).map(rule => { const [name, ...sources] = rule.split(/\s+/); return [name, sources.join(' ')]; });
   assert.equal(new Set(directives.map(([name]) => name)).size, directives.length, 'Duplicate directives can silently ignore a later restriction');
   assert.deepEqual(Object.fromEntries(directives), {
-    'default-src': "'none'", 'script-src': "'self'", 'script-src-attr': "'none'",
+    'default-src': "'none'", 'script-src': "'self' https://static.cloudflareinsights.com/beacon.min.js https://static.cloudflareinsights.com/beacon.min.js/", 'script-src-attr': "'none'",
     'style-src': "'self'", 'style-src-attr': "'none'", 'font-src': "'self'", 'img-src': "'self' data:",
-    'connect-src': "'none'", 'object-src': "'none'", 'base-uri': "'none'", 'form-action': "'none'",
+    'connect-src': 'https://buildbrief.moon0sik.cloud/cdn-cgi/rum', 'object-src': "'none'", 'base-uri': "'none'", 'form-action': "'none'",
     'frame-src': "'none'", 'frame-ancestors': "'none'", 'worker-src': "'none'"
   }, 'Changing allowed resources requires a security review; substring checks miss added unsafe sources');
   for (const rule of ['X-Content-Type-Options: nosniff', 'X-Frame-Options: DENY', 'Referrer-Policy: no-referrer', 'Strict-Transport-Security: max-age=31536000', 'Permissions-Policy: camera=(), microphone=(), geolocation=()']) assert(headers.split(/\r?\n/).some(line => line.trim() === rule));

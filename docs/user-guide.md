@@ -133,3 +133,7 @@ PC에서는 **설정 패널 왼쪽 화살표**로 접고 펼칩니다. 접으면
 [Design Council의 Double Diamond](https://www.designcouncil.org.uk/resources/framework-for-innovation/), [Atlassian PRD 안내](https://www.atlassian.com/agile/product-management/requirements), [GOV.UK 사용자 스토리](https://www.gov.uk/service-manual/agile-delivery/writing-user-stories), [Material 구성요소](https://developer.android.com/develop/ui/compose/components), [Carbon 구성요소](https://carbondesignsystem.com/components/overview/components/)를 참고했습니다. 이 서비스의 질문은 해당 자료의 공식 체크리스트나 인증 항목이 아닙니다.
 
 화면 요소의 역할별 분류와 기본 후보는 [KRDS 구성요소](https://www.krds.go.kr/html/site/component/component_summary.html)와 [Material 구성요소 안내](https://developer.android.com/design/ui/mobile/guides/components/material-overview)를 참고합니다. 모든 UI 요소를 망라하는 목록은 아니며, 필요한 역할과 용도를 정리하는 데 사용합니다.
+
+## 방문 통계
+
+서비스 개선을 위해 쿠키를 사용하지 않는 Cloudflare Web Analytics를 사용합니다. 페이지 주소·유입 경로·방문 수·로딩 속도 같은 방문·성능 정보를 전송하며, 작성한 답변·저장한 프로젝트·백업 내용은 통계에 포함하지 않습니다. 광고나 개인별 행동 추적을 추가하지 않습니다. 통계를 차단해도 기획 작성과 저장 기능은 사용할 수 있습니다.

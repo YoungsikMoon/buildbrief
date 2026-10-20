@@ -105,3 +105,9 @@ npm exec --yes --package=prettier@3.6.2 -- prettier --write --single-quote --pri
 정렬 후 `node scripts/planning-template.cjs`로 생성 파일의 형식을 복원하고 자산 해시를 갱신한 뒤 검증해야 합니다. CSS는 기존 선언 순서를 유지해 화면별 우선순위가 바뀌지 않도록 합니다.
 
 상세 문서의 역할과 진입점은 [README 목차](../README.md#문서-안내)에서 확인합니다. 동작을 바꾸면 해당 주제 문서를 갱신하고, 보안 관련 변경은 [SECURITY.md](../SECURITY.md)에서 관련 모듈을 찾아 검토합니다.
+
+## 방문 통계 검증
+
+`node scripts/check-analytics-browser.cjs`는 운영 도메인의 실제 Cloudflare 자동 삽입 스크립트와 수집 주소를 별도 Chrome에서 검사합니다. 기존 Playwright 환경을 사용하며 앱 실행 의존성을 추가하지 않습니다. 배포 전에는 `--candidate-policy`로 이 브라우저의 문서 응답 CSP만 로컬 `_headers`로 교체해 시험할 수 있습니다. 운영 설정 자체는 바뀌지 않습니다.
+
+PC·모바일에서 SRI와 단일 스크립트, 로드/페이지 이탈 통계의 204 응답, 입력·저장 자료의 가상 표식 미전송, 쿠키·브라우저 저장 불변, 예상 밖 통신과 CSP 오류 없음, 차단 도구를 모사한 스크립트 차단 시 입력·저장·새로고침을 확인합니다. 실제 이용자 자료를 사용하지 않습니다. 시작 안내 검사도 운영의 정확한 통계 POST만 허용하며 다른 요청은 계속 실패합니다.
