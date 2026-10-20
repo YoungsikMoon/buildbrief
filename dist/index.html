@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="analytics-preferences.js?v=910e58828719"></script>
   <meta name="theme-color" content="#1d4ed8">
   <meta name="description" content="아이디어만 있어도 시작하세요. 문제, 사용자, 기능과 화면을 하나씩 정리해 서비스 기획 초안을 만듭니다.">
   <title>빌드브리프 — 아이디어를 기획 초안으로</title>
@@ -195,7 +196,7 @@
             <details><summary><span>모든 질문에 답해야 하나요?</span></summary><p>아는 내용부터 적으세요. 질문을 건너뛰거나 답변을 바꿀 수 있고, 작성한 내용만으로도 초안을 볼 수 있어요.</p><p>작성 현황은 답한 질문의 비율이에요. 100%가 기획의 완성도를 뜻하지는 않아요.</p></details>
             <details><summary><span>작성한 내용은 어디에 저장되나요?</span></summary><p>지금 사용하는 브라우저에 자동 저장돼요. 같은 기기·브라우저·사이트 주소에서 다시 열면 이어서 작성할 수 있어요.</p><p>사이트 데이터를 삭제하면 답변도 사라질 수 있어요. 오래 보관할 내용은 백업 파일로 내려받아 주세요.</p></details>
             <details><summary><span>내 아이디어가 서버나 AI로 전송되나요?</span></summary><p>작성한 답변을 서버나 외부 AI로 자동 전송하지 않아요. 초안을 공유하거나 AI에 붙여 넣는 것은 직접 선택해요.</p><p>브라우저 저장은 암호화된 개인 금고가 아니에요. 공용 기기에서는 자료를 남겨 두지 않도록 주의해 주세요.</p></details>
-            <details><summary><span>방문 통계를 수집하나요?</span></summary><p>쿠키 없이 방문 수·페이지 주소·유입 경로·로딩 속도 같은 이용 통계를 Cloudflare로 보내요. 작성한 답변과 브라우저에 저장한 프로젝트는 통계에 포함하지 않아요.</p></details>
+            <details><summary><span>방문 통계를 수집하나요?</span></summary><p>쿠키 없이 방문 수·페이지 주소·유입 경로·로딩 속도 같은 이용 통계를 Cloudflare로 보내요. 작성한 답변과 브라우저에 저장한 프로젝트는 통계에 포함하지 않아요.</p><p id="analytics-preference-status"></p><p><a id="analytics-exclude" href="?analytics=off">이 브라우저의 접속을 통계에서 제외</a><a id="analytics-include" href="?analytics=on" hidden>이 브라우저의 통계 수집 다시 허용</a></p></details>
             <details><summary><span>백업하거나 다른 기기로 옮기려면요?</span></summary><p>프로젝트 메뉴의 <strong>백업 내려받기</strong>로 JSON 파일을 보관하세요. 다른 기기에서 <strong>백업 불러오기</strong>를 누르고 이 파일을 선택하면 돼요.</p><p>불러온 내용은 새 프로젝트로 추가되고, 기존 프로젝트는 유지돼요. <strong>기획 초안 내려받기</strong>는 공유용 문서이므로 다시 불러오는 백업과는 달라요.</p></details>
             <details><summary><span>여러 아이디어를 따로 정리할 수 있나요?</span></summary><p>작성 화면에서 <strong>+ 새 프로젝트</strong>를 누르세요. 프로젝트 선택 목록에서 각각의 기획으로 전환할 수 있어요. PC는 왼쪽 메뉴, 모바일은 상단의 <strong>프로젝트·목차</strong>에서 찾을 수 있어요.</p><p>선택 목록 옆 <strong>프로젝트 관리</strong>에서 이름을 바꾸거나 전체 프로젝트를 백업할 수 있어요.</p></details>
             <details><summary><span>프롬프트의 기본·고급은 어떻게 다른가요?</span></summary><p><strong>기본</strong>은 기획 정리와 빠진 질문을, <strong>고급</strong>은 설계·보안·검증 계획까지 AI에 요청해요. 선택 옆 도움말에서 차이를 확인하세요.</p><p>모드를 고른 뒤 <strong>프롬프트 복사</strong>를 누르세요. 브라우저가 복사를 허용하지 않으면 요청문 파일이 내려받아져요. 파일 내용을 AI에 전달하면 됩니다.</p></details>

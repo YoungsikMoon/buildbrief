@@ -12,8 +12,9 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
   const browser=await chromium.launch({channel:'chrome',headless:true});
   try{for(const width of [1440,390,320]){
     const context=await browser.newContext({viewport:{width,height:1000},hasTouch:width<800,acceptDownloads:true,reducedMotion:'reduce'});
+    await context.route('https://buildbrief.moon0sik.cloud/cdn-cgi/rum*',route=>route.fulfill({status:204}));
     const page=await context.newPage(),errors=[];page.setDefaultTimeout(8000);
-    await page.addInitScript(()=>{window.cspErrors=[];document.addEventListener('securitypolicyviolation',e=>window.cspErrors.push(e.violatedDirective));});
+    await page.addInitScript(()=>{window.cspErrors=[];document.addEventListener('securitypolicyviolation',e=>{if(document.documentElement.dataset.analyticsExcluded==='true'&&e.violatedDirective==='script-src-elem'&&/^https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js(?:\/|$)/.test(e.blockedURI))return;window.cspErrors.push(e.violatedDirective);});});
     let acceptDialog=true;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>acceptDialog?d.accept():d.dismiss());
     const stored=()=>page.evaluate(()=>{const w=JSON.parse(localStorage.getItem(BriefProjects.KEY));return BriefAnswers.normalizeProject(w.projects.find(p=>p.id===w.activeId));});
     const go=async step=>{if(await page.locator('#guide-view').isVisible())await page.locator('#start-planning').click();const b=page.locator(`#step-nav [data-step="${step}"]`);if(!await b.isVisible())await page.locator('#toggle-navigation').click();await b.click();};

@@ -55,7 +55,7 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','fonts','guide-previews','guides.js','idea-examples','index.html','interview.js','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','analytics-preferences.js','answers.js','app.js','designer.js','element-examples','fonts','guide-previews','guides.js','idea-examples','index.html','interview.js','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
     assert(['element-examples', 'idea-examples', 'fonts', 'guide-previews'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and asset directories may be published');
@@ -99,8 +99,11 @@ test('The public bundle contains only reviewed static files and local scripts', 
     assert(html.includes('src="guide-previews/' + file + '"'));
   }
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','interview.js','planning-template.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
-  for (const [, attributes, body] of scripts) {
+  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['analytics-preferences.js','questions.js','answers.js','interview.js','planning-template.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
+  assert.match(scripts[0][1], /^ src="analytics-preferences\.js\?v=[a-f0-9]{12}"$/);
+  assert.equal(scripts[0][2].trim(), '');
+  assert(html.indexOf(scripts[0][0]) < html.indexOf('<link'), 'Exclusion must run synchronously before other resources');
+  for (const [, attributes, body] of scripts.slice(1)) {
     assert.match(attributes, /^ src="(?:answers|app|designer|guides|interview|planning-template|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
     assert.equal(body.trim(), '', 'No inline script');
   }
@@ -111,7 +114,7 @@ test('The public bundle contains only reviewed static files and local scripts', 
 
 test('The page references the exact current assets', () => {
   const html = fs.readFileSync('dist/index.html', 'utf8');
-  for (const file of ['app.js', 'designer.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css', 'planning-template.js']) {
+  for (const file of ['analytics-preferences.js', 'app.js', 'designer.js', 'answers.js', 'questions.js', 'report.js', 'projects.js', 'guides.js', 'storage.js', 'views.js', 'styles.css', 'planning-template.js']) {
     const source = fs.readFileSync(`dist/${file}`, 'utf8').replace(/\r\n/g, '\n');
     const hash = createHash('sha256').update(source).digest('hex').slice(0, 12);
     assert(html.includes(`${file}?v=${hash}`), `Stale asset reference: ${file}`);
@@ -863,6 +866,7 @@ test('Template editors and exact-copy previews escape imported content', () => {
 require('./scripts/check-template-storage.cjs');
 require('./scripts/check-runtime.cjs');
 require('./scripts/check-planning.cjs');
+require('./scripts/check-analytics-preferences.cjs');
 require('./scripts/check-interview.cjs');
 require('./scripts/check-interview-report.cjs');
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);
