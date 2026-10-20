@@ -10,14 +10,11 @@ const project = '{"projects":[{"answers":{"project_name":"KEEP_PRIVATE"}}]}';
 function run(options = {}) {
   const stored = options.stored || new Map([[projectKey, project]]);
   const location = new URL(options.url || 'https://buildbrief.moon0sik.cloud/');
-  const state = { unrelated: 'PRESERVE_STATE' }, calls = [], metas = [], listeners = new Map();
-  const nodes = Object.fromEntries(['analytics-preference-status', 'analytics-exclude', 'analytics-include'].map(id => [id, { hidden: false, textContent: '' }]));
+  const state = { unrelated: 'PRESERVE_STATE' }, calls = [], metas = [];
   const document = {
-    readyState: options.readyState || 'loading', documentElement: { dataset: {} },
+    documentElement: { dataset: {} },
     head: { appendChild(element) { assert.equal(element.httpEquiv, 'Content-Security-Policy'); assert.equal(element.content, "script-src 'self'; connect-src 'none'"); metas.push(element); } },
-    createElement(tag) { assert.equal(tag, 'meta'); return {}; },
-    getElementById(id) { return options.noStatus ? null : nodes[id]; },
-    addEventListener(event, callback, settings) { assert.equal(event, 'DOMContentLoaded'); assert.equal(settings.once, true); listeners.set(event, callback); }
+    createElement(tag) { assert.equal(tag, 'meta'); return {}; }
   };
   const history = { state, replaceState(next, title, url) { assert.equal(next, state); assert.equal(title, ''); calls.push(url); location.href = url; } };
   const storage = {
@@ -26,26 +23,16 @@ function run(options = {}) {
     removeItem(name) { if (options.failRemove) throw new Error('Storage deletion blocked'); stored.delete(name); }
   };
   vm.runInNewContext(source, { URL, location, history, navigator: { webdriver: options.webdriver === true }, document, localStorage: storage });
-  if (document.readyState === 'loading') {
-    assert.equal(nodes['analytics-preference-status'].textContent, '');
-    listeners.get('DOMContentLoaded')();
-  }
   assert.equal(stored.get(projectKey), project, 'The guard must not change project data');
-  return { stored, location, state, calls, metas, nodes, excluded: document.documentElement.dataset.analyticsExcluded };
+  return { stored, location, state, calls, metas, excluded: document.documentElement.dataset.analyticsExcluded };
 }
-function expectExcluded(result, automatic = false) {
+function expectExcluded(result) {
   assert.equal(result.excluded, 'true');
   assert.equal(result.metas.length, 1);
-  assert.equal(result.nodes['analytics-exclude'].hidden, true);
-  assert.equal(result.nodes['analytics-include'].hidden, automatic);
-  assert(result.nodes['analytics-preference-status'].textContent.includes('제외'));
 }
 function expectIncluded(result) {
   assert.equal(result.excluded, 'false');
   assert.equal(result.metas.length, 0);
-  assert.equal(result.nodes['analytics-exclude'].hidden, false);
-  assert.equal(result.nodes['analytics-include'].hidden, true);
-  assert(result.nodes['analytics-preference-status'].textContent.includes('수집'));
 }
 expectIncluded(run());
 const off = run({ url: 'https://buildbrief.moon0sik.cloud/?source=profile&analytics=off&name=%ED%95%9C%EA%B8%80#guide' });
@@ -83,11 +70,9 @@ expectExcluded(run({ failSet: true, url: 'https://buildbrief.moon0sik.cloud/?ana
 expectExcluded(run({ stored: retained, failRemove: true, url: 'https://buildbrief.moon0sik.cloud/?analytics=on' }));
 expectExcluded(run({ failRead: true, url: 'https://buildbrief.moon0sik.cloud/?analytics=on' }));
 const automated = run({ stored: retained, webdriver: true, url: 'https://buildbrief.moon0sik.cloud/?analytics=on' });
-expectExcluded(automated, true);
+expectExcluded(automated);
 assert.equal(automated.stored.has(key), false, 'Manual inclusion cannot enable automated traffic');
 for (const hostname of ['localhost:3000', '127.0.0.1:3000', 'feat-guided-deep-interview.buildbrief-9ey.pages.dev', 'example.com', 'buildbrief.moon0sik.cloud.example.com']) {
-  expectExcluded(run({ url: 'https://' + hostname + '/?analytics=on' }), true);
+  expectExcluded(run({ url: 'https://' + hostname + '/?analytics=on' }));
 }
-expectIncluded(run({ readyState: 'complete' }));
-assert.equal(run({ noStatus: true }).excluded, 'false');
 console.log('Analytics preferences check passed: opt-out/in, reload, strict query values, URL/state, storage failure, automation, preview hosts, and project preservation.');

@@ -49,7 +49,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 
 | 파일 | 역할 |
 | --- | --- |
-| [dist/analytics-preferences.js](../dist/analytics-preferences.js) | 초기 통계 제외 설정·자동화/비운영 차단·FAQ 상태 |
+| [dist/analytics-preferences.js](../dist/analytics-preferences.js) | 운영자 개발·테스트 통계 제외·자동화/비운영 차단 |
 | [dist/index.html](../dist/index.html) | 페이지 구조, 대화 상자, 자산 참조와 버전 표시 영역 |
 | [dist/questions.js](../dist/questions.js) | 6단계 질문, 표시 조건, 기능 후보, 화면 요소 |
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
@@ -109,6 +109,6 @@ npm exec --yes --package=prettier@3.6.2 -- prettier --write --single-quote --pri
 
 ## 방문 통계 검증
 
-`node scripts/check-analytics-browser.cjs`는 운영 도메인의 실제 Cloudflare 자동 삽입 스크립트를 별도 Chrome에서 검사하되, 모든 통계 POST는 테스트 브라우저에서 204 응답으로 끝내 운영 집계에 보내지 않습니다. 기존 Playwright 환경을 사용하며 앱 실행 의존성을 추가하지 않습니다. 배포 전에는 `--candidate-policy`로 이 브라우저의 초기 제외 스크립트·FAQ·CSP를 로컬 후보로 교체해 시험할 수 있습니다. 운영 설정 자체는 바뀌지 않습니다.
+`node scripts/check-analytics-browser.cjs`는 운영 도메인의 실제 Cloudflare 자동 삽입 스크립트를 별도 Chrome에서 검사하되, 모든 통계 POST는 테스트 브라우저에서 204 응답으로 끝내 운영 집계에 보내지 않습니다. 기존 Playwright 환경을 사용하며 앱 실행 의존성을 추가하지 않습니다. 배포 전에는 `--candidate-policy`로 이 브라우저의 초기 제외 스크립트·CSP를 로컬 후보로 교체해 시험할 수 있습니다. 운영 설정 자체는 바뀌지 않습니다.
 
 PC·모바일에서 SRI와 단일 스크립트, 로드/페이지 이탈 통계 본문과 로컬 204 응답, 입력·저장 자료의 가상 표식 미전송, 쿠키·브라우저 저장 불변, 예상 밖 통신과 CSP 오류 없음, 차단 도구를 모사한 스크립트 차단 시 입력·저장·새로고침을 확인합니다. 실제 이용자 자료를 사용하지 않습니다. 시작 안내·편집기 검사도 통계 POST를 로컬 응답으로 끝내며 다른 전송은 계속 거부합니다. 자동화의 통계 차단으로 생기는 정확한 Cloudflare 스크립트 CSP 메시지만 예상된 제외 동작으로 분리합니다. `node check.cjs`는 URL·저장소 오류·영구 제외/해제·자동화/비운영·프로젝트 보존 단위 검사도 실행합니다.

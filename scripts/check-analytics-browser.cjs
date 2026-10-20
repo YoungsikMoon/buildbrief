@@ -10,12 +10,11 @@ async function prepare(page) {
   if (process.argv.includes('--candidate-policy')) {
     const html = fs.readFileSync('dist/index.html', 'utf8');
     const tag = html.match(/<script src="analytics-preferences\.js[^>]*><\/script>/)[0];
-    const faq = html.match(/<details><summary><span>방문 통계를 수집하나요\?<\/span>[\s\S]*?<\/details>/)[0];
     await page.route('https://buildbrief.moon0sik.cloud/**', async route => {
       if (new URL(route.request().url()).pathname === '/analytics-preferences.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync('dist/analytics-preferences.js', 'utf8') });
       if (!route.request().isNavigationRequest()) return route.continue();
       const response = await route.fetch();
-      const body = (await response.text()).replace(/<script src="analytics-preferences\.js[^>]*><\/script>/, '').replace('<meta name="theme-color"', tag + '<meta name="theme-color"').replace(/<details><summary><span>방문 통계를 수집하나요\?<\/span>[\s\S]*?<\/details>/, faq);
+      const body = (await response.text()).replace(/<script src="analytics-preferences\.js[^>]*><\/script>/, '').replace('<meta name="theme-color"', tag + '<meta name="theme-color"').replace(/<details><summary><span>방문 통계를 수집하나요\?<\/span>[\s\S]*?<\/details>/, '');
       await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': policy }, body });
     });
   }
@@ -105,9 +104,6 @@ async function prepare(page) {
         assert.equal(await page.locator('html').getAttribute('data-analytics-excluded'), 'true');
         assert.equal(reports, 0, 'Excluded browsers must not even attempt analytics collection');
         assert.equal(new URL(page.url()).searchParams.has('analytics'), false);
-        const preference = page.locator('.guide-faq-list details').filter({ has: page.locator('#analytics-preference-status') });
-        await preference.locator('summary').click();
-        assert((await page.locator('#analytics-preference-status').innerText()).includes('제외'));
         await page.locator('#start-planning').click();
         await page.locator('#input-project_name').fill(marker);
         await page.reload({ waitUntil: 'networkidle' });
@@ -116,15 +112,11 @@ async function prepare(page) {
         assert.equal(reports, 0, 'Exclusion and saved answers survive refresh');
         if (!automation) {
           assert.equal(await page.evaluate(() => localStorage.getItem('buildbrief-analytics-excluded')), '1');
-          await page.locator('.brand').click();
-          const faq = page.locator('.guide-faq-list details').filter({ has: page.locator('#analytics-preference-status') });
-          if (!await faq.evaluate(node => node.open)) await faq.locator('summary').click();
-          await page.locator('#analytics-include').click();
-          await page.waitForLoadState('networkidle');
+          await page.goto(base + '?analytics=on', { waitUntil: 'networkidle' });
           assert.equal(await page.locator('html').getAttribute('data-analytics-excluded'), 'false');
           assert.equal(await page.evaluate(() => localStorage.getItem('buildbrief-analytics-excluded')), null);
           assert(reports > 0, 'Re-enabling keeps the normal-visitor path working against the local mock');
-        } else assert(await page.locator('#analytics-include').isHidden(), 'Automation cannot re-enable collection');
+        }
         assert.deepEqual(errors, []);
         console.log(`Analytics exclusion passed: ${automation ? 'automation' : 'owner off/reload/on'}, no excluded reports sent.`);
       } finally { await context.close(); }
