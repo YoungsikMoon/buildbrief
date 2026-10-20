@@ -21,6 +21,8 @@ const marker = 'BUILDBRIEF_PRIVATE_ANALYTICS_TEST_7F21';
             await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': policy } });
           });
         }
+        // Chrome exposes sendBeacon bodies through request interception.
+        await page.route('https://buildbrief.moon0sik.cloud/cdn-cgi/rum*', route => route.continue());
         let blockedScripts = 0;
         if (blocked) await context.route('https://static.cloudflareinsights.com/**', route => { blockedScripts++; return route.abort(); });
         await page.addInitScript(value => {
