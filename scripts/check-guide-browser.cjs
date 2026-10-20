@@ -26,6 +26,7 @@ const server = http.createServer((req, res) => {
   try {
     for (const width of [320, 390, 1001, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 500, reducedMotion: width === 1440 ? 'no-preference' : 'reduce' });
+      await page.route('https://buildbrief.moon0sik.cloud/cdn-cgi/rum*', route => route.fulfill({ status: 204 }));
       const errors = [], requests = [];
       page.on('pageerror', e => errors.push(e.message));
       page.on('request', r => { if (['fetch', 'xhr', 'websocket', 'eventsource', 'ping'].includes(r.resourceType())) requests.push({ url: r.url(), method: r.method() }); });

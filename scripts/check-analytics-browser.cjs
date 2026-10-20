@@ -6,6 +6,22 @@ const base = process.env.BUILDBRIEF_TEST_URL || 'https://buildbrief.moon0sik.clo
 const collector = url => { const u = new URL(url); return u.origin === 'https://buildbrief.moon0sik.cloud' && u.pathname === '/cdn-cgi/rum'; };
 const policy = fs.readFileSync('dist/_headers', 'utf8').split(/\r?\n/).find(line => line.trim().startsWith('Content-Security-Policy:')).trim().slice('Content-Security-Policy:'.length).trim();
 const marker = 'BUILDBRIEF_PRIVATE_ANALYTICS_TEST_7F21';
+async function prepare(page) {
+  if (process.argv.includes('--candidate-policy')) {
+    const html = fs.readFileSync('dist/index.html', 'utf8');
+    const tag = html.match(/<script src="analytics-preferences\.js[^>]*><\/script>/)[0];
+    const faq = html.match(/<details><summary><span>방문 통계를 수집하나요\?<\/span>[\s\S]*?<\/details>/)[0];
+    await page.route('https://buildbrief.moon0sik.cloud/**', async route => {
+      if (new URL(route.request().url()).pathname === '/analytics-preferences.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync('dist/analytics-preferences.js', 'utf8') });
+      if (!route.request().isNavigationRequest()) return route.continue();
+      const response = await route.fetch();
+      const body = (await response.text()).replace(/<script src="analytics-preferences\.js[^>]*><\/script>/, '').replace('<meta name="theme-color"', tag + '<meta name="theme-color"').replace(/<details><summary><span>방문 통계를 수집하나요\?<\/span>[\s\S]*?<\/details>/, faq);
+      await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': policy }, body });
+    });
+  }
+  // Inspect payloads locally; automated checks must never add production analytics.
+  await page.route('https://buildbrief.moon0sik.cloud/cdn-cgi/rum*', route => route.fulfill({ status: 204 }));
+}
 (async () => {
   assert.equal(new URL(base).origin, 'https://buildbrief.moon0sik.cloud', 'This check needs the real auto-injected script and collector');
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -14,18 +30,12 @@ const marker = 'BUILDBRIEF_PRIVATE_ANALYTICS_TEST_7F21';
       const context = await browser.newContext({ viewport: { width, height: 1000 }, hasTouch: width < 800 });
       try {
         const page = await context.newPage(), errors = [], requests = [], statuses = [];
-        if (process.argv.includes('--candidate-policy')) {
-          await page.route('https://buildbrief.moon0sik.cloud/**', async route => {
-            if (!route.request().isNavigationRequest()) return route.continue();
-            const response = await route.fetch();
-            await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': policy } });
-          });
-        }
-        // Chrome exposes sendBeacon bodies through request interception.
-        await page.route('https://buildbrief.moon0sik.cloud/cdn-cgi/rum*', route => route.continue());
+        await prepare(page);
         let blockedScripts = 0;
         if (blocked) await context.route('https://static.cloudflareinsights.com/**', route => { blockedScripts++; return route.abort(); });
         await page.addInitScript(value => {
+          // Simulate a normal visitor only here; collector requests are fulfilled locally.
+          Object.defineProperty(navigator, 'webdriver', { configurable: true, get: () => false });
           localStorage.setItem('analytics-privacy-probe', value);
           sessionStorage.setItem('analytics-privacy-probe', value);
           window.analyticsCsp = [];
@@ -57,7 +67,7 @@ const marker = 'BUILDBRIEF_PRIVATE_ANALYTICS_TEST_7F21';
             delete document.visibilityState;
           });
           assert.equal((await response).status(), 204);
-          assert(statuses.length >= 2 && statuses.every(status => status === 204), 'Load and page-leave reports are accepted');
+          assert(statuses.length >= 2 && statuses.every(status => status === 204), 'Load and page-leave payloads are checked locally without sending test traffic');
           assert(requests.length >= 2, 'Actual analytics traffic is required');
         } else {
           assert(blockedScripts > 0);
@@ -79,7 +89,44 @@ const marker = 'BUILDBRIEF_PRIVATE_ANALYTICS_TEST_7F21';
         assert.deepEqual(errors, []);
         assert.deepEqual(await page.evaluate(() => window.analyticsCsp), [], 'Reload with a stored project keeps the reviewed CSP');
         assert.deepEqual(await context.cookies(), [], 'Reload does not create analytics cookies');
-        console.log(`Analytics privacy check passed: ${width}px, analytics ${blocked ? 'blocked' : 'enabled'}, ${requests.length} reviewed requests, no answer/storage canaries or cookies.`);
+        console.log(`Analytics privacy check passed: ${width}px, analytics ${blocked ? 'blocked' : 'enabled'}, ${requests.length} locally checked requests (not sent), no answer/storage canaries or cookies.`);
+      } finally { await context.close(); }
+    }
+    for (const automation of [false, true]) {
+      const context = await browser.newContext({ viewport: { width: 390, height: 1000 } });
+      try {
+        const page = await context.newPage(), errors = [];
+        let reports = 0;
+        await prepare(page);
+        page.on('request', request => { if (collector(request.url())) reports++; });
+        page.on('pageerror', error => errors.push(error.message));
+        if (!automation) await page.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
+        await page.goto(base + (automation ? '?analytics=on' : '?analytics=off'), { waitUntil: 'networkidle' });
+        assert.equal(await page.locator('html').getAttribute('data-analytics-excluded'), 'true');
+        assert.equal(reports, 0, 'Excluded browsers must not even attempt analytics collection');
+        assert.equal(new URL(page.url()).searchParams.has('analytics'), false);
+        const preference = page.locator('.guide-faq-list details').filter({ has: page.locator('#analytics-preference-status') });
+        await preference.locator('summary').click();
+        assert((await page.locator('#analytics-preference-status').innerText()).includes('제외'));
+        await page.locator('#start-planning').click();
+        await page.locator('#input-project_name').fill(marker);
+        await page.reload({ waitUntil: 'networkidle' });
+        await page.locator('#start-planning').click();
+        assert.equal(await page.locator('#input-project_name').inputValue(), marker);
+        assert.equal(reports, 0, 'Exclusion and saved answers survive refresh');
+        if (!automation) {
+          assert.equal(await page.evaluate(() => localStorage.getItem('buildbrief-analytics-excluded')), '1');
+          await page.locator('.brand').click();
+          const faq = page.locator('.guide-faq-list details').filter({ has: page.locator('#analytics-preference-status') });
+          if (!await faq.evaluate(node => node.open)) await faq.locator('summary').click();
+          await page.locator('#analytics-include').click();
+          await page.waitForLoadState('networkidle');
+          assert.equal(await page.locator('html').getAttribute('data-analytics-excluded'), 'false');
+          assert.equal(await page.evaluate(() => localStorage.getItem('buildbrief-analytics-excluded')), null);
+          assert(reports > 0, 'Re-enabling keeps the normal-visitor path working against the local mock');
+        } else assert(await page.locator('#analytics-include').isHidden(), 'Automation cannot re-enable collection');
+        assert.deepEqual(errors, []);
+        console.log(`Analytics exclusion passed: ${automation ? 'automation' : 'owner off/reload/on'}, no excluded reports sent.`);
       } finally { await context.close(); }
     }
   } finally { await browser.close(); }

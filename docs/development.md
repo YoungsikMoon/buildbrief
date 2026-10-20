@@ -49,6 +49,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 
 | 파일 | 역할 |
 | --- | --- |
+| [dist/analytics-preferences.js](../dist/analytics-preferences.js) | 초기 통계 제외 설정·자동화/비운영 차단·FAQ 상태 |
 | [dist/index.html](../dist/index.html) | 페이지 구조, 대화 상자, 자산 참조와 버전 표시 영역 |
 | [dist/questions.js](../dist/questions.js) | 6단계 질문, 표시 조건, 기능 후보, 화면 요소 |
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
@@ -91,7 +92,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 - 고급 원본은 `docs/planning-template/request-template.md`, 공통 원본은 `docs/planning-template/common-instructions.md`입니다. 원문과 `scripts/planning-template.cjs`의 버전을 갱신한 뒤 `node scripts/planning-template.cjs`로 생성하고 `--check`로 일치 여부를 검사합니다. 기본 버전은 `2026-10-02.1`이며 생성 파일의 `version`, `text`, `common`은 LF로 정규화한 정적 자료입니다. 저장용 `planningTemplate`에는 공통 지침을 복제하지 않으므로 모듈 객체를 그대로 펼쳐 저장하지 않습니다. 브라우저는 원문을 별도 요청하거나 동적으로 실행하지 않습니다. `dist/planning-template.js`는 직접 편집하지 않습니다.
 - 프로젝트의 `planningTemplate`은 `null` 또는 `{ enabled, version, text }`로 저장합니다. 기존 기록에 필드가 없으면 `null`로 받아 기본 모드로 시작합니다. 기존 추가 요청의 내용 상한은 30,000자이며 모드 전환·기본 버전 갱신으로 저장 문구를 지우거나 자동 교체하지 않습니다. `report.js`는 고급 모드이고 비어 있지 않은 추가 요청만 자동 생성한 AI 전달문에 포함하며, 일반 기획 초안에는 포함하지 않습니다. 전체 수정본이 있으면 아래 규칙을 우선 적용합니다.
 - 전체 프롬프트 직접 편집은 `promptDrafts`의 선택적인 `basic`·`advanced` 문자열에 따로 저장합니다. 키가 없으면 현재 답변에서 생성하고 빈 문자열은 그대로 유지합니다. `projects.js`가 모드 허용 목록·각 1,000,000자 상한·자료형을 검사하고 이전 백업은 `{}`로 보완합니다. `report.js`의 여섯 번째 인자가 수정본이며 AI 프롬프트에만 적용합니다. UI는 생성·수정본을 하나의 textarea에 표시하고 그 값을 그대로 복사합니다. 복원은 현재 모드의 수정본만 삭제하며, 고급이면 기존 추가 템플릿도 현재 원문으로 복원합니다. 수정본을 새 답변으로 자동 덮어쓰지 않습니다.
-- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → interview → planning-template → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
+- 브라우저는 `index.html` 최상단의 `analytics-preferences.js`를 동기로 실행해 통계 제외를 먼저 적용하고, 나머지 모듈을 지연 로드합니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → interview → planning-template → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
 - 화면 요소 이미지는 `questions.js`의 요소 ID와 같은 이름의 WebP만 공개합니다. `check.cjs`가 정확한 목록·파일 유형·용량 상한을 확인합니다. 새 이미지는 [UI 기준](ui-guidelines.md#화면-요소-예시)에 따라 수동 검수하고, 생성 프롬프트와 원본·개발용 파일은 공개 폴더에 넣지 않습니다. 이미지 생성 도구는 빌드 의존성이 아닙니다.
 
 ## 코드 정렬
@@ -108,6 +109,6 @@ npm exec --yes --package=prettier@3.6.2 -- prettier --write --single-quote --pri
 
 ## 방문 통계 검증
 
-`node scripts/check-analytics-browser.cjs`는 운영 도메인의 실제 Cloudflare 자동 삽입 스크립트와 수집 주소를 별도 Chrome에서 검사합니다. 기존 Playwright 환경을 사용하며 앱 실행 의존성을 추가하지 않습니다. 배포 전에는 `--candidate-policy`로 이 브라우저의 문서 응답 CSP만 로컬 `_headers`로 교체해 시험할 수 있습니다. 운영 설정 자체는 바뀌지 않습니다.
+`node scripts/check-analytics-browser.cjs`는 운영 도메인의 실제 Cloudflare 자동 삽입 스크립트를 별도 Chrome에서 검사하되, 모든 통계 POST는 테스트 브라우저에서 204 응답으로 끝내 운영 집계에 보내지 않습니다. 기존 Playwright 환경을 사용하며 앱 실행 의존성을 추가하지 않습니다. 배포 전에는 `--candidate-policy`로 이 브라우저의 초기 제외 스크립트·FAQ·CSP를 로컬 후보로 교체해 시험할 수 있습니다. 운영 설정 자체는 바뀌지 않습니다.
 
-PC·모바일에서 SRI와 단일 스크립트, 로드/페이지 이탈 통계의 204 응답, 입력·저장 자료의 가상 표식 미전송, 쿠키·브라우저 저장 불변, 예상 밖 통신과 CSP 오류 없음, 차단 도구를 모사한 스크립트 차단 시 입력·저장·새로고침을 확인합니다. 실제 이용자 자료를 사용하지 않습니다. 시작 안내 검사도 운영의 정확한 통계 POST만 허용하며 다른 요청은 계속 실패합니다.
+PC·모바일에서 SRI와 단일 스크립트, 로드/페이지 이탈 통계 본문과 로컬 204 응답, 입력·저장 자료의 가상 표식 미전송, 쿠키·브라우저 저장 불변, 예상 밖 통신과 CSP 오류 없음, 차단 도구를 모사한 스크립트 차단 시 입력·저장·새로고침을 확인합니다. 실제 이용자 자료를 사용하지 않습니다. 시작 안내·편집기 검사도 통계 POST를 로컬 응답으로 끝내며 다른 전송은 계속 거부합니다. 자동화의 통계 차단으로 생기는 정확한 Cloudflare 스크립트 CSP 메시지만 예상된 제외 동작으로 분리합니다. `node check.cjs`는 URL·저장소 오류·영구 제외/해제·자동화/비운영·프로젝트 보존 단위 검사도 실행합니다.
