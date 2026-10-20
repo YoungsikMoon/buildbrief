@@ -55,7 +55,7 @@ test('Static deployment protections remain intact', () => {
 });
 
 test('The public bundle contains only reviewed static files and local scripts', () => {
-  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','fonts','guide-previews','guides.js','idea-examples','index.html','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
+  assert.deepEqual(fs.readdirSync('dist').sort(), ['_headers','answers.js','app.js','designer.js','element-examples','fonts','guide-previews','guides.js','idea-examples','index.html','interview.js','planning-template.js','projects.js','questions.js','report.js','storage.js','styles.css','views.js']);
   for (const file of fs.readdirSync('dist')) {
     const info = fs.lstatSync(`dist/${file}`);
     assert(['element-examples', 'idea-examples', 'fonts', 'guide-previews'].includes(file) ? info.isDirectory() : info.isFile(), 'Only reviewed regular files and asset directories may be published');
@@ -99,9 +99,9 @@ test('The public bundle contains only reviewed static files and local scripts', 
     assert(html.includes('src="guide-previews/' + file + '"'));
   }
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','planning-template.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
+  assert.deepEqual(scripts.map(([, attributes]) => /src="([^?]+)\?/.exec(attributes)?.[1]), ['questions.js','answers.js','interview.js','planning-template.js','report.js','projects.js','guides.js','storage.js','designer.js','views.js','app.js']);
   for (const [, attributes, body] of scripts) {
-    assert.match(attributes, /^ src="(?:answers|app|designer|guides|planning-template|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
+    assert.match(attributes, /^ src="(?:answers|app|designer|guides|interview|planning-template|projects|questions|report|storage|views)\.js\?v=[a-f0-9]{12}" defer$/);
     assert.equal(body.trim(), '', 'No inline script');
   }
   for (const [tag] of html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/g)) assert(tag.includes('rel="noopener noreferrer"'));
@@ -782,7 +782,8 @@ test('alternative comparison survives normalization and both exports', () => {
 test('feature questions relocate without losing old answers or notes', () => {
  const step = Q.steps.find(s => s.id === 'screens');
  assert(!Q.steps.some(s => s.id === 'data'));
- assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['screens']);
+ assert.deepEqual(A.activeGroups(step, {}).flatMap(g => g.questions.map(q => q.id)), ['deep_interview', 'screens']);
+ assert.equal(A.progress({}).steps[Q.steps.indexOf(step)].total, 1, 'Optional interview does not inflate the existing progress count');
  const answers = { features: [{ ...feature(), savedInfo: '예약 날짜와 확정 상태' }], booking_rules: '하루 전까지 취소', data_items: [{id:'record-1', name:'예약 기록', purpose:'신청 확인', access:'본인', change:'담당자', deletion:'기간 미정'}], general_rules: '예전 메모' };
  const project = P.createProject({answers, notes:{data_items:'기존 이유'}});
  const restored = P.importBackup({format:'buildbrief-ideas', version:1, activeId:project.id, projects:[project]}).projects[0];
@@ -862,4 +863,6 @@ test('Template editors and exact-copy previews escape imported content', () => {
 require('./scripts/check-template-storage.cjs');
 require('./scripts/check-runtime.cjs');
 require('./scripts/check-planning.cjs');
+require('./scripts/check-interview.cjs');
+require('./scripts/check-interview-report.cjs');
 console.log(`Idea planner checks passed: ${passed} checks covering conditional questions, feature/screen links, login, safe export, import boundaries, and project isolation.`);

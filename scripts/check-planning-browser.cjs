@@ -26,6 +26,11 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
     const shot=async label=>{if(process.env.PLANNING_SCREENSHOTS){fs.mkdirSync(process.env.PLANNING_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PLANNING_SCREENSHOTS,`${label}-${width}.png`),fullPage:width<800});}};
     try{
       await page.goto(base); await page.evaluate(() => document.fonts.ready);await go(0);
+      if (process.argv.includes('--interview-only')) {
+        await require('./check-interview-browser.cjs')({page,go,width,shot});
+        await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
+        continue;
+      }
       if (process.argv.includes('--manual-only')) {
         await require('./check-manual-browser.cjs')({page,go,width,shot});
         await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
@@ -36,6 +41,9 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         await validate(); assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.cspErrors),[]);
         continue;
       }
+      await require('./check-interview-browser.cjs')({page,go,width,shot});
+      await page.evaluate(() => localStorage.clear());
+      await page.reload(); await go(0);
       assert.equal(await page.locator('.page-topline,#start-note').count(),0,'Redundant introductory rows are removed');
       const manage=page.locator('#manage-projects');
       if(!await manage.isVisible())await page.locator('#toggle-navigation').click();
@@ -80,7 +88,11 @@ const server=http.createServer((req,res)=>{const file=new URL(req.url,'http://lo
         assert(wider.width>original.width+400,'Extra desktop width goes to the canvas');
         assert(main.x+main.width>=1919,'The editor uses the available right edge');
         const title=await page.locator('#page-title').boundingBox();
-        assert(wider.y-title.y<120,'The compact heading leaves more height for the canvas');
+        const interview=await page.locator('#field-deep_interview').boundingBox();
+        assert(!await page.locator('#field-deep_interview').evaluate(node=>node.open));
+        assert(interview.height<=76,'The optional interview keeps a compact entry above the editor');
+        const interviewMargin=await page.locator('#field-deep_interview').evaluate(node=>parseFloat(getComputedStyle(node).marginBottom));
+        assert(wider.y-title.y-interview.height-interviewMargin<120,'Outside the optional interview entry, the compact heading still leaves room for the canvas');
         const tabs=await page.locator('.designer-screens').boundingBox(),request=await page.locator('.designer-toolbar > .recommendation-request').boundingBox();
         assert(request.y>=tabs.y&&request.y+request.height<=tabs.y+tabs.height,'Screen recommendation uses the space beside the tabs');
         const stageHeading=await page.locator('.designer-stage-heading').boundingBox(), paper=await page.locator('.canvas-paper').boundingBox();

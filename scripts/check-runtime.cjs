@@ -148,7 +148,8 @@ test('Extracted views escape every question type, answer, choice reason and repo
     screens: [screen],
     references: [{ id: 'ref-1', url: attack, note: attack }],
     main_flow: [{ id: 'flow-1', featureId: 'feature-1', note: attack }],
-    audience: [{ id: 'user-1', person: attack, goal: attack, context: attack }]
+    audience: [{ id: 'user-1', person: attack, goal: attack, context: attack }],
+    deep_interview: [{ id: 'task', answer: attack, reason: attack }]
   };
   for (const q of A.allQuestions) {
     const html = V.question(q, answers, { [q.id]: attack }, q.allowRecommend ? [q.id] : [], {panel:'reference'});
