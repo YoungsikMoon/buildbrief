@@ -34,7 +34,7 @@
 
 `main` 변경 후 GitHub 릴리스와 Pages 빌드가 각각 시작됩니다. 운영 빌드는 체크아웃한 커밋과 `CF_PAGES_COMMIT_SHA`가 일치하는지 확인하고, 그 커밋의 원격 릴리스 태그를 최대 5분 기다려 버전을 표시합니다. 태그를 찾지 못하거나 여러 버전이 같은 커밋을 가리키면 실패합니다. 릴리스 발급이 늦어 실패한 경우에는 릴리스 성공 후 Pages 빌드를 다시 실행하세요.
 
-배포 디렉터리는 `dist`를 유지하세요. `dist/_headers`에는 스크립트 출처 제한, 스크립트의 외부 통신 차단(`connect-src 'none'`), 외부 사이트의 프레임 삽입 차단 등의 설정이 있습니다. 클라우드 배포 자체가 답변의 서버 저장이나 기기 간 동기화를 추가하지는 않습니다.
+배포 디렉터리는 `dist`를 유지하세요. `dist/_headers`에는 스크립트 출처 제한, 통계 수집 주소로만 스크립트 통신 허용, 외부 사이트의 프레임 삽입 차단 등의 설정이 있습니다. 클라우드 배포 자체가 답변의 서버 저장이나 기기 간 동기화를 추가하지는 않습니다.
 
 2026-09-23 확인 기준, Functions를 호출하지 않는 정적 파일 요청은 [무료·무제한](https://developers.cloudflare.com/pages/functions/pricing/#static-asset-requests)이며 Free 플랜은 [월 500회 빌드](https://developers.cloudflare.com/pages/platform/limits/#builds)를 지원합니다. 새로 배포하거나 서버 기능을 추가할 때는 공식 요금·한도를 다시 확인하세요.
 
