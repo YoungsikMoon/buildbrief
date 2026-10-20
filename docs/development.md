@@ -35,6 +35,14 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 
 편집 사용법은 `node scripts/check-planning-browser.cjs --manual-only`로 집중 검증합니다. 320·390·1440px에서 키보드 열기·항목 펼치기·7개 그림 예시의 결과/처음 전환·상세 규칙 펼치기·스크롤 중 닫기·200% 글자 확대·Escape와 초점 복귀·크게 보기 안에서 열람·선택과 저장 자료 보존을 확인하며, 전체 편집기 검사에도 포함됩니다.
 
+## 심층 질문 검증
+
+`node check.cjs`에 `scripts/check-interview.cjs`와 `scripts/check-interview-report.cjs`가 포함됩니다. 조건부 질문, 미정/숨겨진 답변, 입력 상한·백업, 초안 적용의 중복 방지·기존 내용 보존, 문서와 JSON 출력을 검사합니다. `node scripts/check-planning-browser.cjs --interview-only`는 실제 입력부터 미리보기·적용·편집기·저장까지 PC·모바일의 집중 검사이며 전체 브라우저 검사에도 포함됩니다.
+
+`questions.js`의 `interviewQuestions`가 질문·선택지·선행 조건의 원본입니다. `answers.deep_interview`에 질문 ID·답변·이유만 보관하고 기존 저장 키·백업 버전을 유지합니다. `interview.js`는 저장소와 DOM을 변경하지 않으며 제안과 적용을 분리합니다. 적용은 전체 답변의 검증과 저장 성공 후 화면에 반영합니다. 이미 존재하는 기능·화면은 덮어쓰지 않고 확인할 사항으로 안내합니다.
+
+질문 방식은 Matt Pocock의 [grill-me / grilling](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md)에서 선행 결정에 따른 후속 질문과 추천 이유, 사용자 확인 원칙을 참고했습니다. 스킬의 문구·코드를 복사하거나 실행하지 않고 BuildBrief에 맞게 한국어 질문과 규칙을 작성했습니다. 임의의 아이디어를 해석하는 LLM·자동 조사·서버 전송은 포함하지 않습니다.
+
 ## 파일 구성
 
 `scripts/check-grid-browser.cjs`는 화면 편집 브라우저 검사에서 함께 실행합니다. 고정 작업면의 창 크기 독립성, 배율·화면 맞춤·미니맵 클릭/키보드·마우스/터치 팬 이동·켜기/끄기, 50% 드롭과 50%·200% 포인터 크기 변환, 현재 뷰 근처 추가·작업면 설정의 정수 경계·새 화면 크기 상속·저장/초안/백업을 함께 확인합니다. `check-planning.cjs`는 이전 구역 이전의 멱등성·관계 보존과 선택적 canvas 필드의 경계·허용 키를 검사합니다. 점 격자 좌우·상하 배치, 의도적인 겹침 허용과 이웃 좌표 보존, 너비·높이 조절, 실제 끌어 놓기의 자유 좌표 저장, 중첩·공통 요소, 크게 보기·Escape·도움말·초점 복원, 1024×768 작업 공간, 새로고침·초안·백업 왕복을 확인합니다. 화면·요소 기본 이름 번호, 삭제 후 이름 충돌 방지, 화면·요소·참고 탭 전환·키보드·선택과 입력 보존도 같은 검사에서 확인합니다. `scripts/check-layers-browser.cjs`는 실제 겹침 지점의 앞 요소, 선택/이동 시 순서 보존, 캔버스 추가의 1레벨 기본값·중첩 추가의 부모 레벨 +1·직접 숫자 입력·오류와 범위 경계·화살표 연속 조작·겹치는 같은 레벨로 변경 거부·다른 요소의 레벨 보존을 확인합니다. 레벨별 묶음 보기·변경한 레벨의 숨김 해제·화면별 독립 상태·중첩 요소·Escape·200% 글자 확대·새로고침·초안·백업 왕복도 검사합니다.
@@ -46,6 +54,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 | [dist/guides.js](../dist/guides.js) | 선택지별 도움말 |
 | [dist/planning-template.js](../dist/planning-template.js) | 문서 원본에서 생성한 개발 준비 템플릿의 버전·본문 |
 | [dist/app.js](../dist/app.js) | 앱 시작, 화면 이동, 이벤트 연결, 프로젝트 관리 UI, 내보내기 |
+| [dist/interview.js](../dist/interview.js) | 심층 질문의 선행 조건·기능/화면 제안·기존 내용 보존 적용 |
 | [dist/answers.js](../dist/answers.js) | 답변·메모 검증, 질문 표시 조건, 진행률, 선택지·입력 상한 |
 | [dist/designer.js](../dist/designer.js) | 공통/개별 화면 배치, 요소·기능 참고 자료와 안전한 미리보기 |
 | [dist/views.js](../dist/views.js) | 질문·기능·화면 편집기와 초안 HTML 생성, HTML 이스케이프 |
@@ -82,7 +91,7 @@ JS·CSS를 수정하면 `dist/index.html`의 해당 `?v=` 값도 갱신해야 �
 - 고급 원본은 `docs/planning-template/request-template.md`, 공통 원본은 `docs/planning-template/common-instructions.md`입니다. 원문과 `scripts/planning-template.cjs`의 버전을 갱신한 뒤 `node scripts/planning-template.cjs`로 생성하고 `--check`로 일치 여부를 검사합니다. 기본 버전은 `2026-10-02.1`이며 생성 파일의 `version`, `text`, `common`은 LF로 정규화한 정적 자료입니다. 저장용 `planningTemplate`에는 공통 지침을 복제하지 않으므로 모듈 객체를 그대로 펼쳐 저장하지 않습니다. 브라우저는 원문을 별도 요청하거나 동적으로 실행하지 않습니다. `dist/planning-template.js`는 직접 편집하지 않습니다.
 - 프로젝트의 `planningTemplate`은 `null` 또는 `{ enabled, version, text }`로 저장합니다. 기존 기록에 필드가 없으면 `null`로 받아 기본 모드로 시작합니다. 기존 추가 요청의 내용 상한은 30,000자이며 모드 전환·기본 버전 갱신으로 저장 문구를 지우거나 자동 교체하지 않습니다. `report.js`는 고급 모드이고 비어 있지 않은 추가 요청만 자동 생성한 AI 전달문에 포함하며, 일반 기획 초안에는 포함하지 않습니다. 전체 수정본이 있으면 아래 규칙을 우선 적용합니다.
 - 전체 프롬프트 직접 편집은 `promptDrafts`의 선택적인 `basic`·`advanced` 문자열에 따로 저장합니다. 키가 없으면 현재 답변에서 생성하고 빈 문자열은 그대로 유지합니다. `projects.js`가 모드 허용 목록·각 1,000,000자 상한·자료형을 검사하고 이전 백업은 `{}`로 보완합니다. `report.js`의 여섯 번째 인자가 수정본이며 AI 프롬프트에만 적용합니다. UI는 생성·수정본을 하나의 textarea에 표시하고 그 값을 그대로 복사합니다. 복원은 현재 모드의 수정본만 삭제하며, 고급이면 기존 추가 템플릿도 현재 원문으로 복원합니다. 수정본을 새 답변으로 자동 덮어쓰지 않습니다.
-- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → planning-template → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
+- 브라우저는 `index.html`의 순서대로 모듈을 불러옵니다. Node 검사에서는 같은 파일을 `require`합니다. 현재 순서는 questions → answers → interview → planning-template → report → projects → guides → storage → designer → views → app입니다. designer의 HTML 이스케이프·예시 이미지는 렌더링 시 views의 기존 함수를 재사용합니다. 파일을 추가·이동하면 HTML, `check.cjs`의 공개 파일 목록·순서·해시 검사, 관련 보안 문서의 코드 경로도 함께 갱신하세요.
 - 화면 요소 이미지는 `questions.js`의 요소 ID와 같은 이름의 WebP만 공개합니다. `check.cjs`가 정확한 목록·파일 유형·용량 상한을 확인합니다. 새 이미지는 [UI 기준](ui-guidelines.md#화면-요소-예시)에 따라 수동 검수하고, 생성 프롬프트와 원본·개발용 파일은 공개 폴더에 넣지 않습니다. 이미지 생성 도구는 빌드 의존성이 아닙니다.
 
 ## 코드 정렬

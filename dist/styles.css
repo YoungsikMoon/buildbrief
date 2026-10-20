@@ -443,6 +443,10 @@ a.app-version:focus-visible {
   .designing .canvas-paper {
     flex: 1;
   }
+  .designing .canvas-frame {
+    /* Flex fills the space left by the optional interview and wrapped controls. */
+    height: 0;
+  }
   .designing .question-group {
     margin-bottom: 12px;
   }
@@ -1695,6 +1699,100 @@ main {
 }
 .editor-list {
   margin-top: 24px;
+}
+.interview {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.interview > summary {
+  padding: 14px 18px;
+  min-height: 48px;
+  font-size: var(--type-body);
+  font-weight: 600;
+}
+.interview > summary span {
+  color: var(--muted);
+  font-size: var(--type-control);
+  margin-left: 8px;
+}
+.interview-body {
+  max-width: 52rem;
+  padding: 4px 18px 20px;
+}
+.interview-question,
+.interview-preview {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.interview-progress,
+.interview-caption {
+  color: var(--muted);
+  font-size: var(--type-control);
+  margin: 10px 0;
+}
+.interview-recommendation {
+  padding: 14px;
+  margin: 16px 0;
+  background: var(--surface);
+  border-radius: 8px;
+}
+.interview-recommendation p {
+  margin: 8px 0;
+}
+.interview-choices {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.interview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.interview-actions .button {
+  max-width: 100%;
+}
+.interview-preview-group {
+  margin: 18px 0;
+}
+.interview-preview-group h4 {
+  font-size: var(--type-body);
+  margin: 0 0 8px;
+}
+.interview-preview-group ul,
+.interview-history ol {
+  padding-left: 22px;
+  margin: 0;
+}
+.interview-preview-group li,
+.interview-history li {
+  margin-bottom: 14px;
+}
+.interview-preview-group li p,
+.interview-history li p {
+  margin: 4px 0;
+  white-space: pre-line;
+}
+.interview-notice {
+  padding: 12px;
+  background: var(--soft);
+  border-left: 3px solid var(--blue);
+}
+.interview-history {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+}
+.interview-history > summary {
+  min-height: 44px;
+  padding: 12px 0;
+  font-weight: 600;
+}
+.designer-expanded .interview {
+  display: none;
 }
 .question-group:has(#field-screens) {
   background: transparent;

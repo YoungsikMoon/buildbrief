@@ -9,6 +9,7 @@
   const { featureTypes, uiElements } = Q;
   const { priorities } = A;
   const D = root.BriefDesigner || require('./designer.js');
+  const I = root.BriefInterview || require('./interview.js');
   const esc = (value) =>
     String(value ?? '').replace(
       /[&<>"']/g,
@@ -693,7 +694,41 @@ ${esc(value)}</textarea
         : ''}</div
     >`;
   }
-  function renderQuestion(q, answers = {}, notes = {}, recommendations = [], designerState = {}) {
+  function interview(answers, state = {}) {
+    const plan = I.preview(answers);
+    const rows = rowsOf(answers, 'deep_interview');
+    const hasChanges = plan.features.length + plan.screens.length + plan.settings.length > 0;
+    const answered = (q) => rows.find(row => row.id === q.id && row.answer?.trim());
+    const current = !state.preview && (plan.questions.find(q => q.id === state.questionId) || plan.questions.find(q => !answered(q)));
+    const label = (q, value) => value === 'undecided' ? '나중에 결정' : q.options?.find(option => option.value === value)?.label || value;
+    const button = (action, text, secondary = true, attributes = '') => `<button type="button" class="button ${secondary ? 'secondary' : 'primary'}" data-interview-action="${action}" ${attributes}>${esc(text)}</button>`;
+    const list = (title, items) => items.length ? `<section class="interview-preview-group"><h4>${esc(title)}</h4><ul>${items.map(item => `<li>${esc(item)}</li>`).join('')}</ul></section>` : '';
+    let content;
+    if (current) {
+      const draft = state.drafts?.[current.id] || answered(current) || { answer: '', reason: '' };
+      const controls = current.type === 'single'
+        ? `<div class="choices interview-choices" role="radiogroup" aria-labelledby="interview-question-title" aria-describedby="interview-question-help">${current.options.filter(option => option.value !== 'undecided').map(option => `<label class="choice"><input type="radio" name="interview-answer" data-interview-field="answer" value="${esc(option.value)}" ${draft.answer === option.value ? 'checked' : ''}><span>${esc(option.label)}</span></label>`).join('')}</div>`
+        : `<div class="input-field"><label for="interview-answer">내 답변</label><textarea id="interview-answer" data-interview-field="answer" rows="3" maxlength="${current.maxLength || A.MAX_TEXT}" placeholder="${esc(current.placeholder || '')}" aria-describedby="interview-question-help">${esc(draft.answer === 'undecided' ? '' : draft.answer)}</textarea></div>`;
+      content = `<section class="interview-question" data-interview-question="${esc(current.id)}"><p class="interview-progress">${plan.questions.indexOf(current) + 1}번째 질문 · 확정한 답변 ${plan.answered}/${plan.total}</p><h3 id="interview-question-title" tabindex="-1">${esc(current.label)}</h3><p class="field-help" id="interview-question-help">${esc(current.help)}</p>${current.recommended ? `<aside class="interview-recommendation"><strong>처음이라면 이렇게 답해도 좋아요</strong><p>${esc(label(current, current.recommended))}</p>${current.recommendationReason ? `<p class="field-help">${esc(current.recommendationReason)}</p>` : ''}${button('recommend', '추천 답변 선택')}<p class="interview-caption">내 상황에 맞는지 확인한 뒤 저장해 주세요.</p></aside>` : ''}${controls}${draft.answer === 'undecided' ? '<p class="field-help">이 질문은 나중에 결정하기로 했어요. 지금 답변을 바꿀 수 있어요.</p>' : ''}${input('이유나 상황 (선택)', draft.reason || '', 'data-interview-field="reason"', { type: 'textarea', placeholder: '왜 이 방법이 필요한지, 걱정되는 점이 있다면 적어 주세요.' })}<div class="interview-actions">${button('next', '답변 저장하고 다음 질문', false)}${button('defer', '모르겠어요 · 나중에 결정')}</div><p class="interview-caption">답에 따라 필요한 다음 질문이 달라져요. 미정인 내용은 확정하지 않아요.</p><div class="interview-actions">${button('preview', '저장한 답변으로 초안 미리보기')}</div></section>`;
+    } else {
+      const featureNames = new Map([...rowsOf(answers, 'features'), ...plan.features].map(feature => [feature.id, feature.name]));
+      content = `<section class="interview-preview"><h3 id="interview-preview-title" tabindex="-1">기능과 화면에 이렇게 반영돼요</h3><p class="field-help">저장한 답변으로 만든 초안이에요. 내용을 확인하고 적용하면 아래 편집기에서 직접 다듬을 수 있어요.</p>${plan.features.length ? `<section class="interview-preview-group"><h4>추가할 기능</h4><ul>${plan.features.map(feature => `<li><strong>${esc(feature.name)} · ${esc(feature.priority)}</strong><p>${esc(feature.outcome)}</p>${feature.notes ? `<p>${esc(feature.notes)}</p>` : ''}${feature.permission ? `<p>볼 수 있는 사람: ${esc(feature.permission)}</p>` : ''}</li>`).join('')}</ul></section>` : ''}${plan.screens.length ? `<section class="interview-preview-group"><h4>추가할 화면</h4><ul>${plan.screens.map(screen => {
+        const elements = [...(screen.elements || []).map(id => screen.elementContents?.[id]?.name || uiElements.find(element => element.id === id)?.label || id), ...(screen.customElements || []).map(element => element.name)];
+        const features = (screen.featureIds || []).map(id => featureNames.get(id)).filter(Boolean);
+        const fields = [...new Set(Object.values(screen.elementContents || {}).flatMap(element => (element.items || []).map(item => item.name)).filter(Boolean))];
+        const flows = Object.values(screen.elementContents || {}).flatMap(element => element.flow || []).map(flow => `${flow.event} → ${flow.result}`);
+        return `<li><strong>${esc(screen.name)}</strong>${screen.purpose ? `<p>${esc(screen.purpose)}</p>` : ''}${elements.length ? `<p>화면 요소: ${esc(elements.join(' · '))}</p>` : ''}${fields.length ? `<p>입력·표시 항목: ${esc(fields.join(' · '))}</p>` : ''}${features.length ? `<p>연결 기능: ${esc(features.join(' · '))}</p>` : ''}${flows.length ? `<p>버튼 동작: ${esc(flows.join(' · '))}</p>` : ''}</li>`;
+      }).join('')}</ul></section>` : ''}${list('함께 반영할 설정', plan.settings.map(setting => `${setting.label}: ${setting.before || '미정'} → ${setting.after}`))}${list('이미 작성한 내용', plan.existing)}${list('확인하거나 나중에 결정할 내용', plan.warnings)}${!plan.ready ? '<p class="interview-notice">초안을 만들기 위해 필요한 답변을 아래에서 확인하고 수정해 주세요.</p>' : ''}<div class="interview-actions">${button('apply', hasChanges ? '확인한 초안 적용하기' : '추가할 내용이 없어요', false, plan.ready && hasChanges ? '' : 'disabled')}${button('continue', '질문으로 돌아가기')}</div><p class="interview-caption">적용 전까지 기능과 화면은 바뀌지 않아요. 이미 작성한 화면과 직접 수정한 AI 전달문은 유지돼요.</p></section>`;
+    }
+    const completed = plan.questions.filter(answered);
+    const history = completed.length ? `<details class="interview-history"><summary>저장한 답변 확인·수정 (${completed.length})</summary><ol>${completed.map(q => {
+      const row = answered(q);
+      return `<li><strong>${esc(q.label)}</strong><p>${esc(label(q, row.answer))}</p>${row.reason ? `<p class="field-help">이유: ${esc(row.reason)}</p>` : ''}${button('edit', '답변 수정', true, `data-interview-id="${esc(q.id)}" aria-label="${esc(q.label)} 답변 수정"`)}</li>`;
+    }).join('')}</ol></details>` : '';
+    return `<details id="field-deep_interview" class="interview" ${state.open ? 'open' : ''}><summary>질문으로 화면 초안 만들기 <span>선택</span></summary><div class="interview-body"><p>쉬운 질문에 답하며 필요한 기능과 화면을 함께 정리해요. 답변은 이 브라우저에 저장되며 외부 AI로 전송하지 않아요.</p><p id="interview-error" class="field-error" role="alert" tabindex="-1" ${state.error ? '' : 'hidden'}>${esc(state.error || '')}</p>${content}${history}</div></details>`;
+  }
+  function renderQuestion(q, answers = {}, notes = {}, recommendations = [], designerState = {}, interviewState = {}) {
+    if (q.type === 'interview') return interview(answers, interviewState);
     const value = answers[q.id];
     let control = '';
     if (q.type === 'features') control = featureEditor(answers);
@@ -1088,6 +1123,7 @@ ${esc(text)}</textarea
   const api = {
     escapeHtml: esc,
     question: renderQuestion,
+    interview,
     report: renderReport,
     prompt: renderPrompt,
     planningTemplateStatus,

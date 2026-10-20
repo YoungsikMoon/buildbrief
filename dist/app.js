@@ -7,13 +7,15 @@
     S = window.BriefStorage,
     V = window.BriefViews,
     T = window.BriefPlanningTemplate,
-    D = window.BriefDesigner;
+    D = window.BriefDesigner,
+    I = window.BriefInterview;
   const { steps, featureTypes, uiElements } = Q;
   const $ = (selector) => document.querySelector(selector);
   const esc = V.escapeHtml;
   const questions = new Map([...A.allQuestions, ...Q.retiredQuestions].map((q) => [q.id, q]));
   const storage = S.load();
   let answers, drafts, notes, recommendations, planningTemplate, promptDrafts, currentStep;
+  let interviewState = { drafts: {} };
   let designerState = {},
     draggedElement = null;
   let toastTimer,
@@ -31,6 +33,7 @@
     } = p);
     currentStep = p.step;
     designerState = {};
+    interviewState = { drafts: {} };
   }
   function markStarted() {
     storage.workspace.projects.find((p) => p.id === storage.workspace.activeId).started = true;
@@ -472,7 +475,7 @@
                 >`
               : ''}<div class="group-body"
               >${g.questions
-                .map((q) => V.question(q, answers, notes, recommendations, designerState))
+                .map((q) => V.question(q, answers, notes, recommendations, designerState, interviewState))
                 .join('')}</div
             ></section
           >`
@@ -512,6 +515,91 @@
     if (rerender) renderStep(currentStep);
     else updateProgress();
   }
+  function renderInterview(focus = true) {
+    interviewState.open = true;
+    $('#field-deep_interview').outerHTML = V.interview(answers, interviewState);
+    if (focus) {
+      const heading = interviewState.error ? $('#interview-error') : $('#interview-question-title') || $('#interview-preview-title');
+      heading?.focus({ preventScroll: true });
+      heading?.scrollIntoView({ block: 'nearest' });
+    }
+  }
+  function rememberInterviewInput(el) {
+    const id = el.closest('[data-interview-question]')?.dataset.interviewQuestion;
+    if (!id) return;
+    const previous = interviewState.drafts[id] || rowsOf('deep_interview').find(row => row.id === id) || { answer: '', reason: '' };
+    interviewState.drafts[id] = { ...previous, [el.dataset.interviewField]: el.value };
+  }
+  function interviewAction(button) {
+    const action = button.dataset.interviewAction;
+    const id = $('[data-interview-question]')?.dataset.interviewQuestion;
+    const question = I.questions(answers).find(q => q.id === id);
+    interviewState.error = '';
+    if (action === 'recommend' && question?.recommended) {
+      const previous = interviewState.drafts[id] || rowsOf('deep_interview').find(row => row.id === id) || { reason: '' };
+      interviewState.drafts[id] = { ...previous, answer: question.recommended };
+      interviewState.questionId = id;
+      renderInterview(false);
+      $('[data-interview-field="answer"]:checked, textarea[data-interview-field="answer"]')?.focus({ preventScroll: true });
+      return;
+    }
+    if ((action === 'next' || action === 'defer') && question) {
+      interviewState.questionId = id;
+      const row = { id, answer: '', reason: '', ...(interviewState.drafts[id] || rowsOf('deep_interview').find(row => row.id === id)) };
+      if (action === 'defer') row.answer = 'undecided';
+      if (!row.answer.trim()) {
+        interviewState.error = '답변을 고르거나 적어 주세요. 어렵다면 나중에 결정해도 괜찮아요.';
+        return renderInterview();
+      }
+      try {
+        answers = A.normalizeAnswers({ ...answers, deep_interview: [...rowsOf('deep_interview').filter(item => item.id !== id), row] });
+      } catch (error) {
+        interviewState.error = error.message;
+        return renderInterview();
+      }
+      markStarted();
+      if (!save()) {
+        interviewState.error = '답변을 저장하지 못했어요. 현재 입력은 유지하고 있으니 프로젝트를 백업한 뒤 저장 안내를 확인해 주세요.';
+        return renderInterview();
+      }
+      delete interviewState.drafts[id];
+      interviewState.questionId = '';
+      interviewState.preview = false;
+      updateProgress();
+    } else if (action === 'preview') {
+      interviewState.preview = true;
+    } else if (action === 'continue' || action === 'edit') {
+      interviewState.preview = false;
+      interviewState.questionId = action === 'edit' ? button.dataset.interviewId : I.questions(answers).find(q => !rowsOf('deep_interview').some(row => row.id === q.id && row.answer))?.id || I.questions(answers)[0]?.id;
+    } else if (action === 'apply') {
+      try {
+        const plan = I.preview(answers);
+        const nextAnswers = I.apply(answers);
+        const next = collectWorkspace();
+        next.projects = next.projects.map(project => project.id === next.activeId ? { ...project, answers: nextAnswers, started: true } : project);
+        if (!save(next)) {
+          interviewState.error = '저장하지 못해 초안을 적용하지 않았어요. 기존 화면과 입력은 그대로 있어요. 프로젝트를 백업한 뒤 저장 안내를 확인해 주세요.';
+          return renderInterview();
+        }
+        answers = nextAnswers;
+        const screen = rowsOf('screens').find(row => row.id === plan.screens[0]?.id) || rowsOf('screens').find(row => !row.isCommon);
+        if (screen) designerState = { screenId: screen.id, panel: 'screen' };
+        renderStep(currentStep);
+        interviewState.open = false;
+        $('#field-deep_interview').open = false;
+        const heading = $('.designer-stage-heading h3');
+        if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); heading.scrollIntoView({ block: 'nearest' }); }
+        toast('확인한 초안을 적용했어요. 화면과 기능을 직접 다듬어 보세요.' + (Object.keys(promptDrafts).length ? ' 직접 수정한 AI 전달문은 유지돼요.' : ''));
+        return;
+      } catch (error) {
+        interviewState.error = error.message;
+      }
+    }
+    renderInterview();
+  }
+  document.addEventListener('toggle', event => {
+    if (event.target.id === 'field-deep_interview') interviewState.open = event.target.open;
+  }, true);
   function setElementLevel(level) {
     if (!Number.isInteger(level) || level < 1 || level > A.MAX_ELEMENT_LEVEL)
       return `1~${A.MAX_ELEMENT_LEVEL} 사이의 정수를 입력해 주세요.`;
@@ -658,8 +746,9 @@
     setNavigation(false);
     requestAnimationFrame(() => {
       const field = document.getElementById('field-' + questionId);
+      if (field?.matches('details')) field.open = true;
       field?.scrollIntoView({ block: 'start', behavior: 'instant' });
-      field?.querySelector('legend')?.focus({ preventScroll: true });
+      field?.querySelector('legend, summary')?.focus({ preventScroll: true });
     });
   }
   function download(text, extension, suffix, title = P.projectTitle({ answers })) {
@@ -734,6 +823,7 @@
   }
   document.addEventListener('input', (event) => {
     const el = event.target;
+    if (el.matches('[data-interview-field]')) return rememberInterviewInput(el);
     if (el.matches('[data-designer-name]')) return validateName(el);
     if (el.id === 'prompt-preview-text') {
       const mode = planningTemplate?.enabled ? 'advanced' : 'basic';
@@ -767,6 +857,7 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.matches('[data-interview-field]')) return rememberInterviewInput(el);
     if (el.matches('[data-parent-choice]')) {
       $('[data-apply-parent]').disabled = el.value === el.dataset.currentParent;
       return;
@@ -1513,6 +1604,7 @@
     }
     if (!b) return;
     const d = { ...b.dataset };
+    if (d.interviewAction) return interviewAction(b);
     if (d.walkthroughStep !== undefined) return showWalkthrough(Number(d.walkthroughStep));
     if (d.walkthroughMove !== undefined) return showWalkthrough(Number($('#guide-storyboard').dataset.stage) + Number(d.walkthroughMove), true);
     if (d.manualDemo !== undefined) {

@@ -549,6 +549,18 @@
     if (['text', 'textarea'].includes(q.type))
       return text(value, q.label, q.maxLength || (q.id === 'project_name' ? 200 : MAX_TEXT));
     if (['single', 'multi'].includes(q.type)) return selected(value, q, q.label);
+    if (q.type === 'interview') {
+      if (!Array.isArray(value) || value.length > Q.interviewQuestions.length) fail(q.label);
+      return list(value, q.label, (row, label) => {
+        const question = Q.interviewQuestions.find(item => item.id === row.id);
+        if (!question || Object.keys(row).some(key => !['id', 'answer', 'reason'].includes(key)))
+          fail(label);
+        const answer = text(row.answer, label, question.maxLength || MAX_TEXT);
+        if (question.type === 'single' && answer !== '' && !question.options.some(option => option.value === answer))
+          fail(label + ' 선택');
+        return { answer, reason: text(row.reason === undefined ? '' : row.reason, label + ' 이유') };
+      });
+    }
     if (q.type === 'scope') {
       if (value !== '') fail(q.label);
       return '';
